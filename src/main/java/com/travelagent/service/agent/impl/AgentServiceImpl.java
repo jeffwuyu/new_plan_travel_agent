@@ -434,9 +434,12 @@ public class AgentServiceImpl implements AgentService {
                 }
                 Map<?, ?> weather = (Map<?, ?>) toolResults.get(WeatherTool.NAME);
                 if (weather != null) {
-                    String weatherNote = weather.getOrDefault("weather", "").toString().trim()
-                            + " " + weather.getOrDefault("temperature", "").toString().trim() + "°C";
-                    ps.setWeatherNote(weatherNote.trim());
+                    Object weatherValue = weather.get("weather");
+                    Object temperatureValue = weather.get("temperature");
+                    String weatherText = weatherValue == null ? "" : weatherValue.toString().trim();
+                    String temperatureText = temperatureValue == null ? "" : temperatureValue.toString().trim();
+                    String weatherNote = (weatherText + " " + temperatureText + " C").trim();
+                    ps.setWeatherNote(weatherNote);
                 }
             }
             steps.add(ps);
