@@ -60,3 +60,31 @@
 2026-04-19 11:12:33.580 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
 2026-04-19 11:12:33.759 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
 2026-04-19 11:12:33.799 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 15:09:44.643 [background-preinit] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 15:09:44.729 [main] INFO  com.travelagent.TravelAgentApplication - Starting TravelAgentApplication using Java 21.0.9.0.9 with PID 4156 (G:\coding\new_plan_travel_agent\target\classes started by ASUS in G:\coding\new_plan_travel_agent)
+2026-04-19 15:09:44.731 [main] INFO  com.travelagent.TravelAgentApplication - No active profile set, falling back to 1 default profile: "default"
+2026-04-19 15:09:46.167 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-04-19 15:09:46.171 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-04-19 15:09:46.223 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 28 ms. Found 0 Redis repository interfaces.
+2026-04-19 15:09:47.896 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat initialized with port 8123 (http)
+2026-04-19 15:09:47.919 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8123"]
+2026-04-19 15:09:47.921 [main] INFO  org.apache.catalina.core.StandardService - Starting service [Tomcat]
+2026-04-19 15:09:47.921 [main] INFO  org.apache.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2026-04-19 15:09:48.023 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-04-19 15:09:48.023 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 3183 ms
+2026-04-19 15:09:48.132 [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'historyManager': Unsatisfied dependency expressed through field 'llmClient': Error creating bean with name 'dashscopeLlmClient' defined in file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\client\dashscope\DashscopeLlmClient.class]: Unsatisfied dependency expressed through constructor parameter 0: No qualifying bean of type 'org.springframework.ai.chat.model.ChatModel' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {}
+2026-04-19 15:09:48.135 [main] INFO  org.apache.catalina.core.StandardService - Stopping service [Tomcat]
+2026-04-19 15:09:48.167 [main] INFO  o.s.b.a.logging.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-04-19 15:12:59.937 [main] INFO  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Compressed history for task=test-uuid (20 → 9 entries)
+2026-04-19 15:12:59.990 [main] WARN  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Summary compression failed for task=test-uuid, dropping old messages: LLM unavailable
+2026-04-19 15:12:59.990 [main] INFO  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Compressed history for task=test-uuid (20 → 8 entries)
+2026-04-19 15:20:25.369 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] Failed to write audit log: DB write error
+2026-04-19 15:20:25.388 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] LLM call [planning] attempt 1/1 failed: LLM timeout
+2026-04-19 15:27:53.850 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-19 15:27:54.078 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 15:27:54.079 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 15:27:54.112 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-19 15:28:34.557 [main] WARN  com.travelagent.aop.QuotaInterceptor - [QuotaInterceptor] Arg at index 0 in 'QuotaTargetService.wrongTypeMethod(..)' is not a Long (got String). Skipping.
+2026-04-19 15:28:34.571 [main] WARN  com.travelagent.aop.QuotaInterceptor - [QuotaInterceptor] Method 'QuotaTargetService.singleArgMethod(..)' has only 1 args; need at least 2. Skipping quota check.

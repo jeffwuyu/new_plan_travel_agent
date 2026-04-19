@@ -96,3 +96,21 @@ Caused by: com.fasterxml.jackson.databind.exc.InvalidDefinitionException: Java 8
 	... 74 common frames omitted
 2026-04-19 11:10:40.398 [main] ERROR c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task not found: uuid=unknown-uuid
 2026-04-19 11:12:33.214 [main] ERROR c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task not found: uuid=unknown-uuid
+2026-04-19 15:09:48.199 [main] ERROR o.s.b.diagnostics.LoggingFailureAnalysisReporter - 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Parameter 0 of constructor in com.travelagent.client.dashscope.DashscopeLlmClient required a bean of type 'org.springframework.ai.chat.model.ChatModel' that could not be found.
+
+The injection point has the following annotations:
+	- @org.springframework.beans.factory.annotation.Autowired(required=true)
+
+
+Action:
+
+Consider defining a bean of type 'org.springframework.ai.chat.model.ChatModel' in your configuration.
+

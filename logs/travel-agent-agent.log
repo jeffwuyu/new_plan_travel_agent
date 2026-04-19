@@ -17,3 +17,10 @@
 2026-04-19 10:45:32.499 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.278927,34.384232) to (108.939981,34.263161)
 2026-04-19 10:45:40.937 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.0,34.0) to (108.0,33.0)
 2026-04-19 10:45:41.030 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.278927,34.384232) to (108.939981,34.263161)
+2026-04-19 15:12:59.937 [main] INFO  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Compressed history for task=test-uuid (20 → 9 entries)
+2026-04-19 15:12:59.990 [main] WARN  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Summary compression failed for task=test-uuid, dropping old messages: LLM unavailable
+2026-04-19 15:12:59.990 [main] INFO  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Compressed history for task=test-uuid (20 → 8 entries)
+2026-04-19 15:27:53.850 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-19 15:27:54.078 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 15:27:54.079 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 15:27:54.112 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
