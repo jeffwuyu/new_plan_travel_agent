@@ -22,6 +22,8 @@ G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\aop\RateLimit.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\aop\RateLimitAspect.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\client\amap\AmapClient.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\client\dashscope\DashscopeLlmClient.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\client\dashvector\DashVectorClient.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\client\oss\OssClient.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\config\CacheConfig.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\config\LlmConfig.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\config\RedisConfig.java
@@ -30,6 +32,7 @@ G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\config\WebMvcConfi
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\AdminController.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\AuthController.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\PlanController.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\RagController.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\SseController.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\TaskController.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\UserController.java
@@ -42,6 +45,8 @@ G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\filter\JwtAuthInte
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\AttractionMapper.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\LlmCallLogMapper.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\PlanMapper.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\RagChunkMapper.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\RagDocumentMapper.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\TaskMapper.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\UserMapper.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\UserQuotaConfigMapper.java
@@ -71,6 +76,10 @@ G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\cache\impl
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\cache\MultiLevelCacheService.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\notification\SseEvent.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\notification\SseNotificationService.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\rag\EmbeddingService.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\rag\impl\EmbeddingServiceImpl.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\rag\impl\RagServiceImpl.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\rag\RagService.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\task\impl\TaskServiceImpl.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\task\TaskService.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\user\impl\QuotaServiceImpl.java

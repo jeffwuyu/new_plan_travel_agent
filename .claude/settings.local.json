@@ -3,7 +3,9 @@
     "allow": [
       "Bash(mvn dependency:resolve -q)",
       "Bash(mvn dependency:resolve -e)",
-      "Bash(mvn validate:*)"
+      "Bash(mvn validate:*)",
+      "Bash(mvn compile *)",
+      "Bash(mvn test *)"
     ]
   }
 }

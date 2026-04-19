@@ -6,6 +6,7 @@ import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.model.entity.Task;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
+import com.travelagent.service.rag.RagService;
 import com.travelagent.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +45,7 @@ public class MarkovPlanner {
     @Autowired private HistoryManager historyManager;
     @Autowired private SseNotificationService sseNotificationService;
     @Autowired private JsonUtil jsonUtil;
+    @Autowired(required = false) private RagService ragService;
 
     // -----------------------------------------------------------------------
     // Public API
@@ -126,6 +128,19 @@ public class MarkovPlanner {
         }
 
         sb.append("User intent: ").append(cp.getUserIntent()).append("\n");
+
+        if (ragService != null) {
+            try {
+                List<String> chunks = ragService.queryChunks(cp.getUserIntent(), cp.getRegion(), 5);
+                if (!chunks.isEmpty()) {
+                    sb.append("Reference information from travel guides:\n");
+                    chunks.forEach(c -> sb.append("- ").append(c).append("\n"));
+                }
+            } catch (Exception e) {
+                log.warn("[MarkovPlanner] RAG query failed, skipping injection: {}", e.getMessage());
+            }
+        }
+
         sb.append("Distance constraint: attractions within the same day must be within 30 km of each other.\n");
         sb.append("\nReply ONLY in valid JSON using exactly this shape:\n");
         sb.append("{\"attractionName\": \"<attraction name>\", \"reason\": \"<brief recommendation reason>\"}");

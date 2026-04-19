@@ -8,6 +8,7 @@ import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.model.entity.Task;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
+import com.travelagent.service.rag.RagService;
 import com.travelagent.util.JsonUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,9 +24,11 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -251,6 +254,56 @@ class MarkovPlannerTest {
         // Two token events should have been sent
         verify(sseNotificationService).sendEvent("uuid-2", SseEvent.LLM_STREAM, Map.of("token", "Forbidden"));
         verify(sseNotificationService).sendEvent("uuid-2", SseEvent.LLM_STREAM, Map.of("token", " City"));
+    }
+
+    // -----------------------------------------------------------------------
+    // RAG injection into buildSystemPrompt
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("buildSystemPrompt: when RagService provides chunks, they appear in prompt")
+    void buildSystemPrompt_ragChunksInjectedIntoPrompt() {
+        RagService mockRagService = mock(RagService.class);
+        when(mockRagService.queryChunks(anyString(), anyString(), eq(5)))
+                .thenReturn(List.of("兵马俑简介", "回民街美食推荐"));
+        ReflectionTestUtils.setField(markovPlanner, "ragService", mockRagService);
+
+        TaskCheckpoint cp = buildCheckpoint(1, 1, "西安市", List.of(), List.of());
+        String prompt = markovPlanner.buildSystemPrompt(cp);
+
+        assertThat(prompt).contains("Reference information from travel guides:");
+        assertThat(prompt).contains("兵马俑简介");
+        assertThat(prompt).contains("回民街美食推荐");
+
+        // Restore null so other tests are unaffected
+        ReflectionTestUtils.setField(markovPlanner, "ragService", null);
+    }
+
+    @Test
+    @DisplayName("buildSystemPrompt: null RagService (optional) does not throw")
+    void buildSystemPrompt_nullRagService_doesNotThrow() {
+        ReflectionTestUtils.setField(markovPlanner, "ragService", null);
+        TaskCheckpoint cp = buildCheckpoint(1, 1, "北京市", List.of(), List.of());
+
+        assertThatNoException().isThrownBy(() -> markovPlanner.buildSystemPrompt(cp));
+    }
+
+    @Test
+    @DisplayName("buildSystemPrompt: RagService exception is caught, prompt still built")
+    void buildSystemPrompt_ragServiceThrows_promptStillBuilt() {
+        RagService failingRagService = mock(RagService.class);
+        when(failingRagService.queryChunks(any(), any(), eq(5)))
+                .thenThrow(new RuntimeException("vector store down"));
+        ReflectionTestUtils.setField(markovPlanner, "ragService", failingRagService);
+
+        TaskCheckpoint cp = buildCheckpoint(1, 1, "成都市", List.of(), List.of());
+        String prompt = markovPlanner.buildSystemPrompt(cp);
+
+        assertThat(prompt).contains("成都市");
+        assertThat(prompt).contains("attractionName");
+        assertThat(prompt).doesNotContain("Reference information from travel guides:");
+
+        ReflectionTestUtils.setField(markovPlanner, "ragService", null);
     }
 
     // -----------------------------------------------------------------------

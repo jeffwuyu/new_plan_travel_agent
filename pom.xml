@@ -277,6 +277,7 @@
                     <jdkToolchain>
                         <version>${java.version}</version>
                     </jdkToolchain>
+                    <argLine>-Xmx1g</argLine>
                 </configuration>
             </plugin>
         </plugins>

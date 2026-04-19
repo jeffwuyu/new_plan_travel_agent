@@ -180,3 +180,469 @@ Error starting ApplicationContext. To display the condition evaluation report re
 2026-04-19 15:43:22.132 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
 2026-04-19 15:43:22.133 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
 2026-04-19 15:43:22.135 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 规划尚未生成，请等待任务完成
+2026-04-19 15:52:19.904 [background-preinit] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 15:52:19.954 [main] INFO  com.travelagent.TravelAgentApplication - Starting TravelAgentApplication using Java 21.0.9.0.9 with PID 24724 (G:\coding\new_plan_travel_agent\target\classes started by ASUS in G:\coding\new_plan_travel_agent)
+2026-04-19 15:52:19.955 [main] INFO  com.travelagent.TravelAgentApplication - No active profile set, falling back to 1 default profile: "default"
+2026-04-19 15:52:20.966 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-04-19 15:52:20.970 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-04-19 15:52:21.025 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 32 ms. Found 0 Redis repository interfaces.
+2026-04-19 15:52:21.992 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat initialized with port 8123 (http)
+2026-04-19 15:52:22.008 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8123"]
+2026-04-19 15:52:22.009 [main] INFO  org.apache.catalina.core.StandardService - Starting service [Tomcat]
+2026-04-19 15:52:22.010 [main] INFO  org.apache.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2026-04-19 15:52:22.083 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-04-19 15:52:22.084 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 2060 ms
+2026-04-19 15:52:23.359 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-19 15:52:23.359 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-19 15:52:23.359 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-19 15:52:24.391 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8123"]
+2026-04-19 15:52:24.402 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat started on port 8123 (http) with context path '/'
+2026-04-19 15:52:24.415 [main] INFO  com.travelagent.TravelAgentApplication - Started TravelAgentApplication in 4.922 seconds (process running for 6.252)
+2026-04-19 15:52:24.440 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 15:52:28.078 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 15:52:31.088 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 15:52:34.103 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 15:52:37.114 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 15:52:40.139 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 15:52:43.159 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 15:52:43.654 [SpringApplicationShutdownHook] INFO  o.s.boot.web.embedded.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2026-04-19 15:52:43.659 [tomcat-shutdown] INFO  o.s.boot.web.embedded.tomcat.GracefulShutdown - Graceful shutdown complete
+2026-04-19 19:06:49.062 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-19 19:06:49.260 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] RAG query failed, skipping injection: vector store down
+2026-04-19 19:06:49.434 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:06:49.434 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:06:49.462 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-19 19:06:50.346 [main] INFO  com.travelagent.client.oss.OssClient - OSS delete complete: key=rag/documents/test.txt
+2026-04-19 19:06:50.401 [main] INFO  com.travelagent.client.oss.OssClient - OSS upload complete: key=rag/documents/test.txt
+2026-04-19 19:06:50.408 [main] INFO  com.travelagent.client.oss.OssClient - OSS download complete: key=rag/documents/test.txt, size=12
+2026-04-19 19:06:50.750 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 19:06:51.495 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:06:51.496 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:06:51.502 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 5 ms
+2026-04-19 19:06:51.755 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:06:51.755 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:06:51.756 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:06:51.785 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 19:06:51.820 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:06:51.821 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:06:51.821 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:06:51.823 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:06:51.841 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:06:51.841 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:06:51.842 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:06:51.843 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] topK 必须在 1–20 之间
+2026-04-19 19:06:51.863 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:06:51.864 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:06:51.864 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:06:51.866 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:06:51.886 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:06:51.886 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:06:51.886 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:06:51.909 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:06:51.909 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:06:51.910 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:06:51.914 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] ossKey 不能为空
+2026-04-19 19:06:51.931 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:06:51.932 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:06:51.932 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:06:51.955 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:06:51.956 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:06:51.956 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:07:27.722 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-19 19:07:27.858 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] RAG query failed, skipping injection: vector store down
+2026-04-19 19:07:27.990 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:07:27.991 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:07:28.010 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-19 19:07:28.714 [main] INFO  com.travelagent.client.oss.OssClient - OSS delete complete: key=rag/documents/test.txt
+2026-04-19 19:07:28.763 [main] INFO  com.travelagent.client.oss.OssClient - OSS upload complete: key=rag/documents/test.txt
+2026-04-19 19:07:28.769 [main] INFO  com.travelagent.client.oss.OssClient - OSS download complete: key=rag/documents/test.txt, size=12
+2026-04-19 19:07:29.111 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 19:07:29.754 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:07:29.755 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:07:29.759 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 4 ms
+2026-04-19 19:07:29.990 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:07:29.990 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:07:29.990 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:07:30.020 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 19:07:30.049 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:07:30.049 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:07:30.049 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:07:30.052 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:07:30.080 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:07:30.081 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:07:30.081 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:07:30.084 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] topK 必须在 1–20 之间
+2026-04-19 19:07:30.105 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:07:30.106 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:07:30.106 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:07:30.108 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:07:30.129 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:07:30.129 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:07:30.130 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:07:30.152 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:07:30.152 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:07:30.152 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:07:30.155 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] ossKey 不能为空
+2026-04-19 19:07:30.172 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:07:30.173 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:07:30.173 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:07:30.197 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:07:30.198 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:07:30.198 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:08:00.601 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 19:08:01.132 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:08:01.132 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:08:01.135 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 3 ms
+2026-04-19 19:08:01.334 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:08:01.334 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:08:01.335 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:08:01.370 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 19:08:01.398 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:08:01.399 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:08:01.399 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:08:01.403 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:08:01.419 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:08:01.419 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:08:01.420 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:08:01.421 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] topK 必须在 1–20 之间
+2026-04-19 19:08:01.440 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:08:01.440 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:08:01.440 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:08:01.442 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:08:01.461 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:08:01.461 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:08:01.462 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:08:01.487 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:08:01.487 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:08:01.487 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:08:01.490 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] ossKey 不能为空
+2026-04-19 19:08:01.511 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:08:01.511 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:08:01.512 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:08:01.540 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:08:01.541 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:08:01.541 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:10:21.800 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-19 19:10:22.138 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] RAG query failed, skipping injection: vector store down
+2026-04-19 19:10:22.502 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:10:22.504 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:10:22.549 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-19 19:10:23.471 [main] INFO  com.travelagent.client.oss.OssClient - OSS delete complete: key=rag/documents/test.txt
+2026-04-19 19:10:23.531 [main] INFO  com.travelagent.client.oss.OssClient - OSS upload complete: key=rag/documents/test.txt
+2026-04-19 19:10:23.537 [main] INFO  com.travelagent.client.oss.OssClient - OSS download complete: key=rag/documents/test.txt, size=12
+2026-04-19 19:10:23.853 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 19:10:24.493 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:10:24.494 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:10:24.498 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 4 ms
+2026-04-19 19:10:24.736 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:10:24.736 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:10:24.736 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:10:24.766 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 19:10:24.791 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:10:24.791 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:10:24.791 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:10:24.794 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:10:24.814 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:10:24.814 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:10:24.815 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:10:24.818 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] topK 必须在 1–20 之间
+2026-04-19 19:10:24.847 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:10:24.847 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:10:24.847 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:10:24.850 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:10:24.871 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:10:24.871 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:10:24.872 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:10:24.896 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:10:24.897 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:10:24.897 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:10:24.900 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] ossKey 不能为空
+2026-04-19 19:10:24.919 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:10:24.919 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:10:24.919 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:10:24.949 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:10:24.950 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:10:24.951 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:11:28.830 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-19 19:11:29.079 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] RAG query failed, skipping injection: vector store down
+2026-04-19 19:11:29.322 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:11:29.324 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:11:29.357 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-19 19:11:30.271 [main] INFO  com.travelagent.client.oss.OssClient - OSS delete complete: key=rag/documents/test.txt
+2026-04-19 19:11:30.325 [main] INFO  com.travelagent.client.oss.OssClient - OSS upload complete: key=rag/documents/test.txt
+2026-04-19 19:11:30.333 [main] INFO  com.travelagent.client.oss.OssClient - OSS download complete: key=rag/documents/test.txt, size=12
+2026-04-19 19:11:30.623 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 19:11:31.290 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:11:31.290 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:11:31.296 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 5 ms
+2026-04-19 19:11:31.553 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:11:31.553 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:11:31.554 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:11:31.585 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 19:11:31.611 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:11:31.611 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:11:31.611 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:11:31.615 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:11:31.635 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:11:31.635 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:11:31.636 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:11:31.638 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] topK 必须在 1–20 之间
+2026-04-19 19:11:31.662 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:11:31.663 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:11:31.663 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:11:31.674 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:11:31.699 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:11:31.699 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:11:31.699 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:11:31.728 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:11:31.729 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:11:31.729 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:11:31.734 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] ossKey 不能为空
+2026-04-19 19:11:31.755 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:11:31.755 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:11:31.755 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:11:31.797 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:11:31.798 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:11:31.798 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:12:34.625 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-19 19:12:34.797 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] RAG query failed, skipping injection: vector store down
+2026-04-19 19:12:34.949 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:12:34.949 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:12:34.980 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-19 19:12:35.860 [main] INFO  com.travelagent.client.oss.OssClient - OSS delete complete: key=rag/documents/test.txt
+2026-04-19 19:12:35.950 [main] INFO  com.travelagent.client.oss.OssClient - OSS upload complete: key=rag/documents/test.txt
+2026-04-19 19:12:35.960 [main] INFO  com.travelagent.client.oss.OssClient - OSS download complete: key=rag/documents/test.txt, size=12
+2026-04-19 19:12:36.524 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 19:12:37.385 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:12:37.385 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:12:37.388 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 2 ms
+2026-04-19 19:12:37.622 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:12:37.622 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:12:37.622 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:12:37.655 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 19:12:37.679 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:12:37.679 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:12:37.679 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:12:37.683 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:12:37.703 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:12:37.703 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:12:37.703 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:12:37.705 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] topK 必须在 1–20 之间
+2026-04-19 19:12:37.726 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:12:37.726 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:12:37.727 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:12:37.728 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:12:37.757 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:12:37.758 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:12:37.758 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:12:37.780 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:12:37.781 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:12:37.781 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:12:37.783 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] ossKey 不能为空
+2026-04-19 19:12:37.800 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:12:37.801 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:12:37.801 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:12:37.823 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:12:37.824 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:12:37.824 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:13:26.353 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-19 19:13:26.595 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] RAG query failed, skipping injection: vector store down
+2026-04-19 19:13:26.808 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:13:26.810 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:13:26.845 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-19 19:13:27.928 [main] INFO  com.travelagent.client.oss.OssClient - OSS delete complete: key=rag/documents/test.txt
+2026-04-19 19:13:28.032 [main] INFO  com.travelagent.client.oss.OssClient - OSS upload complete: key=rag/documents/test.txt
+2026-04-19 19:13:28.045 [main] INFO  com.travelagent.client.oss.OssClient - OSS download complete: key=rag/documents/test.txt, size=12
+2026-04-19 19:13:28.476 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 19:13:30.285 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:13:30.288 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:13:30.300 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 10 ms
+2026-04-19 19:13:31.305 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:13:31.307 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:13:31.312 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 4 ms
+2026-04-19 19:13:31.432 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 19:13:31.501 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:13:31.502 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:13:31.503 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:13:31.515 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:13:31.568 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:13:31.570 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:13:31.571 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:13:31.582 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] topK 必须在 1–20 之间
+2026-04-19 19:13:31.643 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:13:31.643 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:13:31.644 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:13:31.648 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:13:31.709 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:13:31.710 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:13:31.711 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:13:31.846 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:13:31.846 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:13:31.847 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:13:31.854 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] ossKey 不能为空
+2026-04-19 19:13:31.902 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:13:31.902 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:13:31.902 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:13:31.966 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:13:31.967 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:13:31.967 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:14:13.808 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-19 19:14:14.017 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] RAG query failed, skipping injection: vector store down
+2026-04-19 19:14:14.193 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:14:14.194 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:14:14.219 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-19 19:14:15.113 [main] INFO  com.travelagent.client.oss.OssClient - OSS delete complete: key=rag/documents/test.txt
+2026-04-19 19:14:15.174 [main] INFO  com.travelagent.client.oss.OssClient - OSS upload complete: key=rag/documents/test.txt
+2026-04-19 19:14:15.181 [main] INFO  com.travelagent.client.oss.OssClient - OSS download complete: key=rag/documents/test.txt, size=12
+2026-04-19 19:14:15.488 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 19:14:16.097 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:14:16.099 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:14:16.104 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 5 ms
+2026-04-19 19:14:16.356 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:14:16.357 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:14:16.357 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:14:16.385 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 19:14:16.408 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:14:16.408 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:14:16.409 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:14:16.413 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:14:16.431 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:14:16.432 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:14:16.432 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:14:16.434 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] topK 必须在 1–20 之间
+2026-04-19 19:14:16.456 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:14:16.456 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:14:16.456 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:14:16.458 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:14:16.487 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:14:16.487 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:14:16.488 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:14:16.512 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:14:16.512 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:14:16.512 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:14:16.517 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] ossKey 不能为空
+2026-04-19 19:14:16.533 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:14:16.533 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:14:16.533 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:14:16.559 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:14:16.559 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:14:16.559 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:16:41.605 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-19 19:16:41.789 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] RAG query failed, skipping injection: vector store down
+2026-04-19 19:16:41.952 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:16:41.953 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-19 19:16:41.976 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-19 19:16:42.746 [main] INFO  com.travelagent.client.oss.OssClient - OSS delete complete: key=rag/documents/test.txt
+2026-04-19 19:16:42.806 [main] INFO  com.travelagent.client.oss.OssClient - OSS upload complete: key=rag/documents/test.txt
+2026-04-19 19:16:42.812 [main] INFO  com.travelagent.client.oss.OssClient - OSS download complete: key=rag/documents/test.txt, size=12
+2026-04-19 19:16:43.091 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 19:16:43.693 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:16:43.694 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:16:43.700 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 5 ms
+2026-04-19 19:16:43.938 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:16:43.938 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:16:43.939 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:16:43.970 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 19:16:44.001 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:16:44.002 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:16:44.002 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:16:44.004 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:16:44.023 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:16:44.023 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:16:44.023 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:16:44.025 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] topK 必须在 1–20 之间
+2026-04-19 19:16:44.049 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:16:44.050 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:16:44.050 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:16:44.054 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:16:44.076 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:16:44.076 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:16:44.077 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:16:44.099 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:16:44.099 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:16:44.099 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:16:44.103 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] ossKey 不能为空
+2026-04-19 19:16:44.121 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:16:44.121 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:16:44.122 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:16:44.150 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:16:44.151 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:16:44.151 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:16:44.560 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Starting ingestion for documentId=1
+2026-04-19 19:16:44.561 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Document id=1 split into 2 chunks
+2026-04-19 19:16:44.563 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Ingestion complete for documentId=1, chunks=2
+2026-04-19 19:16:44.572 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Starting ingestion for documentId=1
+2026-04-19 19:16:44.585 [main] WARN  com.travelagent.service.rag.impl.RagServiceImpl - RAG query failed (returning empty), query='test query': network error
+2026-04-19 19:16:44.592 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Registered RAG document id=1, ossKey=rag/docs/test.txt
+2026-04-19 19:16:44.598 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Starting ingestion for documentId=1
+2026-04-19 19:17:32.001 [background-preinit] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 19:17:32.051 [main] INFO  com.travelagent.TravelAgentApplication - Starting TravelAgentApplication using Java 21.0.9.0.9 with PID 21984 (G:\coding\new_plan_travel_agent\target\classes started by ASUS in G:\coding\new_plan_travel_agent)
+2026-04-19 19:17:32.052 [main] INFO  com.travelagent.TravelAgentApplication - No active profile set, falling back to 1 default profile: "default"
+2026-04-19 19:17:33.123 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-04-19 19:17:33.126 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-04-19 19:17:33.174 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 27 ms. Found 0 Redis repository interfaces.
+2026-04-19 19:17:34.249 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat initialized with port 8123 (http)
+2026-04-19 19:17:34.265 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8123"]
+2026-04-19 19:17:34.266 [main] INFO  org.apache.catalina.core.StandardService - Starting service [Tomcat]
+2026-04-19 19:17:34.267 [main] INFO  org.apache.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2026-04-19 19:17:34.346 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-04-19 19:17:34.346 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 2225 ms
+2026-04-19 19:17:35.679 [main] INFO  com.travelagent.client.oss.OssClient - OSS client initialized, bucket=travel-agent-docs
+2026-04-19 19:17:35.920 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-19 19:17:35.920 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-19 19:17:35.920 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-19 19:17:36.998 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8123"]
+2026-04-19 19:17:37.009 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat started on port 8123 (http) with context path '/'
+2026-04-19 19:17:37.022 [main] INFO  com.travelagent.TravelAgentApplication - Started TravelAgentApplication in 5.511 seconds (process running for 7.173)
+2026-04-19 19:17:37.047 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 19:17:40.672 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 19:17:43.701 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 19:17:46.717 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 19:17:49.744 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 19:17:52.773 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 19:17:55.787 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-19 19:17:57.981 [SpringApplicationShutdownHook] INFO  o.s.boot.web.embedded.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2026-04-19 19:17:57.987 [tomcat-shutdown] INFO  o.s.boot.web.embedded.tomcat.GracefulShutdown - Graceful shutdown complete
+2026-04-19 19:24:15.579 [main] INFO  com.travelagent.client.oss.OssClient - OSS delete complete: key=rag/documents/test.txt
+2026-04-19 19:24:15.821 [main] INFO  com.travelagent.client.oss.OssClient - OSS upload complete: key=rag/documents/test.txt
+2026-04-19 19:24:15.843 [main] INFO  com.travelagent.client.oss.OssClient - OSS download complete: key=rag/documents/test.txt, size=12
+2026-04-19 19:24:29.732 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 19:24:30.415 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:24:30.415 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:24:30.418 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 3 ms
+2026-04-19 19:24:30.653 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:24:30.653 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:24:30.653 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:24:30.696 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 19:24:30.728 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:24:30.729 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:24:30.729 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:24:30.733 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:24:30.754 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:24:30.754 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:24:30.755 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:24:30.757 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] topK 必须在 1–20 之间
+2026-04-19 19:24:30.780 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:24:30.780 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:24:30.781 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 19:24:30.785 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 文档不存在: id=99
+2026-04-19 19:24:30.807 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:24:30.807 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:24:30.807 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:24:30.832 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:24:30.833 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:24:30.833 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:24:30.836 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] ossKey 不能为空
+2026-04-19 19:24:30.855 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:24:30.856 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:24:30.856 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:24:30.885 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 19:24:30.885 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 19:24:30.885 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 19:24:56.583 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Starting ingestion for documentId=1
+2026-04-19 19:24:56.590 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Document id=1 split into 2 chunks
+2026-04-19 19:24:56.595 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Ingestion complete for documentId=1, chunks=2
+2026-04-19 19:24:56.625 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Starting ingestion for documentId=1
+2026-04-19 19:24:56.641 [main] WARN  com.travelagent.service.rag.impl.RagServiceImpl - RAG query failed (returning empty), query='test query': network error
+2026-04-19 19:24:56.651 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Registered RAG document id=1, ossKey=rag/docs/test.txt
+2026-04-19 19:24:56.664 [main] INFO  com.travelagent.service.rag.impl.RagServiceImpl - Starting ingestion for documentId=1
