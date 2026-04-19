@@ -88,3 +88,95 @@ Error starting ApplicationContext. To display the condition evaluation report re
 2026-04-19 15:27:54.112 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
 2026-04-19 15:28:34.557 [main] WARN  com.travelagent.aop.QuotaInterceptor - [QuotaInterceptor] Arg at index 0 in 'QuotaTargetService.wrongTypeMethod(..)' is not a Long (got String). Skipping.
 2026-04-19 15:28:34.571 [main] WARN  com.travelagent.aop.QuotaInterceptor - [QuotaInterceptor] Method 'QuotaTargetService.singleArgMethod(..)' has only 1 args; need at least 2. Skipping quota check.
+2026-04-19 15:42:41.541 [main] WARN  com.travelagent.aop.RateLimitAspect - [RateLimitAspect] Hourly limit (10) exceeded for ip=192.168.1.1 (count=11)
+2026-04-19 15:43:13.268 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 15:43:14.246 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:14.247 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:14.250 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 3 ms
+2026-04-19 15:43:14.412 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] size 必须在 1 ~ 200 之间
+2026-04-19 15:43:14.568 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:14.568 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:14.569 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 15:43:14.576 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 15:43:14.613 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:14.614 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:14.614 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:14.701 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] dailyTokenLimit 必须大于 0
+2026-04-19 15:43:14.726 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:14.726 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:14.726 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:14.827 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:14.827 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:14.827 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:14.873 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:14.874 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:14.874 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:14.891 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 用户不存在
+2026-04-19 15:43:14.911 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:14.911 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:14.911 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:14.947 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:14.948 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:14.948 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:14.981 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:14.981 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:14.982 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 15:43:14.988 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] status 必须为 1（启用）或 0（禁用）
+2026-04-19 15:43:15.015 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:15.015 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:15.015 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:15.019 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 此操作需要管理员权限（ADMIN）
+2026-04-19 15:43:15.041 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:15.042 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:15.042 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:15.049 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] level 必须为 1、2 或 3
+2026-04-19 15:43:15.067 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:15.068 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:15.068 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:15.074 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [400] userLevel 必须为 1（普通）、2（VIP）或 3（管理员）
+2026-04-19 15:43:15.092 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:15.092 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:15.093 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 15:43:15.121 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:15.121 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:15.121 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:20.991 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-19 15:43:21.625 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:21.626 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:21.629 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 3 ms
+2026-04-19 15:43:21.758 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 任务不存在
+2026-04-19 15:43:21.839 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:21.839 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:21.839 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:21.938 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:21.938 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:21.938 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:21.942 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 无权访问该任务
+2026-04-19 15:43:21.966 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:21.966 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:21.966 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:21.969 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 无权访问该规划
+2026-04-19 15:43:21.987 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:21.987 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:21.987 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:22.018 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:22.018 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:22.018 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:22.042 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:22.042 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:22.042 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:22.045 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 规划不存在
+2026-04-19 15:43:22.063 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:22.063 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:22.063 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:22.083 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:22.083 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:22.084 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 0 ms
+2026-04-19 15:43:22.088 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [403] 无权访问该规划
+2026-04-19 15:43:22.109 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:22.109 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:22.110 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 15:43:22.132 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-19 15:43:22.132 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-19 15:43:22.133 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 1 ms
+2026-04-19 15:43:22.135 [main] WARN  com.travelagent.exception.GlobalExceptionHandler - Business exception: [404] 规划尚未生成，请等待任务完成
