@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Apr 17 22:25:26 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776435926126
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776435926485
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776435926402
+https\://repo.spring.io/release/.error=Could not transfer artifact org.eclipse.jetty\:jetty-bom\:pom\:9.4.53.v20231009 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)

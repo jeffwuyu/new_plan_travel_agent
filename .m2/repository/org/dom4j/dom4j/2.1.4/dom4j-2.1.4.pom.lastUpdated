@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Apr 17 22:28:00 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436080575
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776436080934
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776436080851
+https\://repo.spring.io/release/.error=Could not transfer artifact org.dom4j\:dom4j\:pom\:2.1.4 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)

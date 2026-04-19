@@ -1,0 +1,19 @@
+2026-04-19 00:38:48.716 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-19 00:38:48.741 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache miss, calling Amap for name=兵马俑
+2026-04-19 00:38:48.783 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-19 00:38:48.784 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache miss, calling Amap for name=兵马俑
+2026-04-19 00:38:48.786 [main] WARN  com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Failed to persist attraction name=兵马俑: DB connection error
+2026-04-19 00:38:48.799 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-19 00:38:48.800 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache hit for name=兵马俑
+2026-04-19 00:38:56.794 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-19 00:38:56.928 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-19 00:38:56.941 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-19 00:38:56.944 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-19 00:38:56.944 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-19 00:38:56.944 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-19 10:45:32.306 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.0,34.0) to (108.0,33.0)
+2026-04-19 10:45:32.429 [main] DEBUG com.travelagent.agent.tools.WeatherTool - [WeatherTool] Fetching weather for adcode=610100
+2026-04-19 10:45:32.476 [main] DEBUG com.travelagent.agent.tools.WeatherTool - [WeatherTool] Fetching weather for adcode=610100
+2026-04-19 10:45:32.499 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.278927,34.384232) to (108.939981,34.263161)
+2026-04-19 10:45:40.937 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.0,34.0) to (108.0,33.0)
+2026-04-19 10:45:41.030 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.278927,34.384232) to (108.939981,34.263161)

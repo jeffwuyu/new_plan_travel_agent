@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Apr 17 22:26:58 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436018282
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776436018641
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776436018574
+https\://repo.spring.io/release/.error=Could not transfer artifact org.hdrhistogram\:HdrHistogram\:pom\:2.2.2 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)

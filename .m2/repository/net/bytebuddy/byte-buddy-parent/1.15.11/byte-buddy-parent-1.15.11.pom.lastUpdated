@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Apr 17 22:28:17 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436097095
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776436097731
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776436097369
+https\://repo.spring.io/release/.error=Could not transfer artifact net.bytebuddy\:byte-buddy-parent\:pom\:1.15.11 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)

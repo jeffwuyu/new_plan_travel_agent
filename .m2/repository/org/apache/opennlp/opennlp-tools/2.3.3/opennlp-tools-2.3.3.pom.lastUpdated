@@ -1,0 +1,9 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sun Apr 19 14:28:06 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436045711
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776580086281
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776580086220
+https\://repo.spring.io/release/.error=Could not transfer artifact org.apache.opennlp\:opennlp-tools\:pom\:2.3.3 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)
+https\://repo.spring.io/snapshot/.error=
+https\://repo.spring.io/snapshot/.lastUpdated=1776580085888

@@ -1,0 +1,6 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sun Apr 19 14:28:45 HKT 2026
+org.jacoco.agent-0.8.5-runtime.jar>aliyun-public=
+org.jacoco.agent-0.8.5-runtime.jar>aliyunmaven=
+org.jacoco.agent-0.8.5.pom>aliyun-public=
+org.jacoco.agent-0.8.5.pom>aliyunmaven=

@@ -1,0 +1,9 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sun Apr 19 14:28:03 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436031060
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776580083514
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776580082834
+https\://repo.spring.io/release/.error=Could not transfer artifact io.swagger.core.v3\:swagger-annotations\:pom\:2.2.25 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)
+https\://repo.spring.io/snapshot/.error=
+https\://repo.spring.io/snapshot/.lastUpdated=1776580083497

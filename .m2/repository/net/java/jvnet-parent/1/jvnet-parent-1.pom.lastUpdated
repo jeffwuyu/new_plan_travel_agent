@@ -1,0 +1,9 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sun Apr 19 14:26:53 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436070305
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776580013787
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776580013552
+https\://repo.spring.io/release/.error=Could not transfer artifact net.java\:jvnet-parent\:pom\:1 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)
+https\://repo.spring.io/snapshot/.error=
+https\://repo.spring.io/snapshot/.lastUpdated=1776580013769

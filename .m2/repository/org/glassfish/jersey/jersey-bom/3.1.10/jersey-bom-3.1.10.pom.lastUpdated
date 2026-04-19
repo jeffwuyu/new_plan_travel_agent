@@ -1,0 +1,9 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sun Apr 19 14:25:24 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776435818325
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776579924260
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776435818619
+https\://repo.spring.io/release/.error=Could not transfer artifact org.glassfish.jersey\:jersey-bom\:pom\:3.1.10 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)
+https\://repo.spring.io/snapshot/.error=
+https\://repo.spring.io/snapshot/.lastUpdated=1776579924244

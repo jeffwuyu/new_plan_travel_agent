@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Apr 17 22:29:10 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436125330
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776436150881
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776436137207
+https\://repo.spring.io/release/.error=Could not transfer artifact org.mybatis.spring.boot\:mybatis-spring-boot-starter\:jar\:3.0.4 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)

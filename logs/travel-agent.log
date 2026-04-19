@@ -1,0 +1,62 @@
+2026-04-19 00:38:13.419 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] Failed to write audit log: DB write error
+2026-04-19 00:38:13.477 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] LLM call [planning] attempt 1/1 failed: LLM timeout
+2026-04-19 00:38:23.841 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Method execute has no idempotency key argument, skipping protection
+2026-04-19 00:38:24.016 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Redis read failed for key=idempotency:task-uuid-step0-geocode:result, proceeding with execution: JSON deserialization failed
+2026-04-19 00:38:24.041 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Redis read failed for key=idempotency:task-uuid-step0-geocode:result, proceeding with execution: Redis connection refused
+2026-04-19 00:38:24.042 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Failed to store result for key=idempotency:task-uuid-step0-geocode:result: JSON serialization failed
+2026-04-19 00:38:24.058 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Failed to store result for key=idempotency:task-uuid-step0-geocode:result: JSON serialization failed
+2026-04-19 00:38:48.716 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-19 00:38:48.741 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache miss, calling Amap for name=兵马俑
+2026-04-19 00:38:48.783 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-19 00:38:48.784 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache miss, calling Amap for name=兵马俑
+2026-04-19 00:38:48.786 [main] WARN  com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Failed to persist attraction name=兵马俑: DB connection error
+2026-04-19 00:38:48.799 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-19 00:38:48.800 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache hit for name=兵马俑
+2026-04-19 00:38:56.794 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-19 00:38:56.928 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-19 00:38:56.941 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-19 00:38:56.944 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-19 00:38:56.944 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-19 00:38:56.944 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-19 10:45:32.306 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.0,34.0) to (108.0,33.0)
+2026-04-19 10:45:32.429 [main] DEBUG com.travelagent.agent.tools.WeatherTool - [WeatherTool] Fetching weather for adcode=610100
+2026-04-19 10:45:32.476 [main] DEBUG com.travelagent.agent.tools.WeatherTool - [WeatherTool] Fetching weather for adcode=610100
+2026-04-19 10:45:32.499 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.278927,34.384232) to (108.939981,34.263161)
+2026-04-19 10:45:40.937 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.0,34.0) to (108.0,33.0)
+2026-04-19 10:45:41.030 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.278927,34.384232) to (108.939981,34.263161)
+2026-04-19 10:47:05.082 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 10:47:05.097 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-19 10:47:05.145 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-19 10:50:51.094 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Method execute has no idempotency key argument, skipping protection
+2026-04-19 10:50:51.280 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Redis read failed for key=idempotency:task-uuid-step0-geocode:result, proceeding with execution: JSON deserialization failed
+2026-04-19 10:50:51.313 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Redis read failed for key=idempotency:task-uuid-step0-geocode:result, proceeding with execution: Redis connection refused
+2026-04-19 10:50:51.314 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Failed to store result for key=idempotency:task-uuid-step0-geocode:result: JSON serialization failed
+2026-04-19 10:50:51.333 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Failed to store result for key=idempotency:task-uuid-step0-geocode:result: JSON serialization failed
+2026-04-19 10:54:37.548 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Method execute has no idempotency key argument, skipping protection
+2026-04-19 10:54:37.677 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Redis read failed for key=idempotency:task-uuid-step0-geocode:result, proceeding with execution: Redis connection refused
+2026-04-19 10:57:50.931 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Method execute has no idempotency key argument, skipping protection
+2026-04-19 10:57:51.096 [main] WARN  com.travelagent.aop.IdempotencyAspect - [IdempotencyAspect] Redis read failed for key=idempotency:task-uuid-step0-geocode:result, proceeding with execution: Redis connection refused
+2026-04-19 11:07:19.712 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:07:19.719 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-19 11:07:19.762 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-19 11:08:37.668 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:08:37.676 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-19 11:08:37.713 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-19 11:08:37.884 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:08:38.019 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:08:38.121 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:08:38.154 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:10:40.354 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:10:40.361 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-19 11:10:40.398 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-19 11:10:40.579 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:10:40.728 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:10:40.840 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:10:40.895 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:12:33.152 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:12:33.162 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-19 11:12:33.213 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-19 11:12:33.412 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:12:33.580 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:12:33.759 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-19 11:12:33.799 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid

@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Apr 17 22:23:59 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776435838677
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776435839027
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776435838957
+https\://repo.spring.io/release/.error=Could not transfer artifact org.springframework.pulsar\:spring-pulsar-bom\:pom\:1.2.4 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)

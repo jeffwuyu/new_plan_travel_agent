@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Apr 17 22:49:44 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436063950
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776437384151
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776436064229
+https\://repo.spring.io/release/.error=Could not transfer artifact org.jdom\:jdom2\:pom\:2.0.6.1 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)

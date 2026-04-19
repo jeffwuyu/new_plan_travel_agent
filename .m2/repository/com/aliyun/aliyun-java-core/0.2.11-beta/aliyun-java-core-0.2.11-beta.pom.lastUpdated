@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Apr 17 22:28:00 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436079943
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776436080295
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776436080230
+https\://repo.spring.io/release/.error=Could not transfer artifact com.aliyun\:aliyun-java-core\:pom\:0.2.11-beta from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)

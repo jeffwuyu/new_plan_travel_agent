@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Apr 17 22:27:19 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436039346
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776436039669
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776436039626
+https\://repo.spring.io/release/.error=Could not transfer artifact org.junit\:junit-bom\:pom\:5.11.2 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)

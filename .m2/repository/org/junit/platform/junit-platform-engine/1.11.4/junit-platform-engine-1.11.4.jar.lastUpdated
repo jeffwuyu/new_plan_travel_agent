@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Apr 17 22:29:11 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436125544
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776436151249
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776436137388
+https\://repo.spring.io/release/.error=Could not transfer artifact org.junit.platform\:junit-platform-engine\:jar\:1.11.4 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)

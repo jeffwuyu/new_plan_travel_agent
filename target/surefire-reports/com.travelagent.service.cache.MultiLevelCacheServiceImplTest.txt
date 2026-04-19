@@ -1,0 +1,28 @@
+-------------------------------------------------------------------------------
+Test set: com.travelagent.service.cache.MultiLevelCacheServiceImplTest
+-------------------------------------------------------------------------------
+Tests run: 8, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 3.324 s <<< FAILURE! -- in com.travelagent.service.cache.MultiLevelCacheServiceImplTest
+com.travelagent.service.cache.MultiLevelCacheServiceImplTest.get_l1Hit_returnsValueWithoutRedisOrLoader -- Time elapsed: 2.908 s <<< ERROR!
+org.mockito.exceptions.misusing.UnnecessaryStubbingException: 
+
+Unnecessary stubbings detected.
+Clean & maintainable test code requires zero unnecessary code.
+Following stubbings are unnecessary (click to navigate to relevant line of code):
+  1. -> at com.travelagent.service.cache.MultiLevelCacheServiceImplTest.setUp(MultiLevelCacheServiceImplTest.java:40)
+Please remove unnecessary stubbings or use 'lenient' strictness. More info: javadoc for UnnecessaryStubbingException class.
+	at org.mockito.junit.jupiter.MockitoExtension.afterEach(MockitoExtension.java:197)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+com.travelagent.service.cache.MultiLevelCacheServiceImplTest.evict_removesFromL1AndL2 -- Time elapsed: 0.006 s <<< ERROR!
+org.mockito.exceptions.misusing.UnnecessaryStubbingException: 
+
+Unnecessary stubbings detected.
+Clean & maintainable test code requires zero unnecessary code.
+Following stubbings are unnecessary (click to navigate to relevant line of code):
+  1. -> at com.travelagent.service.cache.MultiLevelCacheServiceImplTest.setUp(MultiLevelCacheServiceImplTest.java:40)
+Please remove unnecessary stubbings or use 'lenient' strictness. More info: javadoc for UnnecessaryStubbingException class.
+	at org.mockito.junit.jupiter.MockitoExtension.afterEach(MockitoExtension.java:197)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+

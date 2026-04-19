@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 中文注释：MyBatis 映射文件，负责 Attraction 相关 SQL 与字段映射定义。 -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelagent.mapper.AttractionMapper">
+
+    <!--
+        Explicit resultMap for fields whose column names differ from the camelCase default.
+        map-underscore-to-camel-case handles most mappings (e.g., cached_at → cachedAt);
+        we only need explicit entries for the exceptions.
+    -->
+    <resultMap id="attractionResultMap" type="Attraction">
+        <id     property="id"           column="id"/>
+        <result property="amapPoiId"    column="amap_poi_id"/>
+        <result property="name"         column="name"/>
+        <result property="region"       column="region"/>
+        <result property="category"     column="category"/>
+        <result property="latitude"     column="latitude"/>
+        <result property="longitude"    column="longitude"/>
+        <result property="address"      column="address"/>
+        <result property="rating"       column="rating"/>
+        <result property="description"  column="description"/>
+        <result property="dashvectorId" column="dashvector_id"/>
+        <result property="cachedAt"     column="cached_at"/>
+    </resultMap>
+
+    <select id="findByNameAndRegion" resultMap="attractionResultMap">
+        SELECT * FROM attractions
+        WHERE name = #{name} AND region = #{region}
+        ORDER BY cached_at DESC
+        LIMIT 1
+    </select>
+
+    <select id="findByAmapPoiId" resultMap="attractionResultMap">
+        SELECT * FROM attractions
+        WHERE amap_poi_id = #{amapPoiId}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="Attraction" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO attractions (amap_poi_id, name, region, category, latitude, longitude,
+                                 address, rating, description, dashvector_id, cached_at)
+        VALUES (#{amapPoiId}, #{name}, #{region}, #{category}, #{latitude}, #{longitude},
+                #{address}, #{rating}, #{description}, #{dashvectorId}, #{cachedAt})
+    </insert>
+
+    <update id="update" parameterType="Attraction">
+        UPDATE attractions
+        <set>
+            <if test="amapPoiId != null">amap_poi_id = #{amapPoiId},</if>
+            <if test="latitude != null">latitude = #{latitude},</if>
+            <if test="longitude != null">longitude = #{longitude},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="rating != null">rating = #{rating},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="dashvectorId != null">dashvector_id = #{dashvectorId},</if>
+            <if test="cachedAt != null">cached_at = #{cachedAt},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+</mapper>

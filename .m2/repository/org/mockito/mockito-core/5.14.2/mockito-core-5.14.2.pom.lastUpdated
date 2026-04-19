@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Apr 17 22:28:27 HKT 2026
+@default-spring-releases-https\://repo.spring.io/release/.lastUpdated=1776436106658
+https\://maven.aliyun.com/repository/public/.lastUpdated=1776436107149
+https\://repo.spring.io/milestone/.error=
+https\://repo.spring.io/milestone/.lastUpdated=1776436106946
+https\://repo.spring.io/release/.error=Could not transfer artifact org.mockito\:mockito-core\:pom\:5.14.2 from/to spring-releases (https\://repo.spring.io/release)\: status code\: 401, reason phrase\:  (401)
