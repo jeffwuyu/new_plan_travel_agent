@@ -4,6 +4,7 @@ import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.PendingToolCall;
 import com.travelagent.agent.context.RetryState;
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.agent.planner.FinalSummaryResult;
 import com.travelagent.agent.planner.MarkovPlanner;
 import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.statemachine.AgentEvent;
@@ -30,6 +31,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -66,6 +69,69 @@ public class AgentServiceImpl implements AgentService {
     @Autowired private JsonUtil jsonUtil;
     @Autowired private PlanMapper planMapper;
     @Autowired private UserMapper userMapper;
+
+    // -----------------------------------------------------------------------
+    // Startup recovery
+    // -----------------------------------------------------------------------
+
+    /**
+     * Scans for tasks stuck in mid-execution states after a JVM crash and transitions
+     * them to RESUMING so TaskDispatcher picks them up on its next poll cycle.
+     *
+     * <p>Background: TaskDispatcher only polls PENDING and RESUMING. A task in PLANNING
+     * or TOOL_CALLING at crash time will never be polled again without this recovery.
+     *
+     * <p>Uses {@code ApplicationReadyEvent} (rather than {@code @PostConstruct}) to
+     * guarantee the database schema is fully initialized before the query runs. By the
+     * time {@code ApplicationReadyEvent} is published, all {@code InitializingBean} beans
+     * (including {@code DataSourceScriptDatabaseInitializer}) have finished executing.
+     * Capped at 100 rows to avoid slow startup on a large backlog.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void recoverStuckTasksOnStartup() {
+        try {
+            recoverStuckTasks();
+        } catch (Exception e) {
+            // Non-fatal: if the DB schema isn't ready yet (e.g. first boot before migration),
+            // log a warning and continue. Tasks will need manual resume or next-restart recovery.
+            log.warn("[AgentService] Startup recovery skipped — DB not ready: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Scans for tasks stuck in mid-execution states after a JVM crash and transitions
+     * them to RESUMING so TaskDispatcher picks them up on its next poll cycle.
+     *
+     * <p>Background: TaskDispatcher only polls PENDING and RESUMING. A task in PLANNING
+     * or TOOL_CALLING at crash time will never be polled again without this recovery.
+     *
+     * <p>Called automatically at startup via {@link #recoverStuckTasksOnStartup()}, and
+     * can also be invoked directly in tests or admin tooling.
+     * Capped at 100 rows to avoid slow startup on a large backlog.
+     */
+    public void recoverStuckTasks() {
+        List<String> stuckStatuses = List.of(
+                TaskStatus.PLANNING.getCode(),
+                TaskStatus.TOOL_CALLING.getCode()
+        );
+        List<Task> stuckTasks = taskMapper.findByStatusIn(stuckStatuses, 100);
+        if (stuckTasks.isEmpty()) {
+            log.info("[AgentService] Startup recovery: no stuck tasks found.");
+            return;
+        }
+        log.warn("[AgentService] Startup recovery: found {} stuck task(s) in states {}. "
+                + "Transitioning to RESUMING.", stuckTasks.size(), stuckStatuses);
+        for (Task task : stuckTasks) {
+            try {
+                taskMapper.updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
+                log.info("[AgentService] Recovered task uuid={} ({} → resuming)",
+                        task.getTaskUuid(), task.getStatus());
+            } catch (Exception e) {
+                log.error("[AgentService] Failed to recover task uuid={}: {}",
+                        task.getTaskUuid(), e.getMessage());
+            }
+        }
+    }
 
     // -----------------------------------------------------------------------
     // AgentService interface
@@ -406,20 +472,41 @@ public class AgentServiceImpl implements AgentService {
 
     /**
      * Persists the completed plan and all its steps to MySQL.
-     * Returns the generated plan ID (used in the COMPLETED SSE event).
+     *
+     * <p>First calls {@link MarkovPlanner#generateFinalSummary} to obtain a LLM-generated
+     * title, summary, and per-step descriptions with realistic duration estimates.
+     * Falls back to the previous hardcoded values if the LLM call fails.
+     *
+     * @return the generated plan ID (used in the COMPLETED SSE event)
      */
     private Long persistPlan(Task task, TaskCheckpoint checkpoint) {
+        // Generate LLM summary — wrapped so a failure cannot prevent plan persistence
+        FinalSummaryResult summary;
+        try {
+            summary = markovPlanner.generateFinalSummary(task, checkpoint, task.getTaskUuid());
+        } catch (Exception e) {
+            log.warn("[AgentService] Final summary generation failed, using defaults: {}", e.getMessage());
+            summary = null;
+        }
+
         Plan plan = new Plan();
         plan.setTaskId(task.getId());
         plan.setUserId(task.getUserId());
         plan.setRegion(checkpoint.getRegion());
-        plan.setTitle(checkpoint.getRegion() + " "
-                + checkpoint.getPlanningConfig().getTotalDays() + "-Day Trip");
         plan.setTotalDays(checkpoint.getPlanningConfig().getTotalDays());
-        plan.setSummary(checkpoint.getUserIntent());
+        if (summary != null) {
+            plan.setTitle(summary.title());
+            plan.setSummary(summary.summary());
+        } else {
+            plan.setTitle(checkpoint.getRegion() + " "
+                    + checkpoint.getPlanningConfig().getTotalDays() + "-Day Trip");
+            plan.setSummary(checkpoint.getUserIntent());
+        }
         planMapper.insertPlan(plan);
 
-        List<PlanStep> steps = buildPlanSteps(plan.getId(), checkpoint.getCompletedSteps());
+        List<FinalSummaryResult.StepSummary> stepSummaries =
+                (summary != null) ? summary.steps() : List.of();
+        List<PlanStep> steps = buildPlanSteps(plan.getId(), checkpoint.getCompletedSteps(), stepSummaries);
         if (!steps.isEmpty()) {
             planMapper.insertSteps(steps);
         }
@@ -428,7 +515,15 @@ public class AgentServiceImpl implements AgentService {
         return plan.getId();
     }
 
-    private List<PlanStep> buildPlanSteps(Long planId, List<CompletedStep> completedSteps) {
+    private List<PlanStep> buildPlanSteps(Long planId,
+                                          List<CompletedStep> completedSteps,
+                                          List<FinalSummaryResult.StepSummary> stepSummaries) {
+        // Build a lookup map so we can enrich each step with the LLM's description/duration
+        Map<Integer, FinalSummaryResult.StepSummary> summaryByOrder = new LinkedHashMap<>();
+        for (FinalSummaryResult.StepSummary ss : stepSummaries) {
+            summaryByOrder.put(ss.stepOrder(), ss);
+        }
+
         List<PlanStep> steps = new ArrayList<>();
         for (CompletedStep cs : completedSteps) {
             PlanStep ps = new PlanStep();
@@ -438,7 +533,11 @@ public class AgentServiceImpl implements AgentService {
             ps.setAttractionName(cs.getAttractionName());
             ps.setLatitude(cs.getLat() != null ? BigDecimal.valueOf(cs.getLat()) : null);
             ps.setLongitude(cs.getLng() != null ? BigDecimal.valueOf(cs.getLng()) : null);
-            ps.setEstimatedDurationMin(90); // default 90 min per attraction
+
+            // Apply LLM-provided duration and description, falling back to 90 min / null
+            FinalSummaryResult.StepSummary ss = summaryByOrder.get(cs.getStepIndex());
+            ps.setEstimatedDurationMin(ss != null ? ss.estimatedDurationMin() : 90);
+            ps.setLlmDescription(ss != null ? ss.llmDescription() : null);
 
             Map<String, Object> toolResults = cs.getToolCallResults();
             if (toolResults != null) {

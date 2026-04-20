@@ -31,9 +31,11 @@ com\travelagent\service\rag\RagService.class
 com\travelagent\mapper\PlanMapper.class
 com\travelagent\service\cache\impl\MultiLevelCacheServiceImpl.class
 com\travelagent\model\dto\LoginResponse.class
+com\travelagent\service\rag\DocumentExtractionException.class
 com\travelagent\agent\context\CompletedStep.class
 com\travelagent\agent\planner\HistoryManager.class
 com\travelagent\client\oss\OssClient.class
+com\travelagent\service\rag\DocumentTextExtractor.class
 com\travelagent\service\task\TaskService.class
 com\travelagent\client\dashscope\DashscopeLlmClient.class
 com\travelagent\service\notification\SseEvent.class
@@ -62,9 +64,11 @@ com\travelagent\model\dto\CreateTaskRequest.class
 com\travelagent\agent\tools\AgentTool.class
 com\travelagent\model\entity\Attraction.class
 com\travelagent\util\RedisUtil.class
+com\travelagent\agent\planner\FinalSummaryResult.class
 com\travelagent\config\CacheConfig.class
 com\travelagent\service\agent\impl\AgentServiceImpl.class
 com\travelagent\agent\planner\MarkovPlanner.class
+com\travelagent\service\rag\impl\PlainTextExtractor.class
 com\travelagent\config\RedisConfig.class
 com\travelagent\mapper\RagChunkMapper.class
 com\travelagent\client\amap\AmapClient$1.class
@@ -76,6 +80,7 @@ com\travelagent\config\LlmConfig.class
 com\travelagent\model\entity\Plan.class
 com\travelagent\TravelAgentApplication.class
 com\travelagent\model\entity\Task.class
+com\travelagent\agent\planner\FinalSummaryResult$StepSummary.class
 com\travelagent\controller\UserController.class
 com\travelagent\model\dto\UserProfileResponse.class
 com\travelagent\model\dto\LoginRequest.class
@@ -87,10 +92,12 @@ com\travelagent\service\user\UserService.class
 com\travelagent\agent\planner\PlanningResult.class
 com\travelagent\client\amap\AmapClient$2.class
 com\travelagent\model\entity\UserQuotaConfig.class
+com\travelagent\agent\planner\MarkovPlanner$2.class
 com\travelagent\advisor\TravelPlanningAdvisor.class
 com\travelagent\filter\JwtAuthInterceptor.class
 com\travelagent\agent\tools\GeocodeTool.class
 com\travelagent\model\dto\RegisterRequest.class
+com\travelagent\service\rag\impl\PdfTextExtractor.class
 com\travelagent\aop\QuotaInterceptor.class
 com\travelagent\aop\IdempotencyAspect$1.class
 com\travelagent\aop\QuotaGuarded.class

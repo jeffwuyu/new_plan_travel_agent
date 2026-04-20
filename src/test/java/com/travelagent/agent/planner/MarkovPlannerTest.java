@@ -296,6 +296,127 @@ class MarkovPlannerTest {
         return cp;
     }
 
+    // -----------------------------------------------------------------------
+    // parseFinalSummary
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("parseFinalSummary: valid JSON populates all fields")
+    void parseFinalSummary_validJson_populatesAllFields() {
+        TaskCheckpoint cp = buildCheckpoint(1, 2, "西安市", List.of(), List.of());
+        String json = """
+                {
+                  "title": "西安 1 日精华游",
+                  "summary": "以秦汉文化为主线",
+                  "steps": [
+                    {"stepOrder": 0, "estimatedDurationMin": 180, "llmDescription": "建议上午游览"},
+                    {"stepOrder": 1, "estimatedDurationMin": 120, "llmDescription": "下午悠闲参观"}
+                  ]
+                }
+                """;
+
+        FinalSummaryResult result = markovPlanner.parseFinalSummary(json, cp);
+
+        assertThat(result.title()).isEqualTo("西安 1 日精华游");
+        assertThat(result.summary()).isEqualTo("以秦汉文化为主线");
+        assertThat(result.steps()).hasSize(2);
+        assertThat(result.steps().get(0).estimatedDurationMin()).isEqualTo(180);
+        assertThat(result.steps().get(0).llmDescription()).isEqualTo("建议上午游览");
+        assertThat(result.steps().get(1).estimatedDurationMin()).isEqualTo(120);
+    }
+
+    @Test
+    @DisplayName("parseFinalSummary: strips markdown fences before parsing")
+    void parseFinalSummary_markdownFenced_stripsAndParses() {
+        TaskCheckpoint cp = buildCheckpoint(1, 1, "北京市", List.of(), List.of());
+        String fenced = "```json\n{\"title\":\"北京1日游\",\"summary\":\"故宫之旅\",\"steps\":[]}\n```";
+
+        FinalSummaryResult result = markovPlanner.parseFinalSummary(fenced, cp);
+
+        assertThat(result.title()).isEqualTo("北京1日游");
+        assertThat(result.summary()).isEqualTo("故宫之旅");
+        assertThat(result.steps()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("parseFinalSummary: blank response falls back to defaults")
+    void parseFinalSummary_blankResponse_returnsDefaults() {
+        TaskCheckpoint cp = buildCheckpoint(3, 2, "成都市", List.of(), List.of());
+
+        FinalSummaryResult result = markovPlanner.parseFinalSummary("", cp);
+
+        assertThat(result.title()).contains("成都市");
+        assertThat(result.summary()).isEqualTo("Explore 成都市");
+    }
+
+    @Test
+    @DisplayName("parseFinalSummary: invalid JSON falls back to defaults")
+    void parseFinalSummary_invalidJson_returnsDefaults() {
+        TaskCheckpoint cp = buildCheckpoint(2, 2, "杭州市", List.of(), List.of());
+
+        FinalSummaryResult result = markovPlanner.parseFinalSummary("not json at all", cp);
+
+        assertThat(result.title()).contains("杭州市");
+        assertThat(result.steps()).isEmpty(); // no completedSteps in checkpoint
+    }
+
+    @Test
+    @DisplayName("parseFinalSummary: out-of-range duration clamped to 90")
+    void parseFinalSummary_outOfRangeDuration_clampedTo90() {
+        TaskCheckpoint cp = buildCheckpoint(1, 1, "西安市", List.of(), List.of());
+        String json = """
+                {"title":"T","summary":"S","steps":[
+                  {"stepOrder":0,"estimatedDurationMin":9999,"llmDescription":"x"}
+                ]}
+                """;
+
+        FinalSummaryResult result = markovPlanner.parseFinalSummary(json, cp);
+
+        assertThat(result.steps().get(0).estimatedDurationMin()).isEqualTo(90);
+    }
+
+    @Test
+    @DisplayName("generateFinalSummary: LLM failure returns safe defaults")
+    void generateFinalSummary_llmThrows_returnsDefaults() {
+        TaskCheckpoint cp = buildCheckpoint(2, 2, "西安市", List.of(), List.of());
+        Task task = new Task();
+        task.setId(1L);
+        task.setUserId(10L);
+
+        when(llmClient.call(any(), any(), anyString(), anyString(), any(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("LLM timeout"));
+
+        FinalSummaryResult result = markovPlanner.generateFinalSummary(task, cp, "test-uuid");
+
+        assertThat(result).isNotNull();
+        assertThat(result.title()).contains("西安市");
+    }
+
+    @Test
+    @DisplayName("generateFinalSummary: valid LLM response parsed and returned")
+    void generateFinalSummary_validResponse_parsedCorrectly() {
+        TaskCheckpoint cp = buildCheckpoint(1, 2, "西安市", List.of(), List.of());
+        Task task = new Task();
+        task.setId(1L);
+        task.setUserId(10L);
+
+        String llmJson = """
+                {"title":"西安精华1日","summary":"历史文化之旅","steps":[
+                  {"stepOrder":0,"estimatedDurationMin":150,"llmDescription":"必游之地"}
+                ]}
+                """;
+        when(llmClient.call(any(), any(), anyString(), anyString(), any(), anyString(), anyString()))
+                .thenReturn(llmJson);
+
+        FinalSummaryResult result = markovPlanner.generateFinalSummary(task, cp, "uuid-x");
+
+        assertThat(result.title()).isEqualTo("西安精华1日");
+        assertThat(result.summary()).isEqualTo("历史文化之旅");
+        assertThat(result.steps()).hasSize(1);
+        assertThat(result.steps().get(0).estimatedDurationMin()).isEqualTo(150);
+        assertThat(result.steps().get(0).llmDescription()).isEqualTo("必游之地");
+    }
+
     private CompletedStep step(String name, double lat, double lng) {
         CompletedStep s = new CompletedStep();
         s.setAttractionName(name);

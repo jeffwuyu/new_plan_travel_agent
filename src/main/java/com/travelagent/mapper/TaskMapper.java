@@ -25,6 +25,13 @@ public interface TaskMapper {
     List<Task> findByStatus(@Param("status") String status, @Param("limit") int limit);
 
     /**
+     * Returns tasks whose status is in the given list, up to {@code limit} rows, oldest-first.
+     * Used by the startup recovery scan to find tasks stuck mid-execution after a JVM crash.
+     */
+    List<Task> findByStatusIn(@Param("statuses") List<String> statuses,
+                              @Param("limit") int limit);
+
+    /**
      * Admin cross-status paginated query. status=null returns all statuses.
      * Call PageHelper.startPage() before invoking this method.
      */

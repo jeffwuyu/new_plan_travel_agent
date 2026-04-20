@@ -46,6 +46,21 @@
     </select>
 
     <!--
+        Startup recovery scan: find tasks stuck in mid-execution states (planning, tool_calling)
+        after a JVM crash. Only called once at application startup by AgentServiceImpl@PostConstruct.
+        LIMIT guards against a full-table scan on a large backlog.
+    -->
+    <select id="findByStatusIn" resultMap="taskResultMap">
+        SELECT * FROM tasks
+        WHERE status IN
+        <foreach collection="statuses" item="s" open="(" separator="," close=")">
+            #{s}
+        </foreach>
+        ORDER BY created_at ASC
+        LIMIT #{limit}
+    </select>
+
+    <!--
         Admin cross-status paginated query.
         checkpoint_json intentionally excluded (MEDIUMTEXT, not needed in admin view).
         PageHelper injects LIMIT/OFFSET automatically.

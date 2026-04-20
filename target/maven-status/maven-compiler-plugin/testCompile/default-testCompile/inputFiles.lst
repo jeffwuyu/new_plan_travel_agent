@@ -27,6 +27,7 @@ G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\integration\AdminI
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\integration\AuthIntegrationTest.java
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\integration\BaseIntegrationTest.java
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\integration\TaskIntegrationTest.java
+G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\integration\TaskRecoveryIntegrationTest.java
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\model\dto\ResultTest.java
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\model\enums\EnumsTest.java
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\service\agent\AgentServiceImplTest.java

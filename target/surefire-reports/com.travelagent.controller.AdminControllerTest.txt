@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.travelagent.controller.AdminControllerTest
 -------------------------------------------------------------------------------
-Tests run: 17, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.547 s -- in com.travelagent.controller.AdminControllerTest
+Tests run: 17, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.426 s -- in com.travelagent.controller.AdminControllerTest

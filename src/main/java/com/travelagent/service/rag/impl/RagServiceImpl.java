@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -43,6 +42,8 @@ public class RagServiceImpl implements RagService {
     @Autowired private EmbeddingService embeddingService;
     @Autowired private RagDocumentMapper ragDocumentMapper;
     @Autowired private RagChunkMapper ragChunkMapper;
+    @Autowired private PdfTextExtractor pdfTextExtractor;
+    @Autowired private PlainTextExtractor plainTextExtractor;
 
     // -----------------------------------------------------------------------
     // Register
@@ -151,11 +152,24 @@ public class RagServiceImpl implements RagService {
     // Internal helpers
     // -----------------------------------------------------------------------
 
-    /** Extracts plain text from raw bytes based on docType. */
+    /**
+     * Routes extraction to the appropriate {@link com.travelagent.service.rag.DocumentTextExtractor}
+     * based on {@code docType}.
+     *
+     * <ul>
+     *   <li>{@code "pdf"} → {@link PdfTextExtractor} (Apache PDFBox 3.x)</li>
+     *   <li>{@code "text"} / {@code "markdown"} / anything else → {@link PlainTextExtractor}</li>
+     * </ul>
+     *
+     * Throws {@link com.travelagent.service.rag.DocumentExtractionException} on parse failure;
+     * the caller's {@code catch (Exception e)} block in {@link #ingestDocument} handles it by
+     * marking the document as {@code "failed"}.
+     */
     private String extractText(byte[] rawBytes, String docType) {
-        // Simple implementation: treat all formats as UTF-8 text.
-        // PDF binary parsing can be added later (e.g. Apache PDFBox).
-        return new String(rawBytes, StandardCharsets.UTF_8);
+        if ("pdf".equalsIgnoreCase(docType)) {
+            return pdfTextExtractor.extract(rawBytes);
+        }
+        return plainTextExtractor.extract(rawBytes);
     }
 
     /**

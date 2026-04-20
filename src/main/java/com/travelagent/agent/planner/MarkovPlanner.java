@@ -4,6 +4,7 @@ import com.travelagent.advisor.AdvisorContextKeys;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.agent.tools.WeatherTool;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.client.dashscope.LlmCallResult;
 import com.travelagent.model.entity.Task;
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -101,6 +103,143 @@ public class MarkovPlanner {
 
         String attractionName = parseLlmAttractionName(llmResult.content(), stepIndex);
         return new PlanningResult(attractionName, llmResult.totalTokens());
+    }
+
+    // -----------------------------------------------------------------------
+    // Final summary generation
+    // -----------------------------------------------------------------------
+
+    /**
+     * Calls the LLM once after all steps complete to generate a structured plan summary.
+     *
+     * <p>Returns a {@link FinalSummaryResult} with:
+     * <ul>
+     *   <li>A short plan {@code title} (e.g. "西安 3 日历史文化游")</li>
+     *   <li>A {@code summary} paragraph describing the overall trip</li>
+     *   <li>Per-step {@code llmDescription} and {@code estimatedDurationMin}</li>
+     * </ul>
+     *
+     * <p>Uses non-streaming {@code call()} so no SSE tokens are emitted for this
+     * behind-the-scenes wrap-up call.
+     *
+     * <p>Never throws — on any LLM or parse error the method returns a safe default
+     * so {@code persistPlan()} can still complete successfully.
+     *
+     * @param task     task entity (for audit log IDs)
+     * @param cp       completed checkpoint
+     * @param taskUuid task UUID (used as idempotency key suffix)
+     * @return parsed summary; falls back to safe defaults on failure
+     */
+    public FinalSummaryResult generateFinalSummary(Task task, TaskCheckpoint cp, String taskUuid) {
+        String systemPrompt = buildFinalSummarySystemPrompt(cp);
+        String userMessage  = buildFinalSummaryUserMessage(cp);
+        String idempotencyKey = taskUuid + "-final-summary";
+        try {
+            String llmResponse = llmClient.call(
+                    task.getId(), task.getUserId(), "final_summary",
+                    systemPrompt, List.of(), userMessage, idempotencyKey);
+            return parseFinalSummary(llmResponse, cp);
+        } catch (Exception e) {
+            log.warn("[MarkovPlanner] Final summary LLM call failed (using defaults): {}", e.getMessage());
+            return buildDefaultSummary(cp);
+        }
+    }
+
+    private String buildFinalSummarySystemPrompt(TaskCheckpoint cp) {
+        return "You are a travel writer. The user just completed planning a trip to " + cp.getRegion() + ".\n"
+                + "User intent: " + cp.getUserIntent() + "\n"
+                + "Produce a concise JSON summary of the completed itinerary. "
+                + "Respond ONLY with valid JSON matching this schema exactly:\n"
+                + "{\n"
+                + "  \"title\": \"short trip title\",\n"
+                + "  \"summary\": \"one paragraph overview\",\n"
+                + "  \"steps\": [\n"
+                + "    {\"stepOrder\": 0, \"estimatedDurationMin\": 120, \"llmDescription\": \"visit note\"}\n"
+                + "  ]\n"
+                + "}\n"
+                + "estimatedDurationMin should reflect actual attraction scale (60–240 min). "
+                + "llmDescription should be a brief, practical visit tip in Chinese.";
+    }
+
+    private String buildFinalSummaryUserMessage(TaskCheckpoint cp) {
+        StringBuilder sb = new StringBuilder("Completed attractions:\n");
+        for (CompletedStep s : cp.getCompletedSteps()) {
+            sb.append(String.format("  Step %d (Day %d): %s",
+                    s.getStepIndex(), s.getDayNumber(), s.getAttractionName()));
+            if (s.getToolCallResults() != null) {
+                Map<?, ?> weather = (Map<?, ?>) s.getToolCallResults().get(WeatherTool.NAME);
+                if (weather != null) {
+                    sb.append(String.format(", weather: %s %s°C",
+                            weather.get("weather"), weather.get("temperature")));
+                }
+            }
+            sb.append("\n");
+        }
+        sb.append("\nGenerate the JSON summary now.");
+        return sb.toString();
+    }
+
+    /**
+     * Parses the LLM's JSON response for the final summary.
+     * Strips markdown fences, extracts fields, applies per-field defaults on missing/invalid data.
+     */
+    @SuppressWarnings("unchecked")
+    FinalSummaryResult parseFinalSummary(String llmResponse, TaskCheckpoint cp) {
+        if (llmResponse == null || llmResponse.isBlank()) {
+            return buildDefaultSummary(cp);
+        }
+        try {
+            String cleaned = llmResponse.trim();
+            if (cleaned.startsWith("```")) {
+                cleaned = cleaned.replaceAll("(?s)```[a-z]*\\s*", "").replace("```", "").trim();
+            }
+            Map<String, Object> parsed = jsonUtil.fromJson(cleaned, new TypeReference<>() {});
+
+            String title   = stringOrDefault(parsed.get("title"),
+                    cp.getRegion() + " " + cp.getPlanningConfig().getTotalDays() + "日游");
+            String summary = stringOrDefault(parsed.get("summary"), cp.getUserIntent());
+
+            List<FinalSummaryResult.StepSummary> stepSummaries = new ArrayList<>();
+            Object stepsObj = parsed.get("steps");
+            if (stepsObj instanceof List<?> rawList) {
+                for (Object item : rawList) {
+                    if (item instanceof Map<?, ?> stepMap) {
+                        int stepOrder = toInt(stepMap.get("stepOrder"), stepSummaries.size());
+                        int duration  = toInt(stepMap.get("estimatedDurationMin"), 90);
+                        if (duration < 30 || duration > 480) duration = 90; // sanity clamp
+                        String desc   = stringOrDefault(stepMap.get("llmDescription"), "");
+                        stepSummaries.add(new FinalSummaryResult.StepSummary(stepOrder, duration, desc));
+                    }
+                }
+            }
+            return new FinalSummaryResult(title, summary, stepSummaries);
+        } catch (Exception e) {
+            log.warn("[MarkovPlanner] Final summary parse failed: {}", e.getMessage());
+            return buildDefaultSummary(cp);
+        }
+    }
+
+    /** Safe default when LLM call or parse fails — mirrors the old hardcoded behaviour. */
+    private FinalSummaryResult buildDefaultSummary(TaskCheckpoint cp) {
+        String title = cp.getRegion() + " "
+                + cp.getPlanningConfig().getTotalDays() + "-Day Trip";
+        List<FinalSummaryResult.StepSummary> steps = new ArrayList<>();
+        for (CompletedStep s : cp.getCompletedSteps()) {
+            steps.add(new FinalSummaryResult.StepSummary(s.getStepIndex(), 90, null));
+        }
+        return new FinalSummaryResult(title, cp.getUserIntent(), steps);
+    }
+
+    private String stringOrDefault(Object value, String defaultVal) {
+        if (value == null) return defaultVal;
+        String s = value.toString().trim();
+        return s.isBlank() ? defaultVal : s;
+    }
+
+    private int toInt(Object value, int defaultVal) {
+        if (value == null) return defaultVal;
+        try { return ((Number) value).intValue(); }
+        catch (Exception e) { return defaultVal; }
     }
 
     // -----------------------------------------------------------------------

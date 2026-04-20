@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.travelagent.agent.planner.HistoryManagerTest
 -------------------------------------------------------------------------------
-Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.013 s -- in com.travelagent.agent.planner.HistoryManagerTest
+Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.496 s -- in com.travelagent.agent.planner.HistoryManagerTest

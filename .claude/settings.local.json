@@ -7,7 +7,8 @@
       "Bash(mvn compile *)",
       "Bash(mvn test *)",
       "Bash(xargs cat *)",
-      "Bash(grep -v \"javassist\\\\|bytebuddy\\\\|cglib\\\\|reflect\\\\|proxy\\\\|$$\\\\|CGLIB\\\\|sun\\\\.\\\\|jdk\\\\.internal\")"
+      "Bash(grep -v \"javassist\\\\|bytebuddy\\\\|cglib\\\\|reflect\\\\|proxy\\\\|$$\\\\|CGLIB\\\\|sun\\\\.\\\\|jdk\\\\.internal\")",
+      "Bash(grep -E \"Tests run: [0-9]+, Failures: 0, Errors: 0, Skipped: 0$|BUILD\")"
     ]
   }
 }

@@ -6,6 +6,8 @@ import com.travelagent.mapper.RagChunkMapper;
 import com.travelagent.mapper.RagDocumentMapper;
 import com.travelagent.model.entity.RagChunk;
 import com.travelagent.model.entity.RagDocument;
+import com.travelagent.service.rag.impl.PdfTextExtractor;
+import com.travelagent.service.rag.impl.PlainTextExtractor;
 import com.travelagent.service.rag.impl.RagServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +37,8 @@ class RagServiceImplTest {
     @Mock private EmbeddingService embeddingService;
     @Mock private RagDocumentMapper ragDocumentMapper;
     @Mock private RagChunkMapper ragChunkMapper;
+    @Mock private PdfTextExtractor pdfTextExtractor;
+    @Mock private PlainTextExtractor plainTextExtractor;
 
     @InjectMocks private RagServiceImpl ragService;
 
@@ -86,6 +90,7 @@ class RagServiceImplTest {
 
         when(ragDocumentMapper.findById(DOC_ID)).thenReturn(doc);
         when(ossClient.downloadDocument("rag/docs/test.txt")).thenReturn(textBytes);
+        when(plainTextExtractor.extract(textBytes)).thenReturn(text);
         when(embeddingService.embedBatch(any())).thenAnswer(inv -> {
             List<String> texts = inv.getArgument(0);
             return texts.stream().map(t -> DUMMY_VEC.clone()).toList();
@@ -101,6 +106,55 @@ class RagServiceImplTest {
         verify(ragChunkMapper, atLeastOnce()).insertBatch(any());
         // Verify final status update
         verify(ragDocumentMapper).updateStatus(DOC_ID, "indexed", null);
+    }
+
+    @Test
+    @DisplayName("ingestDocument: docType=pdf 路由到 PdfTextExtractor")
+    void ingestDocument_routesToPdfExtractor() {
+        byte[] pdfBytes = new byte[]{0x25, 0x50, 0x44, 0x46}; // "%PDF" magic bytes
+        String extractedText = "秦始皇兵马俑博物馆简介".repeat(100);
+
+        RagDocument doc = new RagDocument();
+        doc.setId(DOC_ID);
+        doc.setOssKey("rag/docs/guide.pdf");
+        doc.setRegion("西安市");
+        doc.setDocType("pdf");
+
+        when(ragDocumentMapper.findById(DOC_ID)).thenReturn(doc);
+        when(ossClient.downloadDocument("rag/docs/guide.pdf")).thenReturn(pdfBytes);
+        when(pdfTextExtractor.extract(pdfBytes)).thenReturn(extractedText);
+        when(embeddingService.embedBatch(any())).thenAnswer(inv -> {
+            List<String> texts = inv.getArgument(0);
+            return texts.stream().map(t -> DUMMY_VEC.clone()).toList();
+        });
+
+        ragService.ingestDocument(DOC_ID);
+
+        verify(pdfTextExtractor).extract(pdfBytes);
+        verify(plainTextExtractor, never()).extract(any());
+        verify(ragDocumentMapper).updateStatus(DOC_ID, "indexed", null);
+    }
+
+    @Test
+    @DisplayName("ingestDocument: PDF 解析失败时标记文档为 failed")
+    void ingestDocument_marksFailedOnPdfExtractionError() {
+        byte[] pdfBytes = new byte[]{0x25, 0x50, 0x44, 0x46};
+
+        RagDocument doc = new RagDocument();
+        doc.setId(DOC_ID);
+        doc.setOssKey("rag/docs/corrupt.pdf");
+        doc.setRegion("北京市");
+        doc.setDocType("pdf");
+
+        when(ragDocumentMapper.findById(DOC_ID)).thenReturn(doc);
+        when(ossClient.downloadDocument(any())).thenReturn(pdfBytes);
+        when(pdfTextExtractor.extract(pdfBytes))
+                .thenThrow(new DocumentExtractionException("PDF parse failed: corrupted stream", null));
+
+        ragService.ingestDocument(DOC_ID);
+
+        verify(ragDocumentMapper).updateStatus(eq(DOC_ID), eq("failed"), anyString());
+        verify(embeddingService, never()).embedBatch(any());
     }
 
     @Test
