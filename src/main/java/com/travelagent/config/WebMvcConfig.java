@@ -48,7 +48,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
             .excludePathPatterns(
                 "/api/auth/register",
                 "/api/auth/login",
-                "/api/tasks/*/stream",  // SSE endpoint is public (task owner verified separately)
                 "/doc.html",
                 "/webjars/**",
                 "/v3/api-docs/**",

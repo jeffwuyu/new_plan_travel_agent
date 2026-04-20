@@ -1,5 +1,6 @@
 package com.travelagent.filter;
 
+import com.travelagent.mapper.UserMapper;
 import com.travelagent.util.JwtUtil;
 import com.travelagent.util.RedisUtil;
 import io.jsonwebtoken.Claims;
@@ -37,6 +38,9 @@ class JwtAuthInterceptorTest {
     @Mock
     private RedisUtil redisUtil;
 
+    @Mock
+    private UserMapper userMapper;
+
     @InjectMocks
     private JwtAuthInterceptor interceptor;
 
@@ -66,12 +70,32 @@ class JwtAuthInterceptorTest {
         Claims claims = buildClaims(42L, 2);
         when(redisUtil.hasKey("jwt:blacklist:valid.jwt.token")).thenReturn(false);
         when(jwtUtil.parseToken("valid.jwt.token")).thenReturn(claims);
+        when(userMapper.findUserActiveStatus(42L)).thenReturn(true);
 
         boolean result = interceptor.preHandle(request, response, null);
 
         assertTrue(result);
         assertEquals(42L, request.getAttribute(JwtAuthInterceptor.ATTR_USER_ID));
         assertEquals(2, request.getAttribute(JwtAuthInterceptor.ATTR_USER_LEVEL));
+    }
+
+    @Test
+    @DisplayName("账号已被禁用 - 返回 401")
+    void disabledUser_returns401() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.addHeader("Authorization", "Bearer valid.jwt.token");
+
+        Claims claims = buildClaims(42L, 2);
+        when(redisUtil.hasKey("jwt:blacklist:valid.jwt.token")).thenReturn(false);
+        when(jwtUtil.parseToken("valid.jwt.token")).thenReturn(claims);
+        when(userMapper.findUserActiveStatus(42L)).thenReturn(false);
+
+        boolean result = interceptor.preHandle(request, response, null);
+
+        assertFalse(result);
+        assertEquals(401, response.getStatus());
+        assertNull(request.getAttribute(JwtAuthInterceptor.ATTR_USER_ID));
     }
 
     @Test

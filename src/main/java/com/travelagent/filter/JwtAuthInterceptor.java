@@ -1,5 +1,6 @@
 package com.travelagent.filter;
 
+import com.travelagent.mapper.UserMapper;
 import com.travelagent.util.JwtUtil;
 import com.travelagent.util.RedisUtil;
 import io.jsonwebtoken.Claims;
@@ -47,6 +48,9 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     @Autowired
     private RedisUtil redisUtil;
 
+    @Autowired
+    private UserMapper userMapper;
+
     @Value("${jwt.header:Authorization}")
     private String headerName;
 
@@ -75,6 +79,13 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             Claims claims = jwtUtil.parseToken(token);
             Long userId = Long.valueOf(claims.getSubject());
             int userLevel = claims.get("lvl", Integer.class);
+
+            Boolean isActive = userMapper.findUserActiveStatus(userId);
+            if (isActive == null || !isActive) {
+                sendUnauthorized(response, "账号已被禁用或不存在，请联系管理员");
+                return false;
+            }
+
             request.setAttribute(ATTR_USER_ID, userId);
             request.setAttribute(ATTR_USER_LEVEL, userLevel);
             return true;

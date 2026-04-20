@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="com.travelagent.integration.AuthIntegrationTest" time="0.796" tests="7" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="com.travelagent.integration.AuthIntegrationTest" time="18.489" tests="7" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="sun.cpu.isalist" value="amd64"/>
@@ -18,8 +18,9 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="CN"/>
     <property name="sun.boot.library.path" value="C:\Users\ASUS\.jdks\dragonwell-ex-21.0.9\bin"/>
-    <property name="sun.java.command" value="C:\Users\ASUS\AppData\Local\Temp\surefire2863936911267497111\surefirebooter-20260420155710122_3.jar C:\Users\ASUS\AppData\Local\Temp\surefire2863936911267497111 2026-04-20T15-57-09_900-jvmRun1 surefire-20260420155710122_1tmp surefire_0-20260420155710122_2tmp"/>
+    <property name="sun.java.command" value="C:\Users\ASUS\AppData\Local\Temp\surefire9788988910960017066\surefirebooter-20260420164705664_3.jar C:\Users\ASUS\AppData\Local\Temp\surefire9788988910960017066 2026-04-20T16-47-05_520-jvmRun1 surefire-20260420164705664_1tmp surefire_0-20260420164705664_2tmp"/>
     <property name="jdk.debug" value="release"/>
+    <property name="test" value="TaskIntegrationTest,AuthIntegrationTest"/>
     <property name="surefire.test.class.path" value="G:\coding\new_plan_travel_agent\target\test-classes;G:\coding\new_plan_travel_agent\target\classes;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-starter-web\3.4.4\spring-boot-starter-web-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-starter\3.4.4\spring-boot-starter-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot\3.4.4\spring-boot-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-autoconfigure\3.4.4\spring-boot-autoconfigure-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-starter-logging\3.4.4\spring-boot-starter-logging-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\ch\qos\logback\logback-classic\1.5.18\logback-classic-1.5.18.jar;G:\coding\new_plan_travel_agent\.m2\repository\ch\qos\logback\logback-core\1.5.18\logback-core-1.5.18.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\apache\logging\log4j\log4j-to-slf4j\2.24.3\log4j-to-slf4j-2.24.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\apache\logging\log4j\log4j-api\2.24.3\log4j-api-2.24.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\slf4j\jul-to-slf4j\2.0.17\jul-to-slf4j-2.0.17.jar;G:\coding\new_plan_travel_agent\.m2\repository\jakarta\annotation\jakarta.annotation-api\2.1.1\jakarta.annotation-api-2.1.1.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\yaml\snakeyaml\2.3\snakeyaml-2.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-starter-json\3.4.4\spring-boot-starter-json-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jdk8\2.18.3\jackson-datatype-jdk8-2.18.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jsr310\2.18.3\jackson-datatype-jsr310-2.18.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\fasterxml\jackson\module\jackson-module-parameter-names\2.18.3\jackson-module-parameter-names-2.18.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat\3.4.4\spring-boot-starter-tomcat-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\apache\tomcat\embed\tomcat-embed-core\10.1.39\tomcat-embed-core-10.1.39.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\apache\tomcat\embed\tomcat-embed-websocket\10.1.39\tomcat-embed-websocket-10.1.39.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-web\6.2.5\spring-web-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-beans\6.2.5\spring-beans-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\micrometer\micrometer-observation\1.14.5\micrometer-observation-1.14.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\micrometer\micrometer-commons\1.14.5\micrometer-commons-1.14.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-webmvc\6.2.5\spring-webmvc-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-context\6.2.5\spring-context-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-expression\6.2.5\spring-expression-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-starter-validation\3.4.4\spring-boot-starter-validation-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\apache\tomcat\embed\tomcat-embed-el\10.1.39\tomcat-embed-el-10.1.39.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\hibernate\validator\hibernate-validator\8.0.2.Final\hibernate-validator-8.0.2.Final.jar;G:\coding\new_plan_travel_agent\.m2\repository\jakarta\validation\jakarta.validation-api\3.0.2\jakarta.validation-api-3.0.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\jboss\logging\jboss-logging\3.6.1.Final\jboss-logging-3.6.1.Final.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\fasterxml\classmate\1.7.0\classmate-1.7.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-starter-aop\3.4.4\spring-boot-starter-aop-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-aop\6.2.5\spring-aop-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\aspectj\aspectjweaver\1.9.23\aspectjweaver-1.9.23.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\mybatis\spring\boot\mybatis-spring-boot-starter\3.0.4\mybatis-spring-boot-starter-3.0.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-starter-jdbc\3.4.4\spring-boot-starter-jdbc-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\zaxxer\HikariCP\5.1.0\HikariCP-5.1.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-jdbc\6.2.5\spring-jdbc-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\mybatis\spring\boot\mybatis-spring-boot-autoconfigure\3.0.4\mybatis-spring-boot-autoconfigure-3.0.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\mybatis\mybatis\3.5.17\mybatis-3.5.17.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\mybatis\mybatis-spring\3.0.4\mybatis-spring-3.0.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\github\pagehelper\pagehelper-spring-boot-starter\2.1.0\pagehelper-spring-boot-starter-2.1.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\github\pagehelper\pagehelper-spring-boot-autoconfigure\2.1.0\pagehelper-spring-boot-autoconfigure-2.1.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\github\pagehelper\pagehelper\6.1.0\pagehelper-6.1.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\github\jsqlparser\jsqlparser\4.7\jsqlparser-4.7.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\mysql\mysql-connector-j\9.1.0\mysql-connector-j-9.1.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-starter-cache\3.4.4\spring-boot-starter-cache-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-context-support\6.2.5\spring-context-support-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\github\ben-manes\caffeine\caffeine\3.1.8\caffeine-3.1.8.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\checkerframework\checker-qual\3.37.0\checker-qual-3.37.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\google\errorprone\error_prone_annotations\2.21.1\error_prone_annotations-2.21.1.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-starter-data-redis\3.4.4\spring-boot-starter-data-redis-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\lettuce\lettuce-core\6.4.2.RELEASE\lettuce-core-6.4.2.RELEASE.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\netty\netty-common\4.1.119.Final\netty-common-4.1.119.Final.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\netty\netty-handler\4.1.119.Final\netty-handler-4.1.119.Final.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\netty\netty-resolver\4.1.119.Final\netty-resolver-4.1.119.Final.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\netty\netty-buffer\4.1.119.Final\netty-buffer-4.1.119.Final.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\netty\netty-transport-native-unix-common\4.1.119.Final\netty-transport-native-unix-common-4.1.119.Final.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\netty\netty-codec\4.1.119.Final\netty-codec-4.1.119.Final.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\netty\netty-transport\4.1.119.Final\netty-transport-4.1.119.Final.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\projectreactor\reactor-core\3.7.4\reactor-core-3.7.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\data\spring-data-redis\3.4.4\spring-data-redis-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\data\spring-data-keyvalue\3.4.4\spring-data-keyvalue-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\data\spring-data-commons\3.4.4\spring-data-commons-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-tx\6.2.5\spring-tx-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-oxm\6.2.5\spring-oxm-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\apache\commons\commons-pool2\2.12.1\commons-pool2-2.12.1.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\jsonwebtoken\jjwt-api\0.12.6\jjwt-api-0.12.6.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\jsonwebtoken\jjwt-impl\0.12.6\jjwt-impl-0.12.6.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\jsonwebtoken\jjwt-jackson\0.12.6\jjwt-jackson-0.12.6.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.18.3\jackson-databind-2.18.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\fasterxml\jackson\core\jackson-annotations\2.18.3\jackson-annotations-2.18.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.18.3\jackson-core-2.18.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\github\xiaoymin\knife4j-openapi3-jakarta-spring-boot-starter\4.5.0\knife4j-openapi3-jakarta-spring-boot-starter-4.5.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\github\xiaoymin\knife4j-core\4.5.0\knife4j-core-4.5.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\github\xiaoymin\knife4j-openapi3-ui\4.5.0\knife4j-openapi3-ui-4.5.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springdoc\springdoc-openapi-starter-webmvc-ui\2.3.0\springdoc-openapi-starter-webmvc-ui-2.3.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springdoc\springdoc-openapi-starter-webmvc-api\2.3.0\springdoc-openapi-starter-webmvc-api-2.3.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springdoc\springdoc-openapi-starter-common\2.3.0\springdoc-openapi-starter-common-2.3.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\swagger\core\v3\swagger-core-jakarta\2.2.19\swagger-core-jakarta-2.2.19.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\swagger\core\v3\swagger-annotations-jakarta\2.2.19\swagger-annotations-jakarta-2.2.19.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\swagger\core\v3\swagger-models-jakarta\2.2.19\swagger-models-jakarta-2.2.19.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\fasterxml\jackson\dataformat\jackson-dataformat-yaml\2.18.3\jackson-dataformat-yaml-2.18.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\webjars\swagger-ui\5.10.3\swagger-ui-5.10.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\alibaba\cloud\ai\spring-ai-alibaba-core\1.0.0.2\spring-ai-alibaba-core-1.0.0.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\ai\spring-ai-commons\1.0.0\spring-ai-commons-1.0.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\micrometer\micrometer-core\1.14.5\micrometer-core-1.14.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\hdrhistogram\HdrHistogram\2.2.2\HdrHistogram-2.2.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\latencyutils\LatencyUtils\2.0.3\LatencyUtils-2.0.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\micrometer\context-propagation\1.1.2\context-propagation-1.1.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\fasterxml\jackson\module\jackson-module-jsonSchema\2.18.3\jackson-module-jsonSchema-2.18.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\javax\validation\validation-api\1.1.0.Final\validation-api-1.1.0.Final.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\knuddels\jtokkit\1.1.0\jtokkit-1.1.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\ai\spring-ai-model\1.0.0\spring-ai-model-1.0.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\ai\spring-ai-template-st\1.0.0\spring-ai-template-st-1.0.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\antlr\ST4\4.3.4\ST4-4.3.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\antlr\antlr-runtime\3.5.3\antlr-runtime-3.5.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-messaging\6.2.5\spring-messaging-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\antlr\antlr4-runtime\4.13.1\antlr4-runtime-4.13.1.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\github\victools\jsonschema-module-jackson\4.37.0\jsonschema-module-jackson-4.37.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\github\victools\jsonschema-module-swagger-2\4.37.0\jsonschema-module-swagger-2-4.37.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\swagger\core\v3\swagger-annotations\2.2.25\swagger-annotations-2.2.25.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\ai\spring-ai-rag\1.0.0\spring-ai-rag-1.0.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\ai\spring-ai-client-chat\1.0.0\spring-ai-client-chat-1.0.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\ai\spring-ai-vector-store\1.0.0\spring-ai-vector-store-1.0.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\ai\spring-ai-retry\1.0.0\spring-ai-retry-1.0.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\retry\spring-retry\2.0.11\spring-retry-2.0.11.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-webflux\6.2.5\spring-webflux-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\commons-codec\commons-codec\1.17.2\commons-codec-1.17.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\squareup\okhttp3\logging-interceptor\4.12.0\logging-interceptor-4.12.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\apache\opennlp\opennlp-tools\2.3.3\opennlp-tools-2.3.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\alibaba\dashscope-sdk-java\2.16.5\dashscope-sdk-java-2.16.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\reactivex\rxjava2\rxjava\2.2.21\rxjava-2.2.21.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\reactivestreams\reactive-streams\1.0.4\reactive-streams-1.0.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\google\code\gson\gson\2.11.0\gson-2.11.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\slf4j\slf4j-api\2.0.17\slf4j-api-2.0.17.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\slf4j\slf4j-simple\2.0.17\slf4j-simple-2.0.17.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib-jdk8\1.9.25\kotlin-stdlib-jdk8-1.9.25.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib\1.9.25\kotlin-stdlib-1.9.25.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\jetbrains\annotations\13.0\annotations-13.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib-jdk7\1.9.25\kotlin-stdlib-jdk7-1.9.25.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\squareup\okio\okio\3.6.0\okio-3.6.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\squareup\okio\okio-jvm\3.6.0\okio-jvm-3.6.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib-common\1.9.25\kotlin-stdlib-common-1.9.25.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\squareup\okhttp3\okhttp-sse\4.12.0\okhttp-sse-4.12.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\github\victools\jsonschema-generator\4.31.1\jsonschema-generator-4.31.1.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\aliyun\oss\aliyun-sdk-oss\3.18.1\aliyun-sdk-oss-3.18.1.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\apache\httpcomponents\httpclient\4.5.13\httpclient-4.5.13.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\apache\httpcomponents\httpcore\4.4.16\httpcore-4.4.16.jar;G:\coding\new_plan_travel_agent\.m2\repository\commons-logging\commons-logging\1.2\commons-logging-1.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\jdom\jdom2\2.0.6.1\jdom2-2.0.6.1.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\codehaus\jettison\jettison\1.5.4\jettison-1.5.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\aliyun\aliyun-java-sdk-core\4.5.10\aliyun-java-sdk-core-4.5.10.jar;G:\coding\new_plan_travel_agent\.m2\repository\javax\xml\bind\jaxb-api\2.3.1\jaxb-api-2.3.1.jar;G:\coding\new_plan_travel_agent\.m2\repository\javax\activation\javax.activation-api\1.2.0\javax.activation-api-1.2.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\jacoco\org.jacoco.agent\0.8.5\org.jacoco.agent-0.8.5-runtime.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\ini4j\ini4j\0.5.4\ini4j-0.5.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\opentracing\opentracing-api\0.33.0\opentracing-api-0.33.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\opentracing\opentracing-util\0.33.0\opentracing-util-0.33.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\opentracing\opentracing-noop\0.33.0\opentracing-noop-0.33.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\aliyun\aliyun-java-sdk-ram\3.1.0\aliyun-java-sdk-ram-3.1.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\aliyun\aliyun-java-sdk-kms\2.11.0\aliyun-java-sdk-kms-2.11.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\aliyun\java-trace-api\0.2.11-beta\java-trace-api-0.2.11-beta.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\opentelemetry\opentelemetry-api\1.43.0\opentelemetry-api-1.43.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\io\opentelemetry\opentelemetry-context\1.43.0\opentelemetry-context-1.43.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\aliyun\aliyun-java-core\0.2.11-beta\aliyun-java-core-0.2.11-beta.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\dom4j\dom4j\2.1.4\dom4j-2.1.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\squareup\okhttp3\okhttp\4.12.0\okhttp-4.12.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\mindrot\jbcrypt\0.4\jbcrypt-0.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\projectlombok\lombok\1.18.36\lombok-1.18.36.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\apache\commons\commons-lang3\3.17.0\commons-lang3-3.17.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\google\guava\guava\33.4.0-jre\guava-33.4.0-jre.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\google\guava\failureaccess\1.0.2\failureaccess-1.0.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\google\guava\listenablefuture\9999.0-empty-to-avoid-conflict-with-guava\listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\google\code\findbugs\jsr305\3.0.2\jsr305-3.0.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\google\j2objc\j2objc-annotations\3.0.0\j2objc-annotations-3.0.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-starter-test\3.4.4\spring-boot-starter-test-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-test\3.4.4\spring-boot-test-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\boot\spring-boot-test-autoconfigure\3.4.4\spring-boot-test-autoconfigure-3.4.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\jayway\jsonpath\json-path\2.9.0\json-path-2.9.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\jakarta\xml\bind\jakarta.xml.bind-api\4.0.2\jakarta.xml.bind-api-4.0.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\jakarta\activation\jakarta.activation-api\2.1.3\jakarta.activation-api-2.1.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\net\minidev\json-smart\2.5.2\json-smart-2.5.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\net\minidev\accessors-smart\2.5.2\accessors-smart-2.5.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\ow2\asm\asm\9.7.1\asm-9.7.1.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\assertj\assertj-core\3.26.3\assertj-core-3.26.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\net\bytebuddy\byte-buddy\1.15.11\byte-buddy-1.15.11.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\awaitility\awaitility\4.2.2\awaitility-4.2.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\hamcrest\hamcrest\2.2\hamcrest-2.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\junit\jupiter\junit-jupiter\5.11.4\junit-jupiter-5.11.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.11.4\junit-jupiter-api-5.11.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\junit\platform\junit-platform-commons\1.11.4\junit-platform-commons-1.11.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.11.4\junit-jupiter-params-5.11.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.11.4\junit-jupiter-engine-5.11.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\junit\platform\junit-platform-engine\1.11.4\junit-platform-engine-1.11.4.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\mockito\mockito-core\5.14.2\mockito-core-5.14.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\net\bytebuddy\byte-buddy-agent\1.15.11\byte-buddy-agent-1.15.11.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\objenesis\objenesis\3.3\objenesis-3.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\mockito\mockito-junit-jupiter\5.14.2\mockito-junit-jupiter-5.14.2.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\skyscreamer\jsonassert\1.5.3\jsonassert-1.5.3.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\vaadin\external\google\android-json\0.0.20131108.vaadin1\android-json-0.0.20131108.vaadin1.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-core\6.2.5\spring-core-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-jcl\6.2.5\spring-jcl-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\springframework\spring-test\6.2.5\spring-test-6.2.5.jar;G:\coding\new_plan_travel_agent\.m2\repository\org\xmlunit\xmlunit-core\2.10.0\xmlunit-core-2.10.0.jar;G:\coding\new_plan_travel_agent\.m2\repository\com\h2database\h2\2.3.232\h2-2.3.232.jar;"/>
     <property name="sun.cpu.endian" value="little"/>
     <property name="user.home" value="C:\Users\ASUS"/>
@@ -35,7 +36,7 @@
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="FILE_LOG_CHARSET" value="UTF-8"/>
     <property name="java.awt.headless" value="true"/>
-    <property name="surefire.real.class.path" value="C:\Users\ASUS\AppData\Local\Temp\surefire2863936911267497111\surefirebooter-20260420155710122_3.jar"/>
+    <property name="surefire.real.class.path" value="C:\Users\ASUS\AppData\Local\Temp\surefire9788988910960017066\surefirebooter-20260420164705664_3.jar"/>
     <property name="user.script" value=""/>
     <property name="user.script.format" value="Hans"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
@@ -56,7 +57,7 @@
     <property name="user.dir" value="G:\coding\new_plan_travel_agent"/>
     <property name="os.arch" value="amd64"/>
     <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
-    <property name="PID" value="1416"/>
+    <property name="PID" value="11404"/>
     <property name="sun.os.patch.level" value=""/>
     <property name="CONSOLE_LOG_CHARSET" value="UTF-8"/>
     <property name="native.encoding" value="GBK"/>
@@ -69,224 +70,312 @@
     <property name="java.class.version" value="65.0"/>
     <property name="LOGGED_APPLICATION_NAME" value="[travel-agent] "/>
   </properties>
-  <testcase name="logout_then_protectedCall_returns401" classname="com.travelagent.integration.AuthIntegrationTest" time="0.165">
-    <system-out><![CDATA[2026-04-20 15:57:36.436 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:36.437 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@53106235]
-2026-04-20 15:57:36.437 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1084931195 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
-2026-04-20 15:57:36.437 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.438 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: dave@example.com(String)
-2026-04-20 15:57:36.439 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
-2026-04-20 15:57:36.439 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@53106235]
-2026-04-20 15:57:36.439 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@53106235] from current transaction
-2026-04-20 15:57:36.440 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.440 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: dave(String)
-2026-04-20 15:57:36.441 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
-2026-04-20 15:57:36.441 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@53106235]
-2026-04-20 15:57:36.503 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@53106235] from current transaction
-2026-04-20 15:57:36.504 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-2026-04-20 15:57:36.504 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: dave(String), dave@example.com(String), $2a$10$.a1/PpqsP1olNmw9PqAGzuVFV0I.mfEkS3aGvepOErVAltWG0EGH.(String), 1(Integer), 1(Integer)
-2026-04-20 15:57:36.505 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
-2026-04-20 15:57:36.505 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@53106235]
-2026-04-20 15:57:36.505 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=dave@example.com
-2026-04-20 15:57:36.505 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@53106235]
-2026-04-20 15:57:36.505 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@53106235]
-2026-04-20 15:57:36.505 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@53106235]
-2026-04-20 15:57:36.508 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:36.508 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5efa1444] was not registered for synchronization because synchronization is not active
-2026-04-20 15:57:36.508 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@470809470 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
-2026-04-20 15:57:36.508 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==>  Preparing: SELECT * FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1
-2026-04-20 15:57:36.509 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==> Parameters: dave@example.com(String)
-2026-04-20 15:57:36.510 [main] DEBUG c.t.mapper.UserMapper.findByEmail - <==      Total: 1
-2026-04-20 15:57:36.511 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5efa1444]
-2026-04-20 15:57:36.573 [main] INFO  c.t.s.user.impl.UserServiceImpl - User logged in: id=1
-2026-04-20 15:57:36.576 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:36.576 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1e80fc9a] was not registered for synchronization because synchronization is not active
-2026-04-20 15:57:36.577 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@2128407479 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
-2026-04-20 15:57:36.577 [main] DEBUG c.t.mapper.TaskMapper.findByUserId - ==>  Preparing: SELECT * FROM tasks WHERE user_id = ? ORDER BY created_at DESC
-2026-04-20 15:57:36.577 [main] DEBUG c.t.mapper.TaskMapper.findByUserId - ==> Parameters: 1(Long)
-2026-04-20 15:57:36.578 [main] DEBUG c.t.mapper.TaskMapper.findByUserId - <==      Total: 0
-2026-04-20 15:57:36.578 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1e80fc9a]
-2026-04-20 15:57:36.584 [main] INFO  c.t.s.user.impl.UserServiceImpl - Token blacklisted (logout), remaining validity: 86399418ms
+  <testcase name="logout_then_protectedCall_returns401" classname="com.travelagent.integration.AuthIntegrationTest" time="1.817">
+    <system-out><![CDATA[Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+2026-04-20 16:47:07.003 [main] INFO  o.s.t.c.s.AnnotationConfigContextLoaderUtils - Could not detect default configuration classes for test class [com.travelagent.integration.AuthIntegrationTest]: AuthIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-04-20 16:47:07.307 [main] INFO  o.s.b.t.c.SpringBootTestContextBootstrapper - Found @SpringBootConfiguration com.travelagent.TravelAgentApplication for test class com.travelagent.integration.AuthIntegrationTest
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.4.4)
+
+2026-04-20 16:47:08.083 [main] INFO  c.t.integration.AuthIntegrationTest - Starting AuthIntegrationTest using Java 21.0.9.0.9 with PID 11404 (started by ASUS in G:\coding\new_plan_travel_agent)
+2026-04-20 16:47:08.084 [main] DEBUG c.t.integration.AuthIntegrationTest - Running with Spring Boot v3.4.4, Spring v6.2.5
+2026-04-20 16:47:08.085 [main] INFO  c.t.integration.AuthIntegrationTest - The following 1 profile is active: "test"
+2026-04-20 16:47:09.903 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\AttractionMapper.class]
+2026-04-20 16:47:09.903 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\LlmCallLogMapper.class]
+2026-04-20 16:47:09.904 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\PlanMapper.class]
+2026-04-20 16:47:09.904 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\RagChunkMapper.class]
+2026-04-20 16:47:09.904 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\RagDocumentMapper.class]
+2026-04-20 16:47:09.904 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\TaskMapper.class]
+2026-04-20 16:47:09.904 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\UserMapper.class]
+2026-04-20 16:47:09.904 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\UserQuotaConfigMapper.class]
+2026-04-20 16:47:09.904 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\UserQuotaUsageMapper.class]
+2026-04-20 16:47:09.907 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'attractionMapper' and 'com.travelagent.mapper.AttractionMapper' mapperInterface
+2026-04-20 16:47:09.908 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'attractionMapper'.
+2026-04-20 16:47:09.909 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'llmCallLogMapper' and 'com.travelagent.mapper.LlmCallLogMapper' mapperInterface
+2026-04-20 16:47:09.909 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'llmCallLogMapper'.
+2026-04-20 16:47:09.909 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'planMapper' and 'com.travelagent.mapper.PlanMapper' mapperInterface
+2026-04-20 16:47:09.915 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'planMapper'.
+2026-04-20 16:47:09.915 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'ragChunkMapper' and 'com.travelagent.mapper.RagChunkMapper' mapperInterface
+2026-04-20 16:47:09.916 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'ragChunkMapper'.
+2026-04-20 16:47:09.917 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'ragDocumentMapper' and 'com.travelagent.mapper.RagDocumentMapper' mapperInterface
+2026-04-20 16:47:09.917 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'ragDocumentMapper'.
+2026-04-20 16:47:09.918 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'taskMapper' and 'com.travelagent.mapper.TaskMapper' mapperInterface
+2026-04-20 16:47:09.918 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'taskMapper'.
+2026-04-20 16:47:09.919 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'userMapper' and 'com.travelagent.mapper.UserMapper' mapperInterface
+2026-04-20 16:47:09.919 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'userMapper'.
+2026-04-20 16:47:09.920 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'userQuotaConfigMapper' and 'com.travelagent.mapper.UserQuotaConfigMapper' mapperInterface
+2026-04-20 16:47:09.921 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'userQuotaConfigMapper'.
+2026-04-20 16:47:09.921 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'userQuotaUsageMapper' and 'com.travelagent.mapper.UserQuotaUsageMapper' mapperInterface
+2026-04-20 16:47:09.922 [main] DEBUG o.m.s.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'userQuotaUsageMapper'.
+2026-04-20 16:47:15.520 [main] DEBUG o.m.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\AttractionMapper.xml]'
+2026-04-20 16:47:15.529 [main] DEBUG o.m.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\LlmCallLogMapper.xml]'
+2026-04-20 16:47:15.554 [main] DEBUG o.m.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\PlanMapper.xml]'
+2026-04-20 16:47:15.565 [main] DEBUG o.m.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\RagChunkMapper.xml]'
+2026-04-20 16:47:15.577 [main] DEBUG o.m.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\RagDocumentMapper.xml]'
+2026-04-20 16:47:15.592 [main] DEBUG o.m.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\TaskMapper.xml]'
+2026-04-20 16:47:15.613 [main] DEBUG o.m.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\UserMapper.xml]'
+2026-04-20 16:47:15.623 [main] DEBUG o.m.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\UserQuotaConfigMapper.xml]'
+2026-04-20 16:47:15.633 [main] DEBUG o.m.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\UserQuotaUsageMapper.xml]'
+2026-04-20 16:47:17.404 [main] INFO  c.t.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 16:47:17.419 [main] INFO  c.t.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-20 16:47:17.420 [main] INFO  c.t.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-20 16:47:22.497 [main] INFO  c.t.integration.AuthIntegrationTest - Started AuthIntegrationTest in 14.983 seconds (process running for 16.697)
+2026-04-20 16:47:23.589 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:23.611 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@51d2218e]
+2026-04-20 16:47:23.671 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@871464253 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
+2026-04-20 16:47:23.689 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
+2026-04-20 16:47:23.749 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: dave@example.com(String)
+2026-04-20 16:47:23.821 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
+2026-04-20 16:47:23.841 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@51d2218e]
+2026-04-20 16:47:23.843 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@51d2218e] from current transaction
+2026-04-20 16:47:23.845 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
+2026-04-20 16:47:23.845 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: dave(String)
+2026-04-20 16:47:23.846 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
+2026-04-20 16:47:23.846 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@51d2218e]
+2026-04-20 16:47:23.933 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@51d2218e] from current transaction
+2026-04-20 16:47:23.936 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+2026-04-20 16:47:23.945 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: dave(String), dave@example.com(String), $2a$10$ps9N1v5azlRe585ZthLDPOAtzoSl5wpKCPQCtoBAtJBD3oqqHdszS(String), 1(Integer), 1(Integer)
+2026-04-20 16:47:23.947 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
+2026-04-20 16:47:23.953 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@51d2218e]
+2026-04-20 16:47:23.954 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=dave@example.com
+2026-04-20 16:47:23.955 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@51d2218e]
+2026-04-20 16:47:23.958 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@51d2218e]
+2026-04-20 16:47:23.959 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@51d2218e]
+2026-04-20 16:47:24.060 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.061 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2a85e4f4] was not registered for synchronization because synchronization is not active
+2026-04-20 16:47:24.062 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@994026688 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-20 16:47:24.062 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==>  Preparing: SELECT * FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1
+2026-04-20 16:47:24.062 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==> Parameters: dave@example.com(String)
+2026-04-20 16:47:24.066 [main] DEBUG c.t.mapper.UserMapper.findByEmail - <==      Total: 1
+2026-04-20 16:47:24.066 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2a85e4f4]
+2026-04-20 16:47:24.226 [main] INFO  c.t.s.user.impl.UserServiceImpl - User logged in: id=1
+2026-04-20 16:47:24.290 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.290 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@56595dcb] was not registered for synchronization because synchronization is not active
+2026-04-20 16:47:24.291 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@460422403 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-20 16:47:24.291 [main] DEBUG c.t.m.U.findUserActiveStatus - ==>  Preparing: SELECT (status = 1 AND deleted_at IS NULL) FROM users WHERE id = ? LIMIT 1
+2026-04-20 16:47:24.292 [main] DEBUG c.t.m.U.findUserActiveStatus - ==> Parameters: 1(Long)
+2026-04-20 16:47:24.293 [main] DEBUG c.t.m.U.findUserActiveStatus - <==      Total: 1
+2026-04-20 16:47:24.294 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@56595dcb]
+2026-04-20 16:47:24.296 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.296 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3467d540] was not registered for synchronization because synchronization is not active
+2026-04-20 16:47:24.297 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1735461778 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-20 16:47:24.297 [main] DEBUG c.t.mapper.TaskMapper.findByUserId - ==>  Preparing: SELECT * FROM tasks WHERE user_id = ? ORDER BY created_at DESC
+2026-04-20 16:47:24.300 [main] DEBUG c.t.mapper.TaskMapper.findByUserId - ==> Parameters: 1(Long)
+2026-04-20 16:47:24.301 [main] DEBUG c.t.mapper.TaskMapper.findByUserId - <==      Total: 0
+2026-04-20 16:47:24.302 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3467d540]
+2026-04-20 16:47:24.308 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.308 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5bf963a] was not registered for synchronization because synchronization is not active
+2026-04-20 16:47:24.308 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@708359623 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-20 16:47:24.308 [main] DEBUG c.t.m.U.findUserActiveStatus - ==>  Preparing: SELECT (status = 1 AND deleted_at IS NULL) FROM users WHERE id = ? LIMIT 1
+2026-04-20 16:47:24.309 [main] DEBUG c.t.m.U.findUserActiveStatus - ==> Parameters: 1(Long)
+2026-04-20 16:47:24.309 [main] DEBUG c.t.m.U.findUserActiveStatus - <==      Total: 1
+2026-04-20 16:47:24.310 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5bf963a]
+2026-04-20 16:47:24.320 [main] INFO  c.t.s.user.impl.UserServiceImpl - Token blacklisted (logout), remaining validity: 86399689ms
+]]></system-out>
+    <system-err><![CDATA[SLF4J(W): Class path contains multiple SLF4J providers.
+SLF4J(W): Found provider [ch.qos.logback.classic.spi.LogbackServiceProvider@26e356f0]
+SLF4J(W): Found provider [org.slf4j.simple.SimpleServiceProvider@47d9a273]
+SLF4J(W): See https://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+SLF4J(I): Actual provider is of type [ch.qos.logback.classic.spi.LogbackServiceProvider@26e356f0]
+Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build what is described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/Mockito.html#0.3
+WARNING: A Java agent has been loaded dynamically (G:\coding\new_plan_travel_agent\.m2\repository\net\bytebuddy\byte-buddy-agent\1.15.11\byte-buddy-agent-1.15.11.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+]]></system-err>
+  </testcase>
+  <testcase name="protectedEndpoint_withoutToken_returns401" classname="com.travelagent.integration.AuthIntegrationTest" time="0.018"/>
+  <testcase name="login_success" classname="com.travelagent.integration.AuthIntegrationTest" time="0.179">
+    <system-out><![CDATA[2026-04-20 16:47:24.410 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.411 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@a538180]
+2026-04-20 16:47:24.411 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1584679755 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
+2026-04-20 16:47:24.411 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.412 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: bob@example.com(String)
+2026-04-20 16:47:24.413 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
+2026-04-20 16:47:24.413 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@a538180]
+2026-04-20 16:47:24.413 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@a538180] from current transaction
+2026-04-20 16:47:24.413 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.414 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: bob(String)
+2026-04-20 16:47:24.414 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
+2026-04-20 16:47:24.415 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@a538180]
+2026-04-20 16:47:24.475 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@a538180] from current transaction
+2026-04-20 16:47:24.476 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+2026-04-20 16:47:24.476 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: bob(String), bob@example.com(String), $2a$10$Ot1Lfzh00T5ukrPPUqX2V.Kv4eOmkZCmA/DgUgtLU4lDWpg/zzbei(String), 1(Integer), 1(Integer)
+2026-04-20 16:47:24.477 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
+2026-04-20 16:47:24.477 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@a538180]
+2026-04-20 16:47:24.477 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=bob@example.com
+2026-04-20 16:47:24.477 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@a538180]
+2026-04-20 16:47:24.477 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@a538180]
+2026-04-20 16:47:24.478 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@a538180]
+2026-04-20 16:47:24.480 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.480 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6740b169] was not registered for synchronization because synchronization is not active
+2026-04-20 16:47:24.480 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1904833408 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-20 16:47:24.480 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==>  Preparing: SELECT * FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1
+2026-04-20 16:47:24.481 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==> Parameters: bob@example.com(String)
+2026-04-20 16:47:24.482 [main] DEBUG c.t.mapper.UserMapper.findByEmail - <==      Total: 1
+2026-04-20 16:47:24.483 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6740b169]
+2026-04-20 16:47:24.541 [main] INFO  c.t.s.user.impl.UserServiceImpl - User logged in: id=1
 ]]></system-out>
   </testcase>
-  <testcase name="protectedEndpoint_withoutToken_returns401" classname="com.travelagent.integration.AuthIntegrationTest" time="0.012"/>
-  <testcase name="login_success" classname="com.travelagent.integration.AuthIntegrationTest" time="0.149">
-    <system-out><![CDATA[2026-04-20 15:57:36.615 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:36.616 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1dd241a0]
-2026-04-20 15:57:36.616 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@329184374 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
-2026-04-20 15:57:36.616 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.617 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: bob@example.com(String)
-2026-04-20 15:57:36.617 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
-2026-04-20 15:57:36.618 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1dd241a0]
-2026-04-20 15:57:36.618 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1dd241a0] from current transaction
-2026-04-20 15:57:36.618 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.619 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: bob(String)
-2026-04-20 15:57:36.619 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
-2026-04-20 15:57:36.619 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1dd241a0]
-2026-04-20 15:57:36.683 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1dd241a0] from current transaction
-2026-04-20 15:57:36.683 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-2026-04-20 15:57:36.683 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: bob(String), bob@example.com(String), $2a$10$Vkxp/Uc5Hk4AtraCXV4kM.ZlG.XEev.tWxtGTFStPbB3fgG6kPtSa(String), 1(Integer), 1(Integer)
-2026-04-20 15:57:36.684 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
-2026-04-20 15:57:36.684 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1dd241a0]
-2026-04-20 15:57:36.684 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=bob@example.com
-2026-04-20 15:57:36.684 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1dd241a0]
-2026-04-20 15:57:36.684 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1dd241a0]
-2026-04-20 15:57:36.684 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1dd241a0]
-2026-04-20 15:57:36.686 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:36.687 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@4de4c093] was not registered for synchronization because synchronization is not active
-2026-04-20 15:57:36.687 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1110726606 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
-2026-04-20 15:57:36.687 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==>  Preparing: SELECT * FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1
-2026-04-20 15:57:36.687 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==> Parameters: bob@example.com(String)
-2026-04-20 15:57:36.689 [main] DEBUG c.t.mapper.UserMapper.findByEmail - <==      Total: 1
-2026-04-20 15:57:36.689 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@4de4c093]
-2026-04-20 15:57:36.749 [main] INFO  c.t.s.user.impl.UserServiceImpl - User logged in: id=1
+  <testcase name="cancelAccount_softDeletes_user" classname="com.travelagent.integration.AuthIntegrationTest" time="0.169">
+    <system-out><![CDATA[2026-04-20 16:47:24.591 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.591 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20f2ccfc]
+2026-04-20 16:47:24.591 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1781293770 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
+2026-04-20 16:47:24.592 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.592 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: eve@example.com(String)
+2026-04-20 16:47:24.593 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
+2026-04-20 16:47:24.593 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20f2ccfc]
+2026-04-20 16:47:24.593 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20f2ccfc] from current transaction
+2026-04-20 16:47:24.593 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.594 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: eve(String)
+2026-04-20 16:47:24.595 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
+2026-04-20 16:47:24.595 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20f2ccfc]
+2026-04-20 16:47:24.654 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20f2ccfc] from current transaction
+2026-04-20 16:47:24.654 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+2026-04-20 16:47:24.655 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: eve(String), eve@example.com(String), $2a$10$WFaqarzbZjTuvjrn8kQ2AOOKlkOzj/grDuNSIDF3cy43IozY7FG2a(String), 1(Integer), 1(Integer)
+2026-04-20 16:47:24.655 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
+2026-04-20 16:47:24.655 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20f2ccfc]
+2026-04-20 16:47:24.655 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=eve@example.com
+2026-04-20 16:47:24.656 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20f2ccfc]
+2026-04-20 16:47:24.656 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20f2ccfc]
+2026-04-20 16:47:24.656 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20f2ccfc]
+2026-04-20 16:47:24.658 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.658 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1c247e5b] was not registered for synchronization because synchronization is not active
+2026-04-20 16:47:24.658 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@713544719 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-20 16:47:24.658 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==>  Preparing: SELECT * FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1
+2026-04-20 16:47:24.659 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==> Parameters: eve@example.com(String)
+2026-04-20 16:47:24.660 [main] DEBUG c.t.mapper.UserMapper.findByEmail - <==      Total: 1
+2026-04-20 16:47:24.660 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1c247e5b]
+2026-04-20 16:47:24.720 [main] INFO  c.t.s.user.impl.UserServiceImpl - User logged in: id=1
+2026-04-20 16:47:24.723 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.723 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@586fe6ee] was not registered for synchronization because synchronization is not active
+2026-04-20 16:47:24.723 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1373435163 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-20 16:47:24.723 [main] DEBUG c.t.m.U.findUserActiveStatus - ==>  Preparing: SELECT (status = 1 AND deleted_at IS NULL) FROM users WHERE id = ? LIMIT 1
+2026-04-20 16:47:24.724 [main] DEBUG c.t.m.U.findUserActiveStatus - ==> Parameters: 1(Long)
+2026-04-20 16:47:24.724 [main] DEBUG c.t.m.U.findUserActiveStatus - <==      Total: 1
+2026-04-20 16:47:24.725 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@586fe6ee]
+2026-04-20 16:47:24.727 [main] INFO  c.t.s.user.impl.UserServiceImpl - Token blacklisted (logout), remaining validity: 86399273ms
+2026-04-20 16:47:24.728 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.728 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@754fa706]
+2026-04-20 16:47:24.728 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1629454632 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
+2026-04-20 16:47:24.728 [main] DEBUG c.t.mapper.UserMapper.findById - ==>  Preparing: SELECT * FROM users WHERE id = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.729 [main] DEBUG c.t.mapper.UserMapper.findById - ==> Parameters: 1(Long)
+2026-04-20 16:47:24.730 [main] DEBUG c.t.mapper.UserMapper.findById - <==      Total: 1
+2026-04-20 16:47:24.730 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@754fa706]
+2026-04-20 16:47:24.730 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@754fa706] from current transaction
+2026-04-20 16:47:24.730 [main] DEBUG c.t.mapper.UserMapper.softDelete - ==>  Preparing: UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.732 [main] DEBUG c.t.mapper.UserMapper.softDelete - ==> Parameters: 1(Long)
+2026-04-20 16:47:24.733 [main] DEBUG c.t.mapper.UserMapper.softDelete - <==    Updates: 1
+2026-04-20 16:47:24.733 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@754fa706]
+2026-04-20 16:47:24.733 [main] INFO  c.t.s.user.impl.UserServiceImpl - Account cancelled (soft-deleted): userId=1
+2026-04-20 16:47:24.733 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@754fa706]
+2026-04-20 16:47:24.733 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@754fa706]
+2026-04-20 16:47:24.733 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@754fa706]
+2026-04-20 16:47:24.735 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.736 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@74944d7f] was not registered for synchronization because synchronization is not active
+2026-04-20 16:47:24.736 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@119454766 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-20 16:47:24.736 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==>  Preparing: SELECT * FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1
+2026-04-20 16:47:24.737 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==> Parameters: eve@example.com(String)
+2026-04-20 16:47:24.737 [main] DEBUG c.t.mapper.UserMapper.findByEmail - <==      Total: 0
+2026-04-20 16:47:24.737 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@74944d7f]
+2026-04-20 16:47:24.739 [main] WARN  c.t.exception.GlobalExceptionHandler - Business exception: [401] 邮箱或密码错误
 ]]></system-out>
   </testcase>
-  <testcase name="cancelAccount_softDeletes_user" classname="com.travelagent.integration.AuthIntegrationTest" time="0.149">
-    <system-out><![CDATA[2026-04-20 15:57:36.765 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:36.765 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2f10bd06]
-2026-04-20 15:57:36.765 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@381598979 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
-2026-04-20 15:57:36.765 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.766 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: eve@example.com(String)
-2026-04-20 15:57:36.766 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
-2026-04-20 15:57:36.766 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2f10bd06]
-2026-04-20 15:57:36.766 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2f10bd06] from current transaction
-2026-04-20 15:57:36.766 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.766 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: eve(String)
-2026-04-20 15:57:36.767 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
-2026-04-20 15:57:36.767 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2f10bd06]
-2026-04-20 15:57:36.825 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2f10bd06] from current transaction
-2026-04-20 15:57:36.826 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-2026-04-20 15:57:36.826 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: eve(String), eve@example.com(String), $2a$10$dJH11YuUq6xZVHr.z/klzO.rJW2Vs1ZNnM9n3Z6oDVXxr2RipQdUe(String), 1(Integer), 1(Integer)
-2026-04-20 15:57:36.826 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
-2026-04-20 15:57:36.826 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2f10bd06]
-2026-04-20 15:57:36.826 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=eve@example.com
-2026-04-20 15:57:36.827 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2f10bd06]
-2026-04-20 15:57:36.827 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2f10bd06]
-2026-04-20 15:57:36.827 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2f10bd06]
-2026-04-20 15:57:36.828 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:36.829 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1393dd72] was not registered for synchronization because synchronization is not active
-2026-04-20 15:57:36.829 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@968997515 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
-2026-04-20 15:57:36.829 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==>  Preparing: SELECT * FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1
-2026-04-20 15:57:36.829 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==> Parameters: eve@example.com(String)
-2026-04-20 15:57:36.830 [main] DEBUG c.t.mapper.UserMapper.findByEmail - <==      Total: 1
-2026-04-20 15:57:36.830 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1393dd72]
-2026-04-20 15:57:36.891 [main] INFO  c.t.s.user.impl.UserServiceImpl - User logged in: id=1
-2026-04-20 15:57:36.894 [main] INFO  c.t.s.user.impl.UserServiceImpl - Token blacklisted (logout), remaining validity: 86399106ms
-2026-04-20 15:57:36.895 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:36.895 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5b1636a6]
-2026-04-20 15:57:36.895 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@728875923 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
-2026-04-20 15:57:36.895 [main] DEBUG c.t.mapper.UserMapper.findById - ==>  Preparing: SELECT * FROM users WHERE id = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.896 [main] DEBUG c.t.mapper.UserMapper.findById - ==> Parameters: 1(Long)
-2026-04-20 15:57:36.896 [main] DEBUG c.t.mapper.UserMapper.findById - <==      Total: 1
-2026-04-20 15:57:36.896 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5b1636a6]
-2026-04-20 15:57:36.897 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5b1636a6] from current transaction
-2026-04-20 15:57:36.897 [main] DEBUG c.t.mapper.UserMapper.softDelete - ==>  Preparing: UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.897 [main] DEBUG c.t.mapper.UserMapper.softDelete - ==> Parameters: 1(Long)
-2026-04-20 15:57:36.898 [main] DEBUG c.t.mapper.UserMapper.softDelete - <==    Updates: 1
-2026-04-20 15:57:36.898 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5b1636a6]
-2026-04-20 15:57:36.898 [main] INFO  c.t.s.user.impl.UserServiceImpl - Account cancelled (soft-deleted): userId=1
-2026-04-20 15:57:36.898 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5b1636a6]
-2026-04-20 15:57:36.898 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5b1636a6]
-2026-04-20 15:57:36.898 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5b1636a6]
-2026-04-20 15:57:36.899 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:36.899 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@42657f8] was not registered for synchronization because synchronization is not active
-2026-04-20 15:57:36.899 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1861219036 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
-2026-04-20 15:57:36.899 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==>  Preparing: SELECT * FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1
-2026-04-20 15:57:36.900 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==> Parameters: eve@example.com(String)
-2026-04-20 15:57:36.900 [main] DEBUG c.t.mapper.UserMapper.findByEmail - <==      Total: 0
-2026-04-20 15:57:36.900 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@42657f8]
-2026-04-20 15:57:36.901 [main] WARN  c.t.exception.GlobalExceptionHandler - Business exception: [401] 邮箱或密码错误
+  <testcase name="register_success" classname="com.travelagent.integration.AuthIntegrationTest" time="0.089">
+    <system-out><![CDATA[2026-04-20 16:47:24.762 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.762 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2a4edf0b]
+2026-04-20 16:47:24.762 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@426914923 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
+2026-04-20 16:47:24.762 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.763 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: alice@example.com(String)
+2026-04-20 16:47:24.763 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
+2026-04-20 16:47:24.763 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2a4edf0b]
+2026-04-20 16:47:24.763 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2a4edf0b] from current transaction
+2026-04-20 16:47:24.763 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.764 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: alice(String)
+2026-04-20 16:47:24.764 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
+2026-04-20 16:47:24.764 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2a4edf0b]
+2026-04-20 16:47:24.823 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2a4edf0b] from current transaction
+2026-04-20 16:47:24.824 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+2026-04-20 16:47:24.824 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: alice(String), alice@example.com(String), $2a$10$NeEwChYsMD2sjeCv9TqsgOR2SDubvQ8r7bawkaeZQzHN//E6b06zG(String), 1(Integer), 1(Integer)
+2026-04-20 16:47:24.825 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
+2026-04-20 16:47:24.826 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2a4edf0b]
+2026-04-20 16:47:24.826 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=alice@example.com
+2026-04-20 16:47:24.826 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2a4edf0b]
+2026-04-20 16:47:24.826 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2a4edf0b]
+2026-04-20 16:47:24.826 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2a4edf0b]
 ]]></system-out>
   </testcase>
-  <testcase name="register_success" classname="com.travelagent.integration.AuthIntegrationTest" time="0.078">
-    <system-out><![CDATA[2026-04-20 15:57:36.916 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:36.916 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3e5796a0]
-2026-04-20 15:57:36.916 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@747892972 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
-2026-04-20 15:57:36.917 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.917 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: alice@example.com(String)
-2026-04-20 15:57:36.918 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
-2026-04-20 15:57:36.918 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3e5796a0]
-2026-04-20 15:57:36.918 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3e5796a0] from current transaction
-2026-04-20 15:57:36.918 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.918 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: alice(String)
-2026-04-20 15:57:36.919 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
-2026-04-20 15:57:36.919 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3e5796a0]
-2026-04-20 15:57:36.977 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3e5796a0] from current transaction
-2026-04-20 15:57:36.978 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-2026-04-20 15:57:36.978 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: alice(String), alice@example.com(String), $2a$10$JUu33DD.yvpzmIz7Vo2xDudR4KzcfJXXGf8sOUeKeXVd3Ug7C4Jiy(String), 1(Integer), 1(Integer)
-2026-04-20 15:57:36.979 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
-2026-04-20 15:57:36.979 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3e5796a0]
-2026-04-20 15:57:36.979 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=alice@example.com
-2026-04-20 15:57:36.979 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3e5796a0]
-2026-04-20 15:57:36.979 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3e5796a0]
-2026-04-20 15:57:36.979 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3e5796a0]
+  <testcase name="register_duplicateEmail_returns400" classname="com.travelagent.integration.AuthIntegrationTest" time="0.088">
+    <system-out><![CDATA[2026-04-20 16:47:24.850 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.850 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6224872f]
+2026-04-20 16:47:24.851 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1100891835 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
+2026-04-20 16:47:24.851 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.851 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: dup@example.com(String)
+2026-04-20 16:47:24.852 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
+2026-04-20 16:47:24.852 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6224872f]
+2026-04-20 16:47:24.852 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6224872f] from current transaction
+2026-04-20 16:47:24.852 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.853 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: alice(String)
+2026-04-20 16:47:24.853 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
+2026-04-20 16:47:24.853 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6224872f]
+2026-04-20 16:47:24.914 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6224872f] from current transaction
+2026-04-20 16:47:24.914 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+2026-04-20 16:47:24.915 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: alice(String), dup@example.com(String), $2a$10$34v5ApGebwsom5KfzFRp4uPBHxRn3OlmR4aW8EB5FC03A/KqF67Xi(String), 1(Integer), 1(Integer)
+2026-04-20 16:47:24.916 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
+2026-04-20 16:47:24.916 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6224872f]
+2026-04-20 16:47:24.916 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=dup@example.com
+2026-04-20 16:47:24.916 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6224872f]
+2026-04-20 16:47:24.916 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6224872f]
+2026-04-20 16:47:24.916 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6224872f]
+2026-04-20 16:47:24.918 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.919 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1531fbc8]
+2026-04-20 16:47:24.919 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@57082479 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
+2026-04-20 16:47:24.919 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.920 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: dup@example.com(String)
+2026-04-20 16:47:24.921 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
+2026-04-20 16:47:24.921 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1531fbc8]
+2026-04-20 16:47:24.921 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1531fbc8]
+2026-04-20 16:47:24.921 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1531fbc8]
+2026-04-20 16:47:24.923 [main] WARN  c.t.exception.GlobalExceptionHandler - Business exception: [400] 邮箱已被注册
 ]]></system-out>
   </testcase>
-  <testcase name="register_duplicateEmail_returns400" classname="com.travelagent.integration.AuthIntegrationTest" time="0.08">
-    <system-out><![CDATA[2026-04-20 15:57:36.996 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:36.996 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@7d4d32a7]
-2026-04-20 15:57:36.996 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1707252812 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
-2026-04-20 15:57:36.996 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.996 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: dup@example.com(String)
-2026-04-20 15:57:36.997 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
-2026-04-20 15:57:36.997 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@7d4d32a7]
-2026-04-20 15:57:36.997 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@7d4d32a7] from current transaction
-2026-04-20 15:57:36.997 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
-2026-04-20 15:57:36.997 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: alice(String)
-2026-04-20 15:57:36.998 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
-2026-04-20 15:57:36.998 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@7d4d32a7]
-2026-04-20 15:57:37.057 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@7d4d32a7] from current transaction
-2026-04-20 15:57:37.058 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-2026-04-20 15:57:37.058 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: alice(String), dup@example.com(String), $2a$10$68hCm/9.vjScX3cTSgfY/ONARYW.WhZUN/j5.OMY3Bv3AxvZFzdWO(String), 1(Integer), 1(Integer)
-2026-04-20 15:57:37.058 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
-2026-04-20 15:57:37.058 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@7d4d32a7]
-2026-04-20 15:57:37.058 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=dup@example.com
-2026-04-20 15:57:37.058 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@7d4d32a7]
-2026-04-20 15:57:37.058 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@7d4d32a7]
-2026-04-20 15:57:37.058 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@7d4d32a7]
-2026-04-20 15:57:37.060 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:37.061 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@474b3a3d]
-2026-04-20 15:57:37.061 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1439433199 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
-2026-04-20 15:57:37.061 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
-2026-04-20 15:57:37.061 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: dup@example.com(String)
-2026-04-20 15:57:37.062 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
-2026-04-20 15:57:37.062 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@474b3a3d]
-2026-04-20 15:57:37.063 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@474b3a3d]
-2026-04-20 15:57:37.063 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@474b3a3d]
-2026-04-20 15:57:37.064 [main] WARN  c.t.exception.GlobalExceptionHandler - Business exception: [400] 邮箱已被注册
-]]></system-out>
-  </testcase>
-  <testcase name="login_wrongPassword_returns401" classname="com.travelagent.integration.AuthIntegrationTest" time="0.138">
-    <system-out><![CDATA[2026-04-20 15:57:37.077 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:37.077 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@294ce57a]
-2026-04-20 15:57:37.077 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1083296962 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
-2026-04-20 15:57:37.077 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
-2026-04-20 15:57:37.078 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: carol@example.com(String)
-2026-04-20 15:57:37.078 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
-2026-04-20 15:57:37.078 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@294ce57a]
-2026-04-20 15:57:37.078 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@294ce57a] from current transaction
-2026-04-20 15:57:37.078 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
-2026-04-20 15:57:37.079 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: carol(String)
-2026-04-20 15:57:37.079 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
-2026-04-20 15:57:37.079 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@294ce57a]
-2026-04-20 15:57:37.137 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@294ce57a] from current transaction
-2026-04-20 15:57:37.138 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-2026-04-20 15:57:37.138 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: carol(String), carol@example.com(String), $2a$10$wOKdXuGI3taLSRmSr0hIAeZQ4D.ShJkwtVBgy5czSpZI7fsfy/n1W(String), 1(Integer), 1(Integer)
-2026-04-20 15:57:37.139 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
-2026-04-20 15:57:37.139 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@294ce57a]
-2026-04-20 15:57:37.139 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=carol@example.com
-2026-04-20 15:57:37.139 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@294ce57a]
-2026-04-20 15:57:37.139 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@294ce57a]
-2026-04-20 15:57:37.139 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@294ce57a]
-2026-04-20 15:57:37.141 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
-2026-04-20 15:57:37.141 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5418a0f6] was not registered for synchronization because synchronization is not active
-2026-04-20 15:57:37.142 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@447866938 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
-2026-04-20 15:57:37.142 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==>  Preparing: SELECT * FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1
-2026-04-20 15:57:37.142 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==> Parameters: carol@example.com(String)
-2026-04-20 15:57:37.143 [main] DEBUG c.t.mapper.UserMapper.findByEmail - <==      Total: 1
-2026-04-20 15:57:37.143 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5418a0f6]
-2026-04-20 15:57:37.203 [main] WARN  c.t.exception.GlobalExceptionHandler - Business exception: [401] 邮箱或密码错误
+  <testcase name="login_wrongPassword_returns401" classname="com.travelagent.integration.AuthIntegrationTest" time="0.144">
+    <system-out><![CDATA[2026-04-20 16:47:24.940 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:24.941 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Registering transaction synchronization for SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5078c8f6]
+2026-04-20 16:47:24.941 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1753295732 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will be managed by Spring
+2026-04-20 16:47:24.941 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE email = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.941 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - ==> Parameters: carol@example.com(String)
+2026-04-20 16:47:24.942 [main] DEBUG c.t.mapper.UserMapper.existsByEmail - <==      Total: 1
+2026-04-20 16:47:24.942 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5078c8f6]
+2026-04-20 16:47:24.942 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5078c8f6] from current transaction
+2026-04-20 16:47:24.942 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==>  Preparing: SELECT COUNT(*) > 0 FROM users WHERE username = ? AND deleted_at IS NULL
+2026-04-20 16:47:24.943 [main] DEBUG c.t.m.UserMapper.existsByUsername - ==> Parameters: carol(String)
+2026-04-20 16:47:24.943 [main] DEBUG c.t.m.UserMapper.existsByUsername - <==      Total: 1
+2026-04-20 16:47:24.943 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5078c8f6]
+2026-04-20 16:47:25.002 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Fetched SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5078c8f6] from current transaction
+2026-04-20 16:47:25.002 [main] DEBUG c.t.mapper.UserMapper.insert - ==>  Preparing: INSERT INTO users (username, email, password_hash, user_level, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+2026-04-20 16:47:25.002 [main] DEBUG c.t.mapper.UserMapper.insert - ==> Parameters: carol(String), carol@example.com(String), $2a$10$gLDLoFZ1gHbCppZk5eFHxe5s1e1ZK4PnmSlhbzhlFki5aejzueEf2(String), 1(Integer), 1(Integer)
+2026-04-20 16:47:25.003 [main] DEBUG c.t.mapper.UserMapper.insert - <==    Updates: 1
+2026-04-20 16:47:25.003 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Releasing transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5078c8f6]
+2026-04-20 16:47:25.004 [main] INFO  c.t.s.user.impl.UserServiceImpl - New user registered: id=1, email=carol@example.com
+2026-04-20 16:47:25.004 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization committing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5078c8f6]
+2026-04-20 16:47:25.004 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization deregistering SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5078c8f6]
+2026-04-20 16:47:25.004 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Transaction synchronization closing SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@5078c8f6]
+2026-04-20 16:47:25.006 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-20 16:47:25.006 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@f11fad9] was not registered for synchronization because synchronization is not active
+2026-04-20 16:47:25.007 [main] DEBUG o.m.s.t.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@431537333 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-20 16:47:25.007 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==>  Preparing: SELECT * FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1
+2026-04-20 16:47:25.007 [main] DEBUG c.t.mapper.UserMapper.findByEmail - ==> Parameters: carol@example.com(String)
+2026-04-20 16:47:25.008 [main] DEBUG c.t.mapper.UserMapper.findByEmail - <==      Total: 1
+2026-04-20 16:47:25.008 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@f11fad9]
+2026-04-20 16:47:25.069 [main] WARN  c.t.exception.GlobalExceptionHandler - Business exception: [401] 邮箱或密码错误
 ]]></system-out>
   </testcase>
 </testsuite>

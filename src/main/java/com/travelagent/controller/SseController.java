@@ -1,6 +1,7 @@
 package com.travelagent.controller;
 
 import com.travelagent.exception.TaskNotFoundException;
+import com.travelagent.filter.JwtAuthInterceptor;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.enums.TaskStatus;
@@ -8,8 +9,10 @@ import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,8 +25,8 @@ import java.util.Map;
 /**
  * SSE (Server-Sent Events) endpoint for real-time task progress.
  *
- * <p>This endpoint is intentionally excluded from JWT auth in {@code WebMvcConfig}:
- * the task UUID acts as a capability token (v4 UUID is not guessable).
+ * <p>Requires a valid JWT (set by {@link JwtAuthInterceptor}). Only the task owner
+ * may subscribe; other authenticated users receive 403.
  *
  * <h3>Client usage</h3>
  * <pre>
@@ -53,12 +56,20 @@ public class SseController {
     @Autowired private TaskMapper             taskMapper;
 
     @Operation(summary = "订阅任务实时进展 (SSE)",
-               description = "返回 text/event-stream。无需 JWT，任务 UUID 作为访问凭证。")
+               description = "返回 text/event-stream。需要 JWT，仅任务所有者可订阅。")
     @GetMapping(value = "/{taskUuid}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter stream(@PathVariable String taskUuid) {
+    public ResponseEntity<?> stream(@PathVariable String taskUuid, HttpServletRequest request) {
+        Long requestUserId = JwtAuthInterceptor.getUserId(request);
+
         Task task = taskMapper.findByUuid(taskUuid);
         if (task == null) {
             throw new TaskNotFoundException(taskUuid);
+        }
+
+        if (!task.getUserId().equals(requestUserId)) {
+            return ResponseEntity.status(403)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"code\":403,\"message\":\"无权访问此任务的事件流\"}");
         }
 
         SseEmitter emitter = sseNotificationService.createEmitter(taskUuid);
@@ -77,6 +88,6 @@ public class SseController {
             }
         }
 
-        return emitter;
+        return ResponseEntity.ok(emitter);
     }
 }

@@ -89,4 +89,19 @@
         WHERE status = 1 AND deleted_at IS NULL
     </select>
 
+    <!--
+        轻量级活跃状态检查：仅查主键行，返回单个布尔值。
+        true  = 账号存在且正常（status=1, deleted_at IS NULL）
+        false = 账号存在但已禁用或已软删除
+        null  = 用户不存在
+        供 JwtAuthInterceptor 在 JWT 签名验证通过后立即调用，
+        防止已禁用账号继续使用有效 token。
+    -->
+    <select id="findUserActiveStatus" resultType="java.lang.Boolean">
+        SELECT (status = 1 AND deleted_at IS NULL)
+        FROM users
+        WHERE id = #{userId}
+        LIMIT 1
+    </select>
+
 </mapper>

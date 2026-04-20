@@ -548,3 +548,6 @@
 2026-04-20 15:57:28.837 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
 2026-04-20 15:57:28.837 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
 2026-04-20 15:57:28.838 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-20 16:47:17.404 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 16:47:17.419 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-20 16:47:17.420 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather

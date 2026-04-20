@@ -55,4 +55,11 @@ public interface UserMapper {
      * 仅返回 ID，避免加载不必要的字段。
      */
     List<Long> findAllActiveIds();
+
+    /**
+     * 轻量级活跃状态检查，供 JwtAuthInterceptor 在每次认证时调用。
+     *
+     * @return true=账号正常；false=账号被禁用；null=用户不存在（已物理删除或从未注册）
+     */
+    Boolean findUserActiveStatus(@Param("userId") Long userId);
 }
