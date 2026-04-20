@@ -263,50 +263,37 @@ public class AdminController {
      * 分页查询全体用户的任务列表（管理员视角，可跨用户）。
      *
      * <p>支持按 status 过滤，例如查询当前所有 {@code planning} 中的任务：
-     * {@code GET /api/admin/tasks?status=planning}
+     * {@code GET /api/admin/tasks?status=planning&page=1&size=20}
      *
-     * <p>当不传 status 时，查询最近创建的全部任务（LIMIT 由 size 参数控制）。
-     * 实际使用中建议配合 status 过滤，避免返回数据量过大。
-     *
-     * <p>注意：本接口使用 TaskMapper.findByStatus 查询，仅支持按单一状态过滤；
-     * 若需全状态列表，可不传 status 参数，此时将查询所有状态的最新 {size} 条。
+     * <p>当不传 status 时，查询所有状态的任务（按创建时间倒序）。
+     * checkpoint_json 在 SQL 层排除，不会传输到前端。
      *
      * @param status 任务状态过滤（可选）：pending/planning/tool_calling/paused/resuming/completed/failed/cancelled
-     * @param size   返回条数上限，默认 50
+     * @param page   页码，从 1 开始，默认 1
+     * @param size   每页条数，默认 50，上限 200
      */
     @Operation(summary = "分页查询任务列表（管理员视角）",
-               description = "可按 status 过滤，不传则返回最新 size 条。用于监控当前运行中的任务。")
+               description = "可按 status 过滤，不传则返回全部状态。checkpoint_json 不暴露。支持分页（page/size）。")
     @GetMapping("/tasks")
-    public Result<List<Task>> listTasks(
+    public Result<PageInfo<Task>> listTasks(
             @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "50") int size,
             HttpServletRequest request) {
         requireAdmin(request);
 
+        if (page < 1) {
+            throw new BusinessException(400, "page 必须大于 0");
+        }
         if (size <= 0 || size > 200) {
             throw new BusinessException(400, "size 必须在 1 ~ 200 之间");
         }
 
-        List<Task> tasks;
-        if (status != null && !status.isBlank()) {
-            // 按状态查询（含 checkpoint_json，可能较大，size 不宜过大）
-            tasks = taskMapper.findByStatus(status, size);
-        } else {
-            // 不传 status 时，按最新创建时间查询（无 checkpoint_json 的轻量查询复用 findByStatus 以 % 为模式不合适，
-            // 直接用最大 limit 查询全状态数据）
-            tasks = taskMapper.findByStatus("pending", size / 7 + 1);
-            // 降级策略：对所有已知状态分别查询并合并（保持接口可用，Phase 6 可优化为专用 SQL）
-            String[] statuses = {"planning", "tool_calling", "paused", "resuming", "completed", "failed", "cancelled"};
-            for (String s : statuses) {
-                tasks.addAll(taskMapper.findByStatus(s, size / 7 + 1));
-            }
-            // 截断到 size 上限
-            if (tasks.size() > size) {
-                tasks = tasks.subList(0, size);
-            }
-        }
-        // 管理员视角不暴露 checkpoint_json（内容较大且含规划中间态，前端不需要）
+        String statusFilter = (status != null && !status.isBlank()) ? status : null;
+        PageHelper.startPage(page, size);
+        List<Task> tasks = taskMapper.findAllWithFilter(statusFilter);
+        // checkpoint_json is excluded at SQL level; this is a safety net
         tasks.forEach(t -> t.setCheckpointJson(null));
-        return Result.success(tasks);
+        return Result.success(new PageInfo<>(tasks));
     }
 }

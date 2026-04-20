@@ -5,7 +5,9 @@
       "Bash(mvn dependency:resolve -e)",
       "Bash(mvn validate:*)",
       "Bash(mvn compile *)",
-      "Bash(mvn test *)"
+      "Bash(mvn test *)",
+      "Bash(xargs cat *)",
+      "Bash(grep -v \"javassist\\\\|bytebuddy\\\\|cglib\\\\|reflect\\\\|proxy\\\\|$$\\\\|CGLIB\\\\|sun\\\\.\\\\|jdk\\\\.internal\")"
     ]
   }
 }

@@ -60,8 +60,12 @@ class JwtAuthInterceptorTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.addHeader("Authorization", "Bearer valid.jwt.token");
 
+        // Build claims BEFORE outer when() to avoid nested stubbing (nested when() inside
+        // thenReturn() argument leaves Mockito in an "UnfinishedStubbing" state which
+        // contaminates subsequent test classes via thread-local state pollution).
+        Claims claims = buildClaims(42L, 2);
         when(redisUtil.hasKey("jwt:blacklist:valid.jwt.token")).thenReturn(false);
-        when(jwtUtil.parseToken("valid.jwt.token")).thenReturn(buildClaims(42L, 2));
+        when(jwtUtil.parseToken("valid.jwt.token")).thenReturn(claims);
 
         boolean result = interceptor.preHandle(request, response, null);
 

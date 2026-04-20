@@ -45,6 +45,24 @@
         LIMIT #{limit}
     </select>
 
+    <!--
+        Admin cross-status paginated query.
+        checkpoint_json intentionally excluded (MEDIUMTEXT, not needed in admin view).
+        PageHelper injects LIMIT/OFFSET automatically.
+    -->
+    <select id="findAllWithFilter" resultMap="taskResultMap">
+        SELECT id, task_uuid, user_id, status, region,
+               schema_version, total_tokens_used, error_message,
+               created_at, updated_at, completed_at
+        FROM tasks
+        <where>
+            <if test="status != null and status != ''">
+                status = #{status}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+    </select>
+
     <!-- Count tasks in active states (for concurrency limit enforcement) -->
     <select id="countActiveByUserId" resultType="int">
         SELECT COUNT(*) FROM tasks

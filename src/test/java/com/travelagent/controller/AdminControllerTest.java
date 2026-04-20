@@ -302,21 +302,61 @@ class AdminControllerTest {
     // ===================== GET /api/admin/tasks =====================
 
     @Test
-    @DisplayName("管理员查询运行中任务（按状态过滤）- 返回任务列表，不含 checkpoint_json")
+    @DisplayName("管理员查询运行中任务（按状态过滤）- 返回 PageInfo，不含 checkpoint_json")
     void listTasks_byStatus_success() throws Exception {
         Task task = buildTask("planning");
 
         try (MockedStatic<JwtAuthInterceptor> mocked = mockStatic(JwtAuthInterceptor.class)) {
             mocked.when(() -> JwtAuthInterceptor.getUserId(any())).thenReturn(ADMIN_USER_ID);
             mocked.when(() -> JwtAuthInterceptor.getUserLevel(any())).thenReturn(3);
-            when(taskMapper.findByStatus(eq("planning"), anyInt())).thenReturn(List.of(task));
+            when(taskMapper.findAllWithFilter(eq("planning"))).thenReturn(List.of(task));
 
             mockMvc.perform(get("/api/admin/tasks").param("status", "planning"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data").isArray())
-                    .andExpect(jsonPath("$.data[0].status").value("planning"))
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.data.list[0].status").value("planning"))
+                    .andExpect(jsonPath("$.data.total").value(1))
                     // checkpoint_json 已被清空，不暴露
-                    .andExpect(jsonPath("$.data[0].checkpointJson").doesNotExist());
+                    .andExpect(jsonPath("$.data.list[0].checkpointJson").doesNotExist());
+
+            verify(taskMapper).findAllWithFilter("planning");
+            verify(taskMapper, never()).findByStatus(any(), anyInt());
+        }
+    }
+
+    @Test
+    @DisplayName("管理员查询任务（不过滤状态）- 使用 null 调用 findAllWithFilter")
+    void listTasks_noFilter_usesNull() throws Exception {
+        Task task1 = buildTask("pending");
+        Task task2 = buildTask("completed");
+
+        try (MockedStatic<JwtAuthInterceptor> mocked = mockStatic(JwtAuthInterceptor.class)) {
+            mocked.when(() -> JwtAuthInterceptor.getUserId(any())).thenReturn(ADMIN_USER_ID);
+            mocked.when(() -> JwtAuthInterceptor.getUserLevel(any())).thenReturn(3);
+            when(taskMapper.findAllWithFilter(null)).thenReturn(List.of(task1, task2));
+
+            mockMvc.perform(get("/api/admin/tasks"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.total").value(2));
+
+            verify(taskMapper).findAllWithFilter(null);
+            verify(taskMapper, never()).findByStatus(any(), anyInt());
+        }
+    }
+
+    @Test
+    @DisplayName("管理员查询任务 - checkpoint_json 不在响应中暴露")
+    void listTasks_checkpointJson_notExposed() throws Exception {
+        Task task = buildTask("planning");
+
+        try (MockedStatic<JwtAuthInterceptor> mocked = mockStatic(JwtAuthInterceptor.class)) {
+            mocked.when(() -> JwtAuthInterceptor.getUserId(any())).thenReturn(ADMIN_USER_ID);
+            mocked.when(() -> JwtAuthInterceptor.getUserLevel(any())).thenReturn(3);
+            when(taskMapper.findAllWithFilter(any())).thenReturn(List.of(task));
+
+            mockMvc.perform(get("/api/admin/tasks").param("status", "planning"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.list[0].checkpointJson").doesNotExist());
         }
     }
 
@@ -328,6 +368,18 @@ class AdminControllerTest {
             mocked.when(() -> JwtAuthInterceptor.getUserLevel(any())).thenReturn(3);
 
             mockMvc.perform(get("/api/admin/tasks").param("size", "201"))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Test
+    @DisplayName("管理员查询任务 - page 为 0 - 返回 400")
+    void listTasks_pageZero_returns400() throws Exception {
+        try (MockedStatic<JwtAuthInterceptor> mocked = mockStatic(JwtAuthInterceptor.class)) {
+            mocked.when(() -> JwtAuthInterceptor.getUserId(any())).thenReturn(ADMIN_USER_ID);
+            mocked.when(() -> JwtAuthInterceptor.getUserLevel(any())).thenReturn(3);
+
+            mockMvc.perform(get("/api/admin/tasks").param("page", "0"))
                     .andExpect(status().isBadRequest());
         }
     }

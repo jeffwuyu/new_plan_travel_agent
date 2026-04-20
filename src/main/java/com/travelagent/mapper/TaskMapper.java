@@ -24,6 +24,12 @@ public interface TaskMapper {
     /** Used by TaskDispatcher to poll for runnable tasks. */
     List<Task> findByStatus(@Param("status") String status, @Param("limit") int limit);
 
+    /**
+     * Admin cross-status paginated query. status=null returns all statuses.
+     * Call PageHelper.startPage() before invoking this method.
+     */
+    List<Task> findAllWithFilter(@Param("status") String status);
+
     /** Count tasks in active states for a user (concurrency limit check). */
     int countActiveByUserId(@Param("userId") Long userId);
 
