@@ -1,0 +1,31 @@
+package com.travelagent.advisor;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DisplayName("JsonSchemaAdvisor Tests")
+class JsonSchemaAdvisorTest {
+
+    private final JsonSchemaAdvisor advisor = new JsonSchemaAdvisor();
+
+    @Test
+    @DisplayName("buildSchemaInstructions enforces JSON-only response")
+    void buildSchemaInstructions_enforcesJsonOnly() {
+        String text = advisor.buildSchemaInstructions(Map.of(
+                AdvisorContextKeys.RESPONSE_SCHEMA, Map.of(
+                        "type", "object",
+                        "required", List.of("attractionName", "reason")
+                )
+        ));
+
+        assertThat(text).contains("Reply ONLY with valid JSON");
+        assertThat(text).contains("Top-level JSON type: object");
+        assertThat(text).contains("Required fields: attractionName, reason");
+        assertThat(text).contains("Do not wrap the JSON in markdown fences");
+    }
+}

@@ -1,0 +1,64 @@
+-------------------------------------------------------------------------------
+Test set: com.travelagent.service.agent.AgentServiceImplTest
+-------------------------------------------------------------------------------
+Tests run: 6, Failures: 0, Errors: 6, Skipped: 0, Time elapsed: 0.153 s <<< FAILURE! -- in com.travelagent.service.agent.AgentServiceImplTest
+com.travelagent.service.agent.AgentServiceImplTest.executeTask_wrongStatus_skipsExecution -- Time elapsed: 0.130 s <<< ERROR!
+java.lang.IllegalArgumentException: Could not find field 'slidingWindow' of type [null] on target object [com.travelagent.service.agent.impl.AgentServiceImpl@6b828f7b] or target class [class com.travelagent.service.agent.impl.AgentServiceImpl]
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:192)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:108)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:92)
+	at com.travelagent.service.agent.AgentServiceImplTest.setUp(AgentServiceImplTest.java:79)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+com.travelagent.service.agent.AgentServiceImplTest.executeTask_taskNotFound_returnsEarly -- Time elapsed: 0.004 s <<< ERROR!
+java.lang.IllegalArgumentException: Could not find field 'slidingWindow' of type [null] on target object [com.travelagent.service.agent.impl.AgentServiceImpl@184775a1] or target class [class com.travelagent.service.agent.impl.AgentServiceImpl]
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:192)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:108)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:92)
+	at com.travelagent.service.agent.AgentServiceImplTest.setUp(AgentServiceImplTest.java:79)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+com.travelagent.service.agent.AgentServiceImplTest.executeTask_oneStepPlan_completesSuccessfully -- Time elapsed: 0.004 s <<< ERROR!
+java.lang.IllegalArgumentException: Could not find field 'slidingWindow' of type [null] on target object [com.travelagent.service.agent.impl.AgentServiceImpl@66023b3] or target class [class com.travelagent.service.agent.impl.AgentServiceImpl]
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:192)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:108)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:92)
+	at com.travelagent.service.agent.AgentServiceImplTest.setUp(AgentServiceImplTest.java:79)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+com.travelagent.service.agent.AgentServiceImplTest.executeTask_pending_transitionsToPlanningAndSendsSSE -- Time elapsed: 0.003 s <<< ERROR!
+java.lang.IllegalArgumentException: Could not find field 'slidingWindow' of type [null] on target object [com.travelagent.service.agent.impl.AgentServiceImpl@2184aa59] or target class [class com.travelagent.service.agent.impl.AgentServiceImpl]
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:192)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:108)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:92)
+	at com.travelagent.service.agent.AgentServiceImplTest.setUp(AgentServiceImplTest.java:79)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+com.travelagent.service.agent.AgentServiceImplTest.executeTask_resumeWithPendingToolCall_replaysToolCall -- Time elapsed: 0.004 s <<< ERROR!
+java.lang.IllegalArgumentException: Could not find field 'slidingWindow' of type [null] on target object [com.travelagent.service.agent.impl.AgentServiceImpl@2c7e1fce] or target class [class com.travelagent.service.agent.impl.AgentServiceImpl]
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:192)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:108)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:92)
+	at com.travelagent.service.agent.AgentServiceImplTest.setUp(AgentServiceImplTest.java:79)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+com.travelagent.service.agent.AgentServiceImplTest.executeTask_quotaExhausted_pausesTask -- Time elapsed: 0.003 s <<< ERROR!
+java.lang.IllegalArgumentException: Could not find field 'slidingWindow' of type [null] on target object [com.travelagent.service.agent.impl.AgentServiceImpl@62fe5aca] or target class [class com.travelagent.service.agent.impl.AgentServiceImpl]
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:192)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:108)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:92)
+	at com.travelagent.service.agent.AgentServiceImplTest.setUp(AgentServiceImplTest.java:79)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+

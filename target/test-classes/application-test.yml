@@ -1,0 +1,123 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:travelagent_test;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=VALUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      schema-location: classpath:schema-test.sql
+      data-location: classpath:data-test.sql
+      mode: always
+  cache:
+    type: none
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      repositories:
+        enabled: false
+  task:
+    scheduling:
+      pool:
+        size: 1  # TaskDispatcher is @MockBean'd; pool >= 1 required for scheduler to start
+
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password:
+  database: 0
+  timeout: 1000
+  pool:
+    maxActive: 1
+    maxIdle: 1
+    minIdle: 0
+    maxWait: 500
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.travelagent.model.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+
+pagehelper:
+  auto-dialect: true
+  reasonable: true
+
+jwt:
+  secret: travel-agent-jwt-secret-key-must-be-at-least-256-bits-long-for-hs256
+  expiration: 86400000
+  header: Authorization
+  prefix: Bearer
+
+dashscope:
+  api-key: test-placeholder
+  llm:
+    model: qwen-plus
+    temperature: 0.7
+  embedding:
+    model: text-embedding-v3
+  timeout: 60000
+  max-retries: 3
+
+amap:
+  api-key: test-placeholder
+  geocode-url: https://restapi.amap.com/v3/geocode/geo
+  weather-url: https://restapi.amap.com/v3/weather/weatherInfo
+  direction-url: https://restapi.amap.com/v3/direction/driving
+  timeout: 10000
+
+oss:
+  endpoint: https://oss-cn-hangzhou.aliyuncs.com
+  access-key-id: test-placeholder
+  access-key-secret: test-placeholder
+  bucket-name: test-bucket
+  rag-prefix: rag/documents/
+
+dashvector:
+  api-key: test-placeholder
+  endpoint: https://vrs-cn-test.dashvector.cn
+  collection: travel-knowledge
+  dimension: 1536
+  top-k: 5
+
+agent:
+  task:
+    thread-pool-size: 1
+    queue-size: 10
+    poll-interval-ms: 60000
+    max-per-poll: 1
+  history:
+    max-tokens: 3000
+    sliding-window: 6
+  planner:
+    max-steps: 30
+    same-day-radius-km: 30
+
+ratelimit:
+  anonymous:
+    hourly-limit: 10
+
+quota:
+  regular:
+    daily-tokens: 10000
+    monthly-tokens: 100000
+    max-concurrent-tasks: 2
+    max-plan-steps: 15
+  vip:
+    daily-tokens: 50000
+    monthly-tokens: 500000
+    max-concurrent-tasks: 5
+    max-plan-steps: 30
+  admin:
+    daily-tokens: 999999
+    monthly-tokens: 9999999
+    max-concurrent-tasks: 10
+    max-plan-steps: 50
+
+logging:
+  level:
+    root: WARN
+    com.travelagent: DEBUG
+    org.mybatis: DEBUG
