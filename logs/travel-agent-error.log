@@ -5424,3 +5424,10 @@ com.travelagent.service.rag.DocumentExtractionException: PDF parse failed: corru
 	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
 	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
 2026-04-20 20:13:42.649 [main] ERROR com.travelagent.service.rag.impl.RagServiceImpl - Document not found: id=1
+2026-04-20 20:50:42.676 [main] ERROR c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task not found: uuid=unknown-uuid
+2026-04-20 20:50:56.243 [main] ERROR c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task not found: uuid=unknown-uuid
+2026-04-20 20:51:20.990 [main] ERROR c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task not found: uuid=unknown-uuid
+2026-04-20 20:51:33.943 [main] ERROR c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task not found: uuid=unknown-uuid
+2026-04-20 20:52:43.607 [main] ERROR c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task not found: uuid=unknown-uuid
+2026-04-20 20:53:10.067 [main] ERROR c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task not found: uuid=unknown-uuid
+2026-04-20 20:53:24.139 [main] ERROR c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task not found: uuid=unknown-uuid

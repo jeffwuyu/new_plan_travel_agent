@@ -13,6 +13,7 @@ import com.travelagent.agent.tools.GeocodeTool;
 import com.travelagent.agent.tools.ToolRegistry;
 import com.travelagent.agent.tools.TrafficTimeTool;
 import com.travelagent.agent.tools.WeatherTool;
+import com.travelagent.exception.AgentException;
 import com.travelagent.exception.QuotaExhaustedException;
 import com.travelagent.mapper.PlanMapper;
 import com.travelagent.mapper.TaskMapper;
@@ -158,7 +159,10 @@ public class AgentServiceImpl implements AgentService {
             runPlanningLoop(task, taskUuid, current);
         } catch (Exception e) {
             log.error("[AgentService] Unhandled error in task={}: {}", taskUuid, e.getMessage(), e);
-            markFailed(task, taskUuid, e.getMessage());
+            Map<String, Object> payload = (e instanceof AgentException ae)
+                    ? ae.toEventPayload()
+                    : Map.of("code", "UNKNOWN", "message", String.valueOf(e.getMessage()), "retryable", false);
+            markFailed(task, taskUuid, e.getMessage(), payload);
         }
     }
 
@@ -217,7 +221,7 @@ public class AgentServiceImpl implements AgentService {
                 handleQuotaExhaustion(task, checkpoint, taskUuid);
                 return;
             } catch (Exception e) {
-                handleRetryOrFail(task, checkpoint, taskUuid, e.getMessage());
+                handleRetryOrFail(task, checkpoint, taskUuid, e);
                 return;
             }
 
@@ -268,7 +272,7 @@ public class AgentServiceImpl implements AgentService {
                 handleQuotaExhaustion(task, checkpoint, taskUuid);
                 return;
             } catch (Exception e) {
-                handleRetryOrFail(task, checkpoint, taskUuid, e.getMessage());
+                handleRetryOrFail(task, checkpoint, taskUuid, e);
                 return;
             }
 
@@ -402,26 +406,39 @@ public class AgentServiceImpl implements AgentService {
     }
 
     /**
-     * Increments retry counter. If exhausted, marks the task as FAILED;
-     * otherwise saves the checkpoint and returns (the dispatcher will re-queue).
+     * Increments retry counter. Non-retryable errors fail immediately; retryable ones consume
+     * the retry budget and save checkpoint for re-queue by the dispatcher.
      */
     private void handleRetryOrFail(Task task, TaskCheckpoint checkpoint,
-                                   String taskUuid, String errorMsg) {
+                                   String taskUuid, Exception exception) {
+        boolean retryable = !(exception instanceof AgentException ae) || ae.isRetryable();
+        Map<String, Object> errorPayload = (exception instanceof AgentException ae)
+                ? ae.toEventPayload()
+                : Map.of("code", "UNKNOWN", "message", String.valueOf(exception.getMessage()), "retryable", true);
+
+        if (!retryable) {
+            log.warn("[AgentService] Non-retryable error for task={}: code={} message={}",
+                    taskUuid, ((AgentException) exception).getErrorCode(), exception.getMessage());
+            markFailed(task, taskUuid, exception.getMessage(), errorPayload);
+            return;
+        }
+
         if (checkpoint.getRetryState() == null) {
             checkpoint.setRetryState(new RetryState());
         }
         checkpoint.getRetryState().increment();
         if (checkpoint.getRetryState().isExhausted()) {
-            markFailed(task, taskUuid, "Retry budget exhausted: " + errorMsg);
+            markFailed(task, taskUuid, "Retry budget exhausted: " + exception.getMessage(), errorPayload);
         } else {
             log.warn("[AgentService] Step failed for task={}, retry {}/{}: {}",
                     taskUuid, checkpoint.getRetryState().getCurrentStepRetryCount(),
-                    checkpoint.getRetryState().getMaxRetries(), errorMsg);
+                    checkpoint.getRetryState().getMaxRetries(), exception.getMessage());
             saveCheckpoint(task, checkpoint);
         }
     }
 
-    private void markFailed(Task task, String taskUuid, String errorMsg) {
+    private void markFailed(Task task, String taskUuid, String errorMsg,
+                            Map<String, Object> errorPayload) {
         try {
             Task fresh = taskMapper.findByUuid(taskUuid);
             if (fresh != null && !TaskStatus.fromCode(fresh.getStatus()).isTerminal()) {
@@ -429,14 +446,18 @@ public class AgentServiceImpl implements AgentService {
                 taskMapper.updateStatus(fresh.getId(), TaskStatus.FAILED.getCode());
                 fresh.setStatus(TaskStatus.FAILED.getCode());
                 taskMapper.update(fresh);
-                sseNotificationService.sendEvent(taskUuid, SseEvent.ERROR,
-                        Map.of("message", errorMsg));
+                sseNotificationService.sendEvent(taskUuid, SseEvent.ERROR, errorPayload);
                 sseNotificationService.completeEmitter(taskUuid);
             }
         } catch (Exception ex) {
             log.error("[AgentService] Failed to mark task={} as FAILED: {}",
                     taskUuid, ex.getMessage());
         }
+    }
+
+    private void markFailed(Task task, String taskUuid, String errorMsg) {
+        markFailed(task, taskUuid, errorMsg,
+                Map.of("code", "TASK_FAILED_PERMANENT", "message", String.valueOf(errorMsg), "retryable", false));
     }
 
     // -----------------------------------------------------------------------

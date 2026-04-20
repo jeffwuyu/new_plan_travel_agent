@@ -45,6 +45,7 @@ com\travelagent\agent\statemachine\AgentStateMachine.class
 com\travelagent\util\JsonUtil.class
 com\travelagent\agent\statemachine\AgentEvent.class
 com\travelagent\controller\TaskController.class
+com\travelagent\exception\AgentException.class
 com\travelagent\service\user\impl\UserServiceImpl.class
 com\travelagent\model\enums\UserLevel.class
 com\travelagent\agent\context\PlanningConfig.class
@@ -74,6 +75,7 @@ com\travelagent\mapper\RagChunkMapper.class
 com\travelagent\client\amap\AmapClient$1.class
 com\travelagent\mapper\LlmCallLogMapper.class
 com\travelagent\agent\tools\TrafficTimeTool.class
+com\travelagent\exception\AgentErrorCode.class
 com\travelagent\util\JwtUtil.class
 com\travelagent\service\rag\impl\RagServiceImpl.class
 com\travelagent\config\LlmConfig.class

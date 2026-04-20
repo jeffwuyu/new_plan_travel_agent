@@ -43,6 +43,8 @@ G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\RagCont
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\SseController.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\TaskController.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\UserController.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\exception\AgentErrorCode.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\exception\AgentException.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\exception\BusinessException.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\exception\GlobalExceptionHandler.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\exception\QuotaExhaustedException.java

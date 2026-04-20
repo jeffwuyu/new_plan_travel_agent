@@ -1,6 +1,8 @@
 package com.travelagent.client.amap;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.travelagent.exception.AgentErrorCode;
+import com.travelagent.exception.AgentException;
 import com.travelagent.util.JsonUtil;
 import com.travelagent.util.RedisUtil;
 import okhttp3.OkHttpClient;
@@ -149,15 +151,30 @@ public class AmapClient {
         Request request = new Request.Builder().url(url).get().build();
         try (Response response = okHttpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-                throw new RuntimeException("Amap API returned HTTP " + response.code() + " for URL: " + url);
+                throw new AgentException(AgentErrorCode.TOOL_AMAP_ERROR,
+                        "Amap API returned HTTP " + response.code() + " for URL: " + url);
             }
             if (response.body() == null) {
-                throw new RuntimeException("Amap API returned empty body for URL: " + url);
+                throw new AgentException(AgentErrorCode.TOOL_AMAP_ERROR,
+                        "Amap API returned empty body for URL: " + url);
             }
             return response.body().string();
+        } catch (AgentException ae) {
+            throw ae;
         } catch (IOException e) {
-            throw new RuntimeException("Amap API call failed: " + e.getMessage(), e);
+            throw classifyAmapException(e, url);
         }
+    }
+
+    private AgentException classifyAmapException(Exception e, String url) {
+        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        if (msg.contains("timeout") || msg.contains("timed out")
+                || e.getCause() instanceof java.net.SocketTimeoutException) {
+            return new AgentException(AgentErrorCode.TOOL_AMAP_TIMEOUT,
+                    "Amap request timed out for URL: " + url, e);
+        }
+        return new AgentException(AgentErrorCode.TOOL_AMAP_ERROR,
+                "Amap API error: " + e.getMessage(), e);
     }
 
     // -----------------------------------------------------------------------
@@ -255,7 +272,8 @@ public class AmapClient {
         Object status = root.get("status");
         if (!"1".equals(String.valueOf(status))) {
             String info = String.valueOf(root.getOrDefault("info", "unknown"));
-            throw new RuntimeException("Amap API error: status=" + status + ", info=" + info + ", raw=" + rawJson);
+            throw new AgentException(AgentErrorCode.TOOL_AMAP_ERROR,
+                    "Amap API error: status=" + status + ", info=" + info);
         }
     }
 

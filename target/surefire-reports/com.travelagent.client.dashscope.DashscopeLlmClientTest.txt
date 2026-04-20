@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.travelagent.client.dashscope.DashscopeLlmClientTest
 -------------------------------------------------------------------------------
-Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.321 s -- in com.travelagent.client.dashscope.DashscopeLlmClientTest
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.304 s -- in com.travelagent.client.dashscope.DashscopeLlmClientTest

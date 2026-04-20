@@ -53755,3 +53755,96 @@ SELECT count(0) FROM tasks WHERE status IN (?, ?) LIMIT ? [42104-232]
 2026-04-20 20:13:43.435 [main] INFO  com.travelagent.service.user.impl.UserServiceImpl - New user registered: id=null, email=test@example.com
 2026-04-20 20:13:43.496 [main] INFO  com.travelagent.service.user.impl.UserServiceImpl - Account cancelled (soft-deleted): userId=1
 2026-04-20 20:13:43.556 [main] INFO  com.travelagent.service.user.impl.UserServiceImpl - Token blacklisted (logout), remaining validity: 3600000ms
+2026-04-20 20:50:42.190 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] Failed to write audit log: DB write error
+2026-04-20 20:50:42.211 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] LLM call [planning] attempt 1/1 - code=LLM_TIMEOUT retryable=true: Dashscope request timed out: LLM timeout
+2026-04-20 20:50:42.663 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:50:42.665 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-20 20:50:42.675 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-20 20:50:42.755 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:50:42.802 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=42 with 1 steps for task=uuid
+2026-04-20 20:50:42.822 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:50:42.831 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=99 with 1 steps for task=uuid
+2026-04-20 20:50:42.850 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:50:42.867 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=1 with 1 steps for task=uuid
+2026-04-20 20:50:42.881 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:50:42.891 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task uuid paused due to quota exhaustion; resumable at 2026-04-21T00:00
+2026-04-20 20:50:55.746 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] Failed to write audit log: DB write error
+2026-04-20 20:50:55.767 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] LLM call [planning] attempt 1/1 - code=LLM_TIMEOUT retryable=true: Dashscope request timed out: LLM timeout
+2026-04-20 20:50:56.232 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:50:56.233 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-20 20:50:56.243 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-20 20:50:56.335 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:50:56.394 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=42 with 1 steps for task=uuid
+2026-04-20 20:50:56.418 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:50:56.429 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=99 with 1 steps for task=uuid
+2026-04-20 20:50:56.451 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:50:56.470 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=1 with 1 steps for task=uuid
+2026-04-20 20:50:56.485 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:50:56.498 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task uuid paused due to quota exhaustion; resumable at 2026-04-21T00:00
+2026-04-20 20:51:20.514 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] Failed to write audit log: DB write error
+2026-04-20 20:51:20.533 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] LLM call [planning] attempt 1/1 - code=LLM_TIMEOUT retryable=true: Dashscope request timed out: LLM timeout
+2026-04-20 20:51:20.977 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:51:20.979 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-20 20:51:20.989 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-20 20:51:21.069 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:51:21.118 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=42 with 1 steps for task=uuid
+2026-04-20 20:51:21.138 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:51:21.148 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=99 with 1 steps for task=uuid
+2026-04-20 20:51:21.167 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:51:21.183 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=1 with 1 steps for task=uuid
+2026-04-20 20:51:21.198 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:51:21.209 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task uuid paused due to quota exhaustion; resumable at 2026-04-21T00:00
+2026-04-20 20:51:33.434 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] Failed to write audit log: DB write error
+2026-04-20 20:51:33.456 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] LLM call [planning] attempt 1/1 - code=LLM_TIMEOUT retryable=true: Dashscope request timed out: LLM timeout
+2026-04-20 20:51:33.930 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:51:33.932 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-20 20:51:33.942 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-20 20:51:34.028 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:51:34.081 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=42 with 1 steps for task=uuid
+2026-04-20 20:51:34.104 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:51:34.114 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=99 with 1 steps for task=uuid
+2026-04-20 20:51:34.136 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:51:34.155 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=1 with 1 steps for task=uuid
+2026-04-20 20:51:34.169 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:51:34.181 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task uuid paused due to quota exhaustion; resumable at 2026-04-21T00:00
+2026-04-20 20:52:43.165 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] Failed to write audit log: DB write error
+2026-04-20 20:52:43.185 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] LLM call [planning] attempt 1/1 - code=LLM_TIMEOUT retryable=true: Dashscope request timed out: LLM timeout
+2026-04-20 20:52:43.596 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:52:43.598 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-20 20:52:43.606 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-20 20:52:43.685 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:52:43.737 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=42 with 1 steps for task=uuid
+2026-04-20 20:52:43.757 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:52:43.766 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=99 with 1 steps for task=uuid
+2026-04-20 20:52:43.790 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:52:43.811 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=1 with 1 steps for task=uuid
+2026-04-20 20:52:43.827 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:52:43.837 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task uuid paused due to quota exhaustion; resumable at 2026-04-21T00:00
+2026-04-20 20:53:09.602 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] Failed to write audit log: DB write error
+2026-04-20 20:53:09.623 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] LLM call [planning] attempt 1/1 - code=LLM_TIMEOUT retryable=true: Dashscope request timed out: LLM timeout
+2026-04-20 20:53:10.056 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:53:10.057 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-20 20:53:10.066 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-20 20:53:10.150 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:53:10.197 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=42 with 1 steps for task=uuid
+2026-04-20 20:53:10.217 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:53:10.227 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=99 with 1 steps for task=uuid
+2026-04-20 20:53:10.249 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:53:10.266 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=1 with 1 steps for task=uuid
+2026-04-20 20:53:10.281 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:53:10.293 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task uuid paused due to quota exhaustion; resumable at 2026-04-21T00:00
+2026-04-20 20:53:23.647 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] Failed to write audit log: DB write error
+2026-04-20 20:53:23.666 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] LLM call [planning] attempt 1/1 - code=LLM_TIMEOUT retryable=true: Dashscope request timed out: LLM timeout
+2026-04-20 20:53:24.128 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:53:24.129 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Skipping task in unexpected status=planning uuid=uuid
+2026-04-20 20:53:24.138 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=unknown-uuid
+2026-04-20 20:53:24.225 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:53:24.276 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=42 with 1 steps for task=uuid
+2026-04-20 20:53:24.300 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:53:24.311 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=99 with 1 steps for task=uuid
+2026-04-20 20:53:24.333 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:53:24.351 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Persisted plan id=1 with 1 steps for task=uuid
+2026-04-20 20:53:24.368 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Starting task execution: uuid=uuid
+2026-04-20 20:53:24.380 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Task uuid paused due to quota exhaustion; resumable at 2026-04-21T00:00
+2026-04-20 21:05:23.675 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] Failed to write audit log: DB write error
+2026-04-20 21:05:23.737 [main] WARN  c.travelagent.client.dashscope.DashscopeLlmClient - [DashscopeLlmClient] LLM call [planning] attempt 1/1 - code=LLM_TIMEOUT retryable=true: Dashscope request timed out: LLM timeout

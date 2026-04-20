@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.travelagent.exception.AgentErrorCode;
+import com.travelagent.exception.AgentException;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -90,8 +92,10 @@ public class DashVectorClient {
             String url = endpoint + "/v1/collections/" + collection + "/docs";
             executePost(url, body.toString());
             log.debug("DashVector upsert OK: id={}", id);
+        } catch (AgentException ae) {
+            throw ae;
         } catch (Exception e) {
-            throw new RuntimeException("DashVector upsert failed for id=" + id, e);
+            throw classifyDashVectorException(e);
         }
     }
 
@@ -136,8 +140,10 @@ public class DashVectorClient {
             }
             log.debug("DashVector search returned {} results (topK={})", results.size(), topK);
             return results;
+        } catch (AgentException ae) {
+            throw ae;
         } catch (Exception e) {
-            throw new RuntimeException("DashVector search failed", e);
+            throw classifyDashVectorException(e);
         }
     }
 
@@ -156,8 +162,10 @@ public class DashVectorClient {
             String url = endpoint + "/v1/collections/" + collection + "/docs";
             executeDelete(url, body.toString());
             log.debug("DashVector delete OK: ids={}", ids);
+        } catch (AgentException ae) {
+            throw ae;
         } catch (Exception e) {
-            throw new RuntimeException("DashVector delete failed for ids=" + ids, e);
+            throw classifyDashVectorException(e);
         }
     }
 
@@ -176,7 +184,8 @@ public class DashVectorClient {
         try (Response response = okHttpClient.newCall(request).execute()) {
             String body = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) {
-                throw new RuntimeException("DashVector HTTP " + response.code() + ": " + body);
+                throw new AgentException(AgentErrorCode.TOOL_DASHVECTOR_ERROR,
+                        "DashVector HTTP " + response.code() + ": " + body);
             }
             return body;
         }
@@ -193,8 +202,20 @@ public class DashVectorClient {
         try (Response response = okHttpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 String body = response.body() != null ? response.body().string() : "";
-                throw new RuntimeException("DashVector DELETE HTTP " + response.code() + ": " + body);
+                throw new AgentException(AgentErrorCode.TOOL_DASHVECTOR_ERROR,
+                        "DashVector DELETE HTTP " + response.code() + ": " + body);
             }
         }
+    }
+
+    private AgentException classifyDashVectorException(Exception e) {
+        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        if (msg.contains("timeout") || msg.contains("timed out")
+                || e.getCause() instanceof java.net.SocketTimeoutException) {
+            return new AgentException(AgentErrorCode.TOOL_DASHVECTOR_TIMEOUT,
+                    "DashVector request timed out: " + e.getMessage(), e);
+        }
+        return new AgentException(AgentErrorCode.TOOL_DASHVECTOR_ERROR,
+                "DashVector error: " + e.getMessage(), e);
     }
 }

@@ -3,6 +3,8 @@ package com.travelagent.client.dashscope;
 import com.travelagent.advisor.JsonSchemaAdvisor;
 import com.travelagent.advisor.RagContextAdvisor;
 import com.travelagent.advisor.TravelPlanningAdvisor;
+import com.travelagent.exception.AgentErrorCode;
+import com.travelagent.exception.AgentException;
 import com.travelagent.mapper.LlmCallLogMapper;
 import com.travelagent.model.entity.LlmCallLog;
 import org.slf4j.Logger;
@@ -192,11 +194,19 @@ public class DashscopeLlmClient {
             long latencyMs = System.currentTimeMillis() - start;
             auditLog(taskId, userId, callType, 0, tokenCount[0], latencyMs, "success", idempotencyKey);
             return new LlmCallResult(sb.toString(), tokenCount[0]);
+        } catch (AgentException ae) {
+            long latencyMs = System.currentTimeMillis() - start;
+            auditLog(taskId, userId, callType, 0, 0, latencyMs, "error", idempotencyKey);
+            log.error("[DashscopeLlmClient] Streaming call failed: code={} retryable={}: {}",
+                    ae.getErrorCode(), ae.isRetryable(), ae.getMessage());
+            throw ae;
         } catch (Exception e) {
             long latencyMs = System.currentTimeMillis() - start;
             auditLog(taskId, userId, callType, 0, 0, latencyMs, "error", idempotencyKey);
-            log.error("[DashscopeLlmClient] Streaming call failed: {}", e.getMessage(), e);
-            throw new RuntimeException("LLM streaming call failed: " + e.getMessage(), e);
+            AgentException classified = classifyLlmException(e);
+            log.error("[DashscopeLlmClient] Streaming call failed: code={} retryable={}: {}",
+                    classified.getErrorCode(), classified.isRetryable(), classified.getMessage());
+            throw classified;
         }
     }
 
@@ -298,24 +308,57 @@ public class DashscopeLlmClient {
     }
 
     private <T> T withRetry(Callable<T> action, String operationName) {
-        Exception lastException = null;
+        AgentException lastException = null;
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 return action.call();
+            } catch (AgentException ae) {
+                lastException = ae;
+                log.warn("[DashscopeLlmClient] {} attempt {}/{} - code={} retryable={}: {}",
+                        operationName, attempt, maxRetries, ae.getErrorCode(), ae.isRetryable(), ae.getMessage());
+                if (!ae.isRetryable()) break;
             } catch (Exception e) {
-                lastException = e;
-                log.warn("[DashscopeLlmClient] {} attempt {}/{} failed: {}",
-                        operationName, attempt, maxRetries, e.getMessage());
-                if (attempt < maxRetries) {
-                    try {
-                        Thread.sleep(1000L * attempt);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
+                AgentException classified = classifyLlmException(e);
+                lastException = classified;
+                log.warn("[DashscopeLlmClient] {} attempt {}/{} - code={} retryable={}: {}",
+                        operationName, attempt, maxRetries,
+                        classified.getErrorCode(), classified.isRetryable(), classified.getMessage());
+                if (!classified.isRetryable()) break;
+            }
+            if (attempt < maxRetries) {
+                try {
+                    Thread.sleep(1000L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
             }
         }
-        throw new RuntimeException(operationName + " failed after " + maxRetries + " attempts", lastException);
+        if (lastException != null) throw lastException;
+        throw new AgentException(AgentErrorCode.LLM_SERVICE_ERROR,
+                operationName + " failed after " + maxRetries + " attempts");
+    }
+
+    private AgentException classifyLlmException(Exception e) {
+        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        Throwable cause = e.getCause();
+        if (msg.contains("timeout") || msg.contains("timed out") || msg.contains("read timeout")
+                || cause instanceof java.net.SocketTimeoutException
+                || cause instanceof java.util.concurrent.TimeoutException) {
+            return new AgentException(AgentErrorCode.LLM_TIMEOUT,
+                    "Dashscope request timed out: " + e.getMessage(), e);
+        }
+        if (msg.contains("429") || msg.contains("rate limit") || msg.contains("too many requests")
+                || msg.contains("throttl")) {
+            return new AgentException(AgentErrorCode.LLM_RATE_LIMIT,
+                    "Dashscope rate limit exceeded: " + e.getMessage(), e);
+        }
+        if (msg.contains("400") || msg.contains("401") || msg.contains("403")
+                || msg.contains("invalid") || msg.contains("unauthorized")) {
+            return new AgentException(AgentErrorCode.LLM_INVALID_RESPONSE,
+                    "Dashscope non-retryable error: " + e.getMessage(), e);
+        }
+        return new AgentException(AgentErrorCode.LLM_SERVICE_ERROR,
+                "Dashscope service error: " + e.getMessage(), e);
     }
 }

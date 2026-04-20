@@ -1,5 +1,6 @@
 package com.travelagent.client.dashscope;
 
+import com.travelagent.exception.AgentException;
 import com.travelagent.mapper.LlmCallLogMapper;
 import com.travelagent.model.entity.LlmCallLog;
 import org.junit.jupiter.api.BeforeEach;
@@ -131,8 +132,8 @@ class DashscopeLlmClientTest {
         ReflectionTestUtils.setField(llmClient, "maxRetries", 1);
 
         assertThatThrownBy(() -> llmClient.call(1L, 2L, "planning", "sys", List.of(), "msg", "key"))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("failed after");
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("timed out");
     }
 
     // -----------------------------------------------------------------------

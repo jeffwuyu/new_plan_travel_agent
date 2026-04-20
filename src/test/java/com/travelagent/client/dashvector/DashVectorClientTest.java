@@ -1,5 +1,6 @@
 package com.travelagent.client.dashvector;
 
+import com.travelagent.exception.AgentException;
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
@@ -71,8 +72,8 @@ class DashVectorClientTest {
         when(call.execute()).thenReturn(buildResponse(400, "{\"message\":\"bad request\"}"));
 
         assertThatThrownBy(() -> client.upsert("id1", new float[]{0.1f}, Map.of()))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("upsert failed");
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("DashVector HTTP 400");
     }
 
     @Test
@@ -118,8 +119,8 @@ class DashVectorClientTest {
         when(call.execute()).thenReturn(buildResponse(500, "Internal Server Error"));
 
         assertThatThrownBy(() -> client.search(new float[]{0.1f}, 5, null))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("search failed");
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("DashVector HTTP 500");
     }
 
     @Test
