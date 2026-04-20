@@ -1,25 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.travelagent.service.QuotaServiceTest
 -------------------------------------------------------------------------------
-Tests run: 14, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 0.121 s <<< FAILURE! -- in com.travelagent.service.QuotaServiceTest
-com.travelagent.service.QuotaServiceTest.snapshotAllActiveUsers_partialFailure_continuesOtherUsers -- Time elapsed: 0.005 s <<< ERROR!
-java.lang.NullPointerException: Cannot invoke "com.travelagent.model.entity.UserQuotaUsage.getUserId()" because "u" is null
-	at com.travelagent.service.QuotaServiceTest.lambda$snapshotAllActiveUsers_partialFailure_continuesOtherUsers$12(QuotaServiceTest.java:263)
-	at org.mockito.internal.invocation.TypeSafeMatching.apply(TypeSafeMatching.java:35)
-	at org.mockito.internal.invocation.MatcherApplicationStrategy.argsMatch(MatcherApplicationStrategy.java:85)
-	at org.mockito.internal.invocation.MatcherApplicationStrategy.forEachMatcherAndArgument(MatcherApplicationStrategy.java:71)
-	at org.mockito.internal.invocation.InvocationMatcher.argumentsMatch(InvocationMatcher.java:156)
-	at org.mockito.internal.invocation.InvocationMatcher.matches(InvocationMatcher.java:82)
-	at org.mockito.internal.stubbing.InvocationContainerImpl.findAnswerFor(InvocationContainerImpl.java:92)
-	at org.mockito.internal.handler.MockHandlerImpl.handle(MockHandlerImpl.java:91)
-	at org.mockito.internal.handler.NullResultGuardian.handle(NullResultGuardian.java:29)
-	at org.mockito.internal.handler.InvocationNotifierHandler.handle(InvocationNotifierHandler.java:34)
-	at org.mockito.internal.creation.bytebuddy.MockMethodInterceptor.doIntercept(MockMethodInterceptor.java:82)
-	at org.mockito.internal.creation.bytebuddy.MockMethodInterceptor.doIntercept(MockMethodInterceptor.java:56)
-	at org.mockito.internal.creation.bytebuddy.MockMethodInterceptor$DispatcherDefaultingToRealMethod.interceptAbstract(MockMethodInterceptor.java:161)
-	at com.travelagent.mapper.UserQuotaUsageMapper$MockitoMock$8jMvPJLc.upsert(Unknown Source)
-	at com.travelagent.service.QuotaServiceTest.snapshotAllActiveUsers_partialFailure_continuesOtherUsers(QuotaServiceTest.java:265)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-
+Tests run: 14, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.144 s -- in com.travelagent.service.QuotaServiceTest

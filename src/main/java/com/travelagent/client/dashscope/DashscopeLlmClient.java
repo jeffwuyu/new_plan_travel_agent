@@ -1,10 +1,14 @@
 package com.travelagent.client.dashscope;
 
+import com.travelagent.advisor.JsonSchemaAdvisor;
+import com.travelagent.advisor.RagContextAdvisor;
+import com.travelagent.advisor.TravelPlanningAdvisor;
 import com.travelagent.mapper.LlmCallLogMapper;
 import com.travelagent.model.entity.LlmCallLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -16,6 +20,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,11 +60,15 @@ public class DashscopeLlmClient {
 
     private final ChatClient chatClient;
     private final LlmCallLogMapper llmCallLogMapper;
+    private final Map<String, Advisor> advisorRegistry;
 
     @Autowired
-    public DashscopeLlmClient(ChatModel chatModel, LlmCallLogMapper llmCallLogMapper) {
-        this.chatClient = ChatClient.create(chatModel);
+    public DashscopeLlmClient(ChatClient.Builder chatClientBuilder,
+                              LlmCallLogMapper llmCallLogMapper,
+                              List<Advisor> advisors) {
+        this.chatClient = chatClientBuilder.build();
         this.llmCallLogMapper = llmCallLogMapper;
+        this.advisorRegistry = buildAdvisorRegistry(advisors);
     }
 
     /**
@@ -76,8 +86,19 @@ public class DashscopeLlmClient {
     public String call(Long taskId, Long userId, String callType,
                        String systemPrompt, List<Map<String, Object>> history,
                        String userMessage, String idempotencyKey) {
+        return call(taskId, userId, callType, systemPrompt, history, userMessage,
+                idempotencyKey, List.of(), Map.of());
+    }
+
+    public String call(Long taskId, Long userId, String callType,
+                       String systemPrompt, List<Map<String, Object>> history,
+                       String userMessage, String idempotencyKey,
+                       List<String> advisorNames,
+                       Map<String, Object> advisorContext) {
 
         List<Message> messages = buildMessages(systemPrompt, history, userMessage);
+        List<Advisor> resolvedAdvisors = resolveAdvisors(advisorNames);
+        Map<String, Object> requestContext = advisorContext != null ? advisorContext : Map.of();
 
         return withRetry(() -> {
             long start = System.currentTimeMillis();
@@ -86,8 +107,10 @@ public class DashscopeLlmClient {
             int completionTokens = 0;
 
             try {
-                ChatResponse resp = chatClient.prompt()
-                        .messages(messages)
+                ChatResponse resp = applyAdvisors(
+                        chatClient.prompt().messages(messages),
+                        resolvedAdvisors,
+                        requestContext)
                         .call()
                         .chatResponse();
 
@@ -121,31 +144,54 @@ public class DashscopeLlmClient {
      * @param tokenConsumer receives each token string as it streams
      * @return full assembled response text
      */
-    public String callStreaming(Long taskId, Long userId, String callType,
-                                String systemPrompt, List<Map<String, Object>> history,
-                                String userMessage, String idempotencyKey,
-                                Consumer<String> tokenConsumer) {
+    public LlmCallResult callStreaming(Long taskId, Long userId, String callType,
+                                       String systemPrompt, List<Map<String, Object>> history,
+                                       String userMessage, String idempotencyKey,
+                                       Consumer<String> tokenConsumer) {
+        return callStreaming(taskId, userId, callType, systemPrompt, history, userMessage,
+                idempotencyKey, tokenConsumer, List.of(), Map.of());
+    }
+
+    public LlmCallResult callStreaming(Long taskId, Long userId, String callType,
+                                       String systemPrompt, List<Map<String, Object>> history,
+                                       String userMessage, String idempotencyKey,
+                                       Consumer<String> tokenConsumer,
+                                       List<String> advisorNames,
+                                       Map<String, Object> advisorContext) {
 
         List<Message> messages = buildMessages(systemPrompt, history, userMessage);
+        List<Advisor> resolvedAdvisors = resolveAdvisors(advisorNames);
+        Map<String, Object> requestContext = advisorContext != null ? advisorContext : Map.of();
         long start = System.currentTimeMillis();
 
         try {
-            Flux<String> flux = chatClient.prompt()
-                    .messages(messages)
+            Flux<ChatResponse> flux = applyAdvisors(
+                    chatClient.prompt().messages(messages),
+                    resolvedAdvisors,
+                    requestContext)
                     .stream()
-                    .content();
+                    .chatResponse();
 
             StringBuilder sb = new StringBuilder();
-            flux.doOnNext(token -> {
-                if (tokenConsumer != null) {
-                    tokenConsumer.accept(token);
+            int[] tokenCount = {0};
+
+            flux.doOnNext(resp -> {
+                String token = resp.getResult() != null && resp.getResult().getOutput() != null
+                        ? resp.getResult().getOutput().getText() : null;
+                if (token != null) {
+                    if (tokenConsumer != null) tokenConsumer.accept(token);
+                    sb.append(token);
                 }
-                sb.append(token);
+                // Collect token usage from the final chunk (provider-dependent)
+                if (resp.getMetadata() != null && resp.getMetadata().getUsage() != null) {
+                    long total = resp.getMetadata().getUsage().getTotalTokens();
+                    if (total > 0) tokenCount[0] = (int) total;
+                }
             }).blockLast();
 
             long latencyMs = System.currentTimeMillis() - start;
-            auditLog(taskId, userId, callType, 0, 0, latencyMs, "success", idempotencyKey);
-            return sb.toString();
+            auditLog(taskId, userId, callType, 0, tokenCount[0], latencyMs, "success", idempotencyKey);
+            return new LlmCallResult(sb.toString(), tokenCount[0]);
         } catch (Exception e) {
             long latencyMs = System.currentTimeMillis() - start;
             auditLog(taskId, userId, callType, 0, 0, latencyMs, "error", idempotencyKey);
@@ -177,6 +223,56 @@ public class DashscopeLlmClient {
 
         messages.add(new UserMessage(userMessage));
         return messages;
+    }
+
+    private ChatClient.ChatClientRequestSpec applyAdvisors(ChatClient.ChatClientRequestSpec spec,
+                                                           List<Advisor> advisors,
+                                                           Map<String, Object> advisorContext) {
+        if (advisors.isEmpty() && (advisorContext == null || advisorContext.isEmpty())) {
+            return spec;
+        }
+        return spec.advisors(advisorSpec -> {
+            if (advisorContext != null && !advisorContext.isEmpty()) {
+                advisorSpec.params(advisorContext);
+            }
+            if (!advisors.isEmpty()) {
+                advisorSpec.advisors(advisors);
+            }
+        });
+    }
+
+    private Map<String, Advisor> buildAdvisorRegistry(List<Advisor> advisors) {
+        Map<String, Advisor> registry = new LinkedHashMap<>();
+        if (advisors == null) {
+            return Collections.unmodifiableMap(registry);
+        }
+        for (Advisor advisor : advisors) {
+            registry.put(advisor.getName(), advisor);
+        }
+        return Collections.unmodifiableMap(registry);
+    }
+
+    private List<Advisor> resolveAdvisors(List<String> advisorNames) {
+        if (advisorNames == null || advisorNames.isEmpty()) {
+            return List.of();
+        }
+        List<Advisor> resolved = new ArrayList<>();
+        for (String advisorName : advisorNames) {
+            Advisor advisor = advisorRegistry.get(advisorName);
+            if (advisor == null) {
+                throw new IllegalArgumentException("Unknown advisor: " + advisorName);
+            }
+            resolved.add(advisor);
+        }
+        return resolved;
+    }
+
+    public List<String> defaultPlanningAdvisors() {
+        return List.of(
+                TravelPlanningAdvisor.NAME,
+                RagContextAdvisor.NAME,
+                JsonSchemaAdvisor.NAME
+        );
     }
 
     private void auditLog(Long taskId, Long userId, String callType,

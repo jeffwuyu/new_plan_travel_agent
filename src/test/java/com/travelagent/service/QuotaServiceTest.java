@@ -256,13 +256,12 @@ class QuotaServiceTest {
         when(userMapper.findAllActiveIds()).thenReturn(List.of(1L, 2L));
         // 用户 1 的 daily Redis 读取正常，monthly 抛异常模拟第一用户快照部分失败
         when(redisUtil.getString(contains("user:1:daily"))).thenReturn("100");
-        when(redisUtil.getString(contains("user:1:monthly"))).thenReturn("200");
         when(redisUtil.getString(contains("user:2:daily"))).thenReturn("300");
         when(redisUtil.getString(contains("user:2:monthly"))).thenReturn("400");
         // 用户 1 的 upsert 抛出异常（模拟 DB 超时）
-        when(quotaUsageMapper.upsert(argThat(u -> u.getUserId() == 1L)))
+        when(quotaUsageMapper.upsert(argThat(u -> u != null && u.getUserId() == 1L)))
                 .thenThrow(new RuntimeException("timeout"));
-        when(quotaUsageMapper.upsert(argThat(u -> u.getUserId() == 2L)))
+        when(quotaUsageMapper.upsert(argThat(u -> u != null && u.getUserId() == 2L)))
                 .thenReturn(1);
 
         // 整体不应抛出异常（用户 1 失败不影响用户 2）

@@ -1,8 +1,11 @@
 package com.travelagent.agent.planner;
 
+import com.travelagent.advisor.AdvisorContextKeys;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
+import com.travelagent.client.dashscope.LlmCallResult;
 import com.travelagent.model.entity.Task;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
@@ -14,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -65,7 +69,7 @@ public class MarkovPlanner {
      * @param taskUuid task UUID for SSE routing
      * @return the chosen attraction name (never null, falls back to raw LLM text)
      */
-    public String planNextAttraction(Task task, TaskCheckpoint cp, String taskUuid) {
+    public PlanningResult planNextAttraction(Task task, TaskCheckpoint cp, String taskUuid) {
         int stepIndex = cp.getCurrentStepIndex();
         String systemPrompt = buildSystemPrompt(cp);
         String userMessage = buildStepPrompt(cp);
@@ -74,17 +78,29 @@ public class MarkovPlanner {
         // Compress + sliding-window trim before the call
         List<Map<String, Object>> trimmedHistory = historyManager.prepareForLlm(cp);
 
-        String llmResponse = llmClient.callStreaming(
+        List<String> ragChunks = List.of();
+        if (ragService != null) {
+            try {
+                ragChunks = ragService.queryChunks(cp.getUserIntent(), cp.getRegion(), 5);
+            } catch (Exception e) {
+                log.warn("[MarkovPlanner] RAG query failed, skipping advisor injection: {}", e.getMessage());
+            }
+        }
+
+        LlmCallResult llmResult = llmClient.callStreaming(
                 task.getId(), task.getUserId(), "planning",
                 systemPrompt, trimmedHistory, userMessage, llmIdempotencyKey,
                 token -> sseNotificationService.sendEvent(
-                        taskUuid, SseEvent.LLM_STREAM, Map.of("token", token))
+                        taskUuid, SseEvent.LLM_STREAM, Map.of("token", token)),
+                llmClient.defaultPlanningAdvisors(),
+                buildAdvisorContext(cp, ragChunks)
         );
 
         // Append raw exchange to full history (before trimming — for future compression)
-        historyManager.appendExchange(cp, userMessage, llmResponse);
+        historyManager.appendExchange(cp, userMessage, llmResult.content());
 
-        return parseLlmAttractionName(llmResponse, stepIndex);
+        String attractionName = parseLlmAttractionName(llmResult.content(), stepIndex);
+        return new PlanningResult(attractionName, llmResult.totalTokens());
     }
 
     // -----------------------------------------------------------------------
@@ -107,43 +123,8 @@ public class MarkovPlanner {
         StringBuilder sb = new StringBuilder();
         sb.append("You are a professional travel planner. Help the user plan an itinerary for ")
                 .append(cp.getRegion()).append(".\n");
-        sb.append("Trip parameters: totalDays=")
-                .append(cp.getPlanningConfig().getTotalDays())
-                .append(", attractionsPerDay=")
-                .append(cp.getPlanningConfig().getAttractionsPerDay()).append("\n");
-
-        if (cp.getPlanningConfig().getPreferenceKeywords() != null
-                && !cp.getPlanningConfig().getPreferenceKeywords().isEmpty()) {
-            sb.append("User preferences: ")
-                    .append(String.join(", ", cp.getPlanningConfig().getPreferenceKeywords()))
-                    .append("\n");
-        }
-
-        if (!cp.getCompletedSteps().isEmpty()) {
-            sb.append("Already planned attractions (do NOT recommend any of these): ");
-            cp.getCompletedSteps().forEach(s ->
-                    sb.append(s.getAttractionName()).append("; "));
-            sb.setLength(sb.length() - 2); // trim trailing "; "
-            sb.append("\n");
-        }
-
         sb.append("User intent: ").append(cp.getUserIntent()).append("\n");
-
-        if (ragService != null) {
-            try {
-                List<String> chunks = ragService.queryChunks(cp.getUserIntent(), cp.getRegion(), 5);
-                if (!chunks.isEmpty()) {
-                    sb.append("Reference information from travel guides:\n");
-                    chunks.forEach(c -> sb.append("- ").append(c).append("\n"));
-                }
-            } catch (Exception e) {
-                log.warn("[MarkovPlanner] RAG query failed, skipping injection: {}", e.getMessage());
-            }
-        }
-
-        sb.append("Distance constraint: attractions within the same day must be within 30 km of each other.\n");
-        sb.append("\nReply ONLY in valid JSON using exactly this shape:\n");
-        sb.append("{\"attractionName\": \"<attraction name>\", \"reason\": \"<brief recommendation reason>\"}");
+        sb.append("Recommend the next attraction only.");
         return sb.toString();
     }
 
@@ -180,6 +161,24 @@ public class MarkovPlanner {
         }
 
         return prompt.toString();
+    }
+
+    private Map<String, Object> buildAdvisorContext(TaskCheckpoint cp, List<String> ragChunks) {
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put(AdvisorContextKeys.REGION, cp.getRegion());
+        context.put(AdvisorContextKeys.USER_INTENT, cp.getUserIntent());
+        context.put(AdvisorContextKeys.PLANNING_CONFIG, cp.getPlanningConfig());
+        context.put(AdvisorContextKeys.COMPLETED_STEPS,
+                cp.getCompletedSteps() != null ? cp.getCompletedSteps() : List.<CompletedStep>of());
+        context.put(AdvisorContextKeys.SAME_DAY_RADIUS_KM, 30);
+        if (ragChunks != null && !ragChunks.isEmpty()) {
+            context.put(AdvisorContextKeys.RAG_CHUNKS, ragChunks);
+        }
+        context.put(AdvisorContextKeys.RESPONSE_SCHEMA, Map.of(
+                "type", "object",
+                "required", List.of("attractionName", "reason")
+        ));
+        return context;
     }
 
     /**

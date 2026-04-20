@@ -482,3 +482,69 @@
 2026-04-20 10:10:08.430 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
 2026-04-20 10:10:08.430 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
 2026-04-20 10:10:08.430 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-20 10:51:15.816 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-20 10:51:16.235 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-20 10:51:16.235 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-20 10:51:16.264 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-20 10:54:51.577 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-20 10:54:51.912 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-20 10:54:51.912 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-20 10:54:51.944 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-20 10:55:59.328 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-20 10:55:59.667 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-20 10:55:59.667 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-20 10:55:59.692 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-20 15:56:32.196 [main] INFO  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Compressed history for task=test-uuid (20 → 9 entries)
+2026-04-20 15:56:32.306 [main] WARN  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Summary compression failed for task=test-uuid, dropping old messages: LLM unavailable
+2026-04-20 15:56:32.307 [main] INFO  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Compressed history for task=test-uuid (20 → 8 entries)
+2026-04-20 15:56:32.516 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-20 15:56:32.952 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-20 15:56:32.953 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-20 15:56:32.981 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-20 15:56:33.276 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-20 15:56:33.279 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache miss, calling Amap for name=兵马俑
+2026-04-20 15:56:33.306 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-20 15:56:33.307 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache miss, calling Amap for name=兵马俑
+2026-04-20 15:56:33.309 [main] WARN  com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Failed to persist attraction name=兵马俑: DB connection error
+2026-04-20 15:56:33.316 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-20 15:56:33.317 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache hit for name=兵马俑
+2026-04-20 15:56:33.331 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 15:56:33.341 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 15:56:33.349 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 15:56:33.351 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 15:56:33.352 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-20 15:56:33.352 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-20 15:56:33.368 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.0,34.0) to (108.0,33.0)
+2026-04-20 15:56:33.381 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.278927,34.384232) to (108.939981,34.263161)
+2026-04-20 15:56:33.402 [main] DEBUG com.travelagent.agent.tools.WeatherTool - [WeatherTool] Fetching weather for adcode=610100
+2026-04-20 15:56:33.410 [main] DEBUG com.travelagent.agent.tools.WeatherTool - [WeatherTool] Fetching weather for adcode=610100
+2026-04-20 15:56:47.514 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 15:56:47.515 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-20 15:56:47.515 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-20 15:57:14.910 [main] INFO  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Compressed history for task=test-uuid (20 → 9 entries)
+2026-04-20 15:57:15.015 [main] WARN  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Summary compression failed for task=test-uuid, dropping old messages: LLM unavailable
+2026-04-20 15:57:15.016 [main] INFO  com.travelagent.agent.planner.HistoryManager - [HistoryManager] Compressed history for task=test-uuid (20 → 8 entries)
+2026-04-20 15:57:15.226 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-20 15:57:15.636 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-20 15:57:15.637 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-20 15:57:15.668 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-20 15:57:15.972 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-20 15:57:15.975 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache miss, calling Amap for name=兵马俑
+2026-04-20 15:57:16.002 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-20 15:57:16.002 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache miss, calling Amap for name=兵马俑
+2026-04-20 15:57:16.004 [main] WARN  com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Failed to persist attraction name=兵马俑: DB connection error
+2026-04-20 15:57:16.011 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Resolving name=兵马俑 region=西安市
+2026-04-20 15:57:16.012 [main] DEBUG com.travelagent.agent.tools.GeocodeTool - [GeocodeTool] Cache hit for name=兵马俑
+2026-04-20 15:57:16.022 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 15:57:16.031 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 15:57:16.038 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 15:57:16.041 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 15:57:16.041 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-20 15:57:16.041 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-20 15:57:16.058 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.0,34.0) to (108.0,33.0)
+2026-04-20 15:57:16.070 [main] DEBUG com.travelagent.agent.tools.TrafficTimeTool - [TrafficTimeTool] Driving duration from (109.278927,34.384232) to (108.939981,34.263161)
+2026-04-20 15:57:16.094 [main] DEBUG com.travelagent.agent.tools.WeatherTool - [WeatherTool] Fetching weather for adcode=610100
+2026-04-20 15:57:16.101 [main] DEBUG com.travelagent.agent.tools.WeatherTool - [WeatherTool] Fetching weather for adcode=610100
+2026-04-20 15:57:28.837 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-20 15:57:28.837 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-20 15:57:28.838 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather

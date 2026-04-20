@@ -2,6 +2,7 @@ com\travelagent\service\rag\EmbeddingService.class
 com\travelagent\config\WebMvcConfig.class
 com\travelagent\exception\RateLimitExceededException.class
 com\travelagent\model\entity\RagChunk.class
+com\travelagent\client\dashscope\LlmCallResult.class
 com\travelagent\controller\AuthController.class
 com\travelagent\controller\RagController.class
 com\travelagent\agent\tools\WeatherTool.class
@@ -37,6 +38,7 @@ com\travelagent\service\task\TaskService.class
 com\travelagent\client\dashscope\DashscopeLlmClient.class
 com\travelagent\service\notification\SseEvent.class
 com\travelagent\controller\SseController.class
+com\travelagent\advisor\AdvisorContextKeys.class
 com\travelagent\agent\statemachine\AgentStateMachine.class
 com\travelagent\util\JsonUtil.class
 com\travelagent\agent\statemachine\AgentEvent.class
@@ -49,6 +51,8 @@ com\travelagent\service\rag\impl\EmbeddingServiceImpl.class
 com\travelagent\aop\IdempotentTool.class
 com\travelagent\service\user\QuotaService.class
 com\travelagent\model\enums\TaskStatus.class
+com\travelagent\advisor\RagContextAdvisor.class
+com\travelagent\advisor\JsonSchemaAdvisor.class
 com\travelagent\mapper\UserQuotaUsageMapper.class
 com\travelagent\agent\context\RetryState.class
 com\travelagent\model\entity\RagDocument.class
@@ -80,8 +84,10 @@ com\travelagent\aop\RateLimit.class
 com\travelagent\service\notification\SseNotificationService.class
 com\travelagent\agent\planner\TaskDispatcher.class
 com\travelagent\service\user\UserService.class
+com\travelagent\agent\planner\PlanningResult.class
 com\travelagent\client\amap\AmapClient$2.class
 com\travelagent\model\entity\UserQuotaConfig.class
+com\travelagent\advisor\TravelPlanningAdvisor.class
 com\travelagent\filter\JwtAuthInterceptor.class
 com\travelagent\agent\tools\GeocodeTool.class
 com\travelagent\model\dto\RegisterRequest.class

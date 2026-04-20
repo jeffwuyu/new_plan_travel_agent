@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -46,7 +47,7 @@ class DashscopeLlmClientTest {
 
     @BeforeEach
     void setUp() {
-        llmClient = new DashscopeLlmClient(chatModel, llmCallLogMapper);
+        llmClient = new DashscopeLlmClient(ChatClient.builder(chatModel), llmCallLogMapper, List.of());
         ReflectionTestUtils.setField(llmClient, "model", "qwen-plus");
         ReflectionTestUtils.setField(llmClient, "maxRetries", 3);
     }

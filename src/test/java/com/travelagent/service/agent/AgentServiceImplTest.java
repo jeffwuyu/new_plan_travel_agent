@@ -6,13 +6,14 @@ import com.travelagent.agent.context.PendingToolCall;
 import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.RetryState;
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.agent.planner.MarkovPlanner;
+import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
 import com.travelagent.agent.tools.GeocodeTool;
 import com.travelagent.agent.tools.ToolRegistry;
 import com.travelagent.agent.tools.TrafficTimeTool;
 import com.travelagent.agent.tools.WeatherTool;
-import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.exception.QuotaExhaustedException;
 import com.travelagent.mapper.PlanMapper;
 import com.travelagent.mapper.TaskMapper;
@@ -42,6 +43,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
@@ -61,7 +63,7 @@ class AgentServiceImplTest {
     @Mock private TaskMapper taskMapper;
     @Mock private AgentStateMachine stateMachine;
     @Mock private SseNotificationService sseNotificationService;
-    @Mock private DashscopeLlmClient llmClient;
+    @Mock private MarkovPlanner markovPlanner;
     @Mock private ToolRegistry toolRegistry;
     @Mock private QuotaService quotaService;
     @Mock private PlanMapper planMapper;
@@ -76,7 +78,6 @@ class AgentServiceImplTest {
     void setUp() {
         ReflectionTestUtils.setField(jsonUtil, "objectMapper", new ObjectMapper().findAndRegisterModules());
         ReflectionTestUtils.setField(agentService, "jsonUtil", jsonUtil);
-        ReflectionTestUtils.setField(agentService, "slidingWindow", 6);
     }
 
     @Test
@@ -86,7 +87,7 @@ class AgentServiceImplTest {
 
         agentService.executeTask("unknown-uuid");
 
-        verifyNoInteractions(stateMachine, llmClient, sseNotificationService);
+        verifyNoInteractions(stateMachine, markovPlanner, sseNotificationService);
     }
 
     @Test
@@ -97,7 +98,7 @@ class AgentServiceImplTest {
 
         agentService.executeTask("uuid");
 
-        verifyNoInteractions(stateMachine, llmClient);
+        verifyNoInteractions(stateMachine, markovPlanner);
     }
 
     @Test
@@ -171,8 +172,8 @@ class AgentServiceImplTest {
                 .thenReturn(TaskStatus.COMPLETED);
         mockUserLevel(1L, 1);
 
-        when(llmClient.callStreaming(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn("{\"attractionName\":\"Terracotta Army\",\"reason\":\"Famous historical attraction\"}");
+        when(markovPlanner.planNextAttraction(any(), any(), anyString()))
+                .thenReturn(new PlanningResult("Terracotta Army", 0));
 
         mockToolRegistry();
 
@@ -212,8 +213,8 @@ class AgentServiceImplTest {
                 .thenReturn(TaskStatus.COMPLETED);
         mockUserLevel(1L, 1);
 
-        when(llmClient.callStreaming(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn("{\"attractionName\":\"Terracotta Army\"}");
+        when(markovPlanner.planNextAttraction(any(), any(), anyString()))
+                .thenReturn(new PlanningResult("Terracotta Army", 0));
         mockToolRegistry();
         when(planMapper.insertPlan(any())).thenAnswer(inv -> {
             Plan plan = inv.getArgument(0);

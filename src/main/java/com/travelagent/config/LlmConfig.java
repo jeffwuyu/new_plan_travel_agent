@@ -7,6 +7,7 @@ import com.alibaba.dashscope.aigc.generation.Generation;
 import com.alibaba.dashscope.embeddings.TextEmbedding;
 import io.micrometer.observation.ObservationRegistry;
 import okhttp3.OkHttpClient;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -90,6 +91,11 @@ public class LlmConfig {
                 .defaultOptions(options)
                 .observationRegistry(ObservationRegistry.NOOP)
                 .build();
+    }
+
+    @Bean
+    public ChatClient.Builder chatClientBuilder(ChatModel chatModel) {
+        return ChatClient.builder(chatModel);
     }
 
     /**

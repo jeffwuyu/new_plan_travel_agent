@@ -5,6 +5,7 @@ import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
+import com.travelagent.client.dashscope.LlmCallResult;
 import com.travelagent.model.entity.Task;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
@@ -32,9 +33,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * 中文注释：测试类，用于验证 Markov Planner 的 Prompt 构建、LLM 响应解析与历史管理委托行为。
- */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("MarkovPlanner Tests")
 class MarkovPlannerTest {
@@ -55,63 +53,56 @@ class MarkovPlannerTest {
         ReflectionTestUtils.setField(markovPlanner, "jsonUtil", jsonUtil);
     }
 
-    // -----------------------------------------------------------------------
-    // buildSystemPrompt
-    // -----------------------------------------------------------------------
-
     @Test
-    @DisplayName("buildSystemPrompt: no completed steps — visited-set section absent")
+    @DisplayName("buildSystemPrompt returns lightweight base prompt")
     void buildSystemPrompt_noCompletedSteps_noVisitedSet() {
         TaskCheckpoint cp = buildCheckpoint(2, 2, "Xi'an", List.of(), List.of());
         String prompt = markovPlanner.buildSystemPrompt(cp);
 
         assertThat(prompt).contains("Xi'an");
-        assertThat(prompt).contains("totalDays=2");
-        assertThat(prompt).contains("attractionsPerDay=2");
+        assertThat(prompt).contains("Explore Xi'an");
+        assertThat(prompt).contains("Recommend the next attraction only");
         assertThat(prompt).doesNotContain("do NOT recommend");
     }
 
     @Test
-    @DisplayName("buildSystemPrompt: with completed steps — visited-set injected")
+    @DisplayName("buildSystemPrompt keeps advisor-managed fields out of base prompt")
     void buildSystemPrompt_withCompletedSteps_includesVisitedSet() {
         CompletedStep step = step("Terracotta Army", 34.38, 109.28);
         TaskCheckpoint cp = buildCheckpoint(2, 2, "Xi'an", List.of(step), List.of());
 
         String prompt = markovPlanner.buildSystemPrompt(cp);
 
-        assertThat(prompt).contains("Terracotta Army");
-        assertThat(prompt).contains("do NOT recommend");
+        assertThat(prompt).doesNotContain("Terracotta Army");
+        assertThat(prompt).doesNotContain("do NOT recommend");
     }
 
     @Test
-    @DisplayName("buildSystemPrompt: with preference keywords — keywords injected")
+    @DisplayName("buildSystemPrompt delegates preference keywords to advisors")
     void buildSystemPrompt_withPreferences_includesKeywords() {
         TaskCheckpoint cp = buildCheckpoint(1, 1, "Chengdu",
                 List.of(), List.of("food", "history"));
 
         String prompt = markovPlanner.buildSystemPrompt(cp);
 
-        assertThat(prompt).contains("food");
-        assertThat(prompt).contains("history");
-        assertThat(prompt).containsPattern("(?i)preference");
+        assertThat(prompt).contains("Explore Chengdu");
+        assertThat(prompt).doesNotContain("food");
+        assertThat(prompt).doesNotContain("history");
     }
 
     @Test
-    @DisplayName("buildSystemPrompt: response format instructions present")
+    @DisplayName("buildSystemPrompt delegates response schema to advisors")
     void buildSystemPrompt_includesJsonFormatInstruction() {
         TaskCheckpoint cp = buildCheckpoint(1, 1, "Beijing", List.of(), List.of());
         String prompt = markovPlanner.buildSystemPrompt(cp);
 
-        assertThat(prompt).contains("attractionName");
-        assertThat(prompt).contains("reason");
+        assertThat(prompt).contains("Recommend the next attraction only");
+        assertThat(prompt).doesNotContain("attractionName");
+        assertThat(prompt).doesNotContain("reason");
     }
 
-    // -----------------------------------------------------------------------
-    // buildStepPrompt
-    // -----------------------------------------------------------------------
-
     @Test
-    @DisplayName("buildStepPrompt: first step (index=0) — no 'start from' clause")
+    @DisplayName("buildStepPrompt first step has no start-from clause")
     void buildStepPrompt_firstStep_noStartFrom() {
         TaskCheckpoint cp = buildCheckpoint(2, 2, "Xi'an", List.of(), List.of());
         cp.setCurrentStepIndex(0);
@@ -124,7 +115,7 @@ class MarkovPlannerTest {
     }
 
     @Test
-    @DisplayName("buildStepPrompt: later step — includes last attraction coordinates")
+    @DisplayName("buildStepPrompt later step includes previous coordinates")
     void buildStepPrompt_laterStep_includesLastAttraction() {
         CompletedStep prev = step("Wild Goose Pagoda", 34.22, 108.96);
         TaskCheckpoint cp = buildCheckpoint(2, 2, "Xi'an", List.of(prev), List.of());
@@ -139,10 +130,9 @@ class MarkovPlannerTest {
     }
 
     @Test
-    @DisplayName("buildStepPrompt: day and order-in-day numbers are computed correctly")
+    @DisplayName("buildStepPrompt computes day and order correctly")
     void buildStepPrompt_dayAndOrderInDay_computedCorrectly() {
         TaskCheckpoint cp = buildCheckpoint(2, 3, "Guilin", List.of(), List.of());
-        // stepIndex=3 → day 2, attraction 1 of 3
         cp.setCurrentStepIndex(3);
 
         String prompt = markovPlanner.buildStepPrompt(cp);
@@ -151,12 +141,8 @@ class MarkovPlannerTest {
         assertThat(prompt).contains("step 4 of 6");
     }
 
-    // -----------------------------------------------------------------------
-    // parseLlmAttractionName
-    // -----------------------------------------------------------------------
-
     @Test
-    @DisplayName("parseLlmAttractionName: valid JSON returns attractionName field")
+    @DisplayName("parseLlmAttractionName valid JSON returns attractionName")
     void parseLlmAttractionName_validJson_returnsName() {
         String json = "{\"attractionName\":\"Terracotta Army\",\"reason\":\"Famous site\"}";
         assertThat(markovPlanner.parseLlmAttractionName(json, 0))
@@ -164,7 +150,7 @@ class MarkovPlannerTest {
     }
 
     @Test
-    @DisplayName("parseLlmAttractionName: markdown-fenced JSON is stripped and parsed")
+    @DisplayName("parseLlmAttractionName strips markdown fences")
     void parseLlmAttractionName_markdownFenced_stripsAndParses() {
         String fenced = "```json\n{\"attractionName\":\"Wild Goose Pagoda\",\"reason\":\"Historic\"}\n```";
         assertThat(markovPlanner.parseLlmAttractionName(fenced, 1))
@@ -172,7 +158,7 @@ class MarkovPlannerTest {
     }
 
     @Test
-    @DisplayName("parseLlmAttractionName: invalid JSON falls back to truncated raw text")
+    @DisplayName("parseLlmAttractionName invalid JSON falls back to raw text")
     void parseLlmAttractionName_invalidJson_returnsFallback() {
         String raw = "I recommend the Terracotta Army because it is very famous and unique.";
         String result = markovPlanner.parseLlmAttractionName(raw, 2);
@@ -181,7 +167,7 @@ class MarkovPlannerTest {
     }
 
     @Test
-    @DisplayName("parseLlmAttractionName: blank response returns 'Unknown Attraction'")
+    @DisplayName("parseLlmAttractionName blank response returns unknown")
     void parseLlmAttractionName_blankResponse_returnsUnknown() {
         assertThat(markovPlanner.parseLlmAttractionName("", 0))
                 .isEqualTo("Unknown Attraction");
@@ -190,18 +176,14 @@ class MarkovPlannerTest {
     }
 
     @Test
-    @DisplayName("parseLlmAttractionName: short raw text returned as-is (under 50 chars)")
+    @DisplayName("parseLlmAttractionName short raw text returns as-is")
     void parseLlmAttractionName_shortRaw_returnsFull() {
         String raw = "not json at all";
         assertThat(markovPlanner.parseLlmAttractionName(raw, 0)).isEqualTo(raw);
     }
 
-    // -----------------------------------------------------------------------
-    // planNextAttraction
-    // -----------------------------------------------------------------------
-
     @Test
-    @DisplayName("planNextAttraction: calls LLM, appends exchange, returns parsed name")
+    @DisplayName("planNextAttraction calls LLM with advisor-aware overload")
     void planNextAttraction_callsLlmAndAppendsHistory() {
         TaskCheckpoint cp = buildCheckpoint(1, 1, "Xi'an", List.of(), List.of());
         cp.setCurrentStepIndex(0);
@@ -212,24 +194,21 @@ class MarkovPlannerTest {
         task.setUserId(10L);
 
         when(historyManager.prepareForLlm(cp)).thenReturn(List.of());
+        when(llmClient.defaultPlanningAdvisors()).thenReturn(List.of("travelPlanning", "jsonSchema", "ragContext"));
         when(llmClient.callStreaming(any(), any(), anyString(), anyString(),
-                any(), anyString(), anyString(), any()))
-                .thenReturn("{\"attractionName\":\"Terracotta Army\",\"reason\":\"Famous\"}");
+                any(), anyString(), anyString(), any(), any(), any()))
+                .thenReturn(new LlmCallResult("{\"attractionName\":\"Terracotta Army\",\"reason\":\"Famous\"}", 0));
 
-        String result = markovPlanner.planNextAttraction(task, cp, "test-uuid");
+        PlanningResult result = markovPlanner.planNextAttraction(task, cp, "test-uuid");
 
-        assertThat(result).isEqualTo("Terracotta Army");
-
-        // History append must be delegated to HistoryManager
+        assertThat(result.attractionName()).isEqualTo("Terracotta Army");
         verify(historyManager).appendExchange(eq(cp), anyString(), anyString());
-
-        // SSE LLM_STREAM events should be wired (tokenConsumer passed to LLM client)
         verify(llmClient).callStreaming(any(), any(), anyString(), anyString(),
-                any(), anyString(), anyString(), any());
+                any(), anyString(), anyString(), any(), any(), any());
     }
 
     @Test
-    @DisplayName("planNextAttraction: SSE LLM_STREAM events are forwarded")
+    @DisplayName("planNextAttraction forwards streamed tokens to SSE")
     void planNextAttraction_streamsTokensViaSse() {
         TaskCheckpoint cp = buildCheckpoint(1, 1, "Beijing", List.of(), List.of());
         cp.setCurrentStepIndex(0);
@@ -239,48 +218,39 @@ class MarkovPlannerTest {
         task.setUserId(20L);
 
         when(historyManager.prepareForLlm(cp)).thenReturn(List.of());
+        when(llmClient.defaultPlanningAdvisors()).thenReturn(List.of("travelPlanning", "jsonSchema", "ragContext"));
         when(llmClient.callStreaming(any(), any(), anyString(), anyString(),
-                any(), anyString(), anyString(), any()))
+                any(), anyString(), anyString(), any(), any(), any()))
                 .thenAnswer(inv -> {
-                    // Simulate token streaming
                     java.util.function.Consumer<String> consumer = inv.getArgument(7);
                     consumer.accept("Forbidden");
                     consumer.accept(" City");
-                    return "{\"attractionName\":\"Forbidden City\",\"reason\":\"Imperial palace\"}";
+                    return new LlmCallResult("{\"attractionName\":\"Forbidden City\",\"reason\":\"Imperial palace\"}", 0);
                 });
 
         markovPlanner.planNextAttraction(task, cp, "uuid-2");
 
-        // Two token events should have been sent
         verify(sseNotificationService).sendEvent("uuid-2", SseEvent.LLM_STREAM, Map.of("token", "Forbidden"));
         verify(sseNotificationService).sendEvent("uuid-2", SseEvent.LLM_STREAM, Map.of("token", " City"));
     }
 
-    // -----------------------------------------------------------------------
-    // RAG injection into buildSystemPrompt
-    // -----------------------------------------------------------------------
-
     @Test
-    @DisplayName("buildSystemPrompt: when RagService provides chunks, they appear in prompt")
+    @DisplayName("buildSystemPrompt with RagService available does not throw")
     void buildSystemPrompt_ragChunksInjectedIntoPrompt() {
         RagService mockRagService = mock(RagService.class);
-        when(mockRagService.queryChunks(anyString(), anyString(), eq(5)))
-                .thenReturn(List.of("兵马俑简介", "回民街美食推荐"));
         ReflectionTestUtils.setField(markovPlanner, "ragService", mockRagService);
 
         TaskCheckpoint cp = buildCheckpoint(1, 1, "西安市", List.of(), List.of());
         String prompt = markovPlanner.buildSystemPrompt(cp);
 
-        assertThat(prompt).contains("Reference information from travel guides:");
-        assertThat(prompt).contains("兵马俑简介");
-        assertThat(prompt).contains("回民街美食推荐");
+        assertThat(prompt).contains("Explore 西安市");
+        assertThat(prompt).doesNotContain("Reference information from travel guides:");
 
-        // Restore null so other tests are unaffected
         ReflectionTestUtils.setField(markovPlanner, "ragService", null);
     }
 
     @Test
-    @DisplayName("buildSystemPrompt: null RagService (optional) does not throw")
+    @DisplayName("buildSystemPrompt null RagService does not throw")
     void buildSystemPrompt_nullRagService_doesNotThrow() {
         ReflectionTestUtils.setField(markovPlanner, "ragService", null);
         TaskCheckpoint cp = buildCheckpoint(1, 1, "北京市", List.of(), List.of());
@@ -289,26 +259,20 @@ class MarkovPlannerTest {
     }
 
     @Test
-    @DisplayName("buildSystemPrompt: RagService exception is caught, prompt still built")
+    @DisplayName("buildSystemPrompt RagService exception does not affect base prompt")
     void buildSystemPrompt_ragServiceThrows_promptStillBuilt() {
         RagService failingRagService = mock(RagService.class);
-        when(failingRagService.queryChunks(any(), any(), eq(5)))
-                .thenThrow(new RuntimeException("vector store down"));
         ReflectionTestUtils.setField(markovPlanner, "ragService", failingRagService);
 
         TaskCheckpoint cp = buildCheckpoint(1, 1, "成都市", List.of(), List.of());
         String prompt = markovPlanner.buildSystemPrompt(cp);
 
         assertThat(prompt).contains("成都市");
-        assertThat(prompt).contains("attractionName");
+        assertThat(prompt).contains("Recommend the next attraction only");
         assertThat(prompt).doesNotContain("Reference information from travel guides:");
 
         ReflectionTestUtils.setField(markovPlanner, "ragService", null);
     }
-
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
 
     private TaskCheckpoint buildCheckpoint(int days, int perDay, String region,
                                            List<CompletedStep> steps,

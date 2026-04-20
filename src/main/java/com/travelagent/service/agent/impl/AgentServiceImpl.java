@@ -5,6 +5,7 @@ import com.travelagent.agent.context.PendingToolCall;
 import com.travelagent.agent.context.RetryState;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.planner.MarkovPlanner;
+import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
 import com.travelagent.agent.tools.GeocodeTool;
@@ -135,7 +136,20 @@ public class AgentServiceImpl implements AgentService {
             // --- LLM planning step (via MarkovPlanner) ---
             String attractionName;
             try {
-                attractionName = markovPlanner.planNextAttraction(task, checkpoint, taskUuid);
+                PlanningResult planResult = markovPlanner.planNextAttraction(task, checkpoint, taskUuid);
+                attractionName = planResult.attractionName();
+                int tokensUsed = planResult.totalTokens();
+                try {
+                    quotaService.debitTokens(task.getUserId(), userLevel, tokensUsed);
+                } catch (QuotaExhaustedException qe) {
+                    handleQuotaExhaustion(task, checkpoint, taskUuid);
+                    return;
+                }
+                task.setTotalTokensUsed(
+                        (task.getTotalTokensUsed() == null ? 0 : task.getTotalTokensUsed()) + tokensUsed);
+            } catch (QuotaExhaustedException e) {
+                handleQuotaExhaustion(task, checkpoint, taskUuid);
+                return;
             } catch (Exception e) {
                 handleRetryOrFail(task, checkpoint, taskUuid, e.getMessage());
                 return;
