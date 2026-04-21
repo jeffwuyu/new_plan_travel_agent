@@ -2,6 +2,7 @@ package com.travelagent.service.task;
 
 import com.travelagent.model.dto.CreateTaskRequest;
 import com.travelagent.model.dto.TaskResponse;
+import com.travelagent.model.entity.Task;
 
 import java.util.List;
 
@@ -61,4 +62,13 @@ public interface TaskService {
      * @throws com.travelagent.exception.BusinessException 400 if the task is not in PAUSED state
      */
     TaskResponse resumeTask(String taskUuid, Long requestingUserId);
+
+    /**
+     * Returns the raw Task entity after verifying caller ownership.
+     * Used internally by controllers that need the entity (e.g., progress endpoint).
+     *
+     * @throws com.travelagent.exception.TaskNotFoundException if UUID does not exist
+     * @throws com.travelagent.exception.BusinessException 403 if caller does not own the task
+     */
+    Task getTaskEntity(String taskUuid, Long requestingUserId);
 }

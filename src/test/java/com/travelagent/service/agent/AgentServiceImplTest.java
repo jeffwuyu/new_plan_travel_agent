@@ -25,6 +25,8 @@ import com.travelagent.model.enums.TaskStatus;
 import com.travelagent.service.agent.impl.AgentServiceImpl;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
+import com.travelagent.monitoring.TaskMetricsService;
+import com.travelagent.service.task.TaskProgressService;
 import com.travelagent.service.user.QuotaService;
 import com.travelagent.util.JsonUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,6 +70,8 @@ class AgentServiceImplTest {
     @Mock private QuotaService quotaService;
     @Mock private PlanMapper planMapper;
     @Mock private UserMapper userMapper;
+    @Mock private TaskProgressService taskProgressService;
+    @Mock private TaskMetricsService taskMetricsService;
 
     @InjectMocks
     private AgentServiceImpl agentService;

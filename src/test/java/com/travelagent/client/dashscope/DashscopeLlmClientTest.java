@@ -3,6 +3,7 @@ package com.travelagent.client.dashscope;
 import com.travelagent.exception.AgentException;
 import com.travelagent.mapper.LlmCallLogMapper;
 import com.travelagent.model.entity.LlmCallLog;
+import com.travelagent.monitoring.TaskMetricsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,7 @@ class DashscopeLlmClientTest {
 
     @Mock private ChatModel chatModel;
     @Mock private LlmCallLogMapper llmCallLogMapper;
+    @Mock private TaskMetricsService taskMetricsService;
 
     private DashscopeLlmClient llmClient;
 
@@ -51,6 +53,7 @@ class DashscopeLlmClientTest {
         llmClient = new DashscopeLlmClient(ChatClient.builder(chatModel), llmCallLogMapper, List.of());
         ReflectionTestUtils.setField(llmClient, "model", "qwen-plus");
         ReflectionTestUtils.setField(llmClient, "maxRetries", 3);
+        ReflectionTestUtils.setField(llmClient, "taskMetricsService", taskMetricsService);
     }
 
     // -----------------------------------------------------------------------

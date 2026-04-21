@@ -226,3 +226,23 @@ VALUES
     (1, 10000,  100000,  2,  15),   -- REGULAR
     (2, 50000,  500000,  5,  30),   -- VIP
     (3, 999999, 9999999, 10, 50);   -- ADMIN
+
+
+-- =============================================================
+-- Task Execution Event Log (P1-3)
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS task_execution_events (
+    id           BIGINT        NOT NULL AUTO_INCREMENT,
+    task_uuid    VARCHAR(36)   NOT NULL,
+    event_type   VARCHAR(32)   NOT NULL COMMENT 'STATE_CHANGE|TOOL_START|TOOL_DONE|STEP_DONE|ERROR|RETRY|PAUSED|COMPLETED',
+    status       VARCHAR(32)   NULL     COMMENT 'task status at event time',
+    step_index   INT           NULL,
+    total_steps  INT           NULL,
+    message      VARCHAR(512)  NULL,
+    details_json TEXT          NULL,
+    created_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_task_uuid (task_uuid),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Persistent execution event log for agent tasks';

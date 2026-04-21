@@ -36,6 +36,7 @@ G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\service\notificati
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\service\QuotaServiceTest.java
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\service\rag\EmbeddingServiceTest.java
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\service\rag\RagServiceImplTest.java
+G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\service\task\TaskProgressServiceTest.java
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\service\TaskServiceTest.java
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\service\UserServiceTest.java
 G:\coding\new_plan_travel_agent\src\test\java\com\travelagent\util\JwtUtilTest.java

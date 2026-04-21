@@ -11,6 +11,7 @@ import com.travelagent.model.dto.Result;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.entity.User;
 import com.travelagent.model.entity.UserQuotaConfig;
+import com.travelagent.monitoring.TaskMetricsService;
 import com.travelagent.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -59,6 +60,9 @@ public class AdminController {
 
     @Autowired
     private TaskMapper taskMapper;
+
+    @Autowired
+    private TaskMetricsService taskMetricsService;
 
     // -----------------------------------------------------------------------
     // 工具方法：管理员权限校验
@@ -253,6 +257,18 @@ public class AdminController {
         config.setUserLevel(level);
         quotaConfigMapper.update(config);
         return Result.success();
+    }
+
+    // -----------------------------------------------------------------------
+    // 指标快照
+    // -----------------------------------------------------------------------
+
+    @Operation(summary = "查询运行时指标快照",
+               description = "返回 LLM 调用次数/延迟/错误率、工具调用统计、任务状态计数。JVM 重启后归零。")
+    @GetMapping("/metrics")
+    public Result<Map<String, Object>> getMetrics(HttpServletRequest request) {
+        requireAdmin(request);
+        return Result.success(taskMetricsService.getSnapshot());
     }
 
     // -----------------------------------------------------------------------

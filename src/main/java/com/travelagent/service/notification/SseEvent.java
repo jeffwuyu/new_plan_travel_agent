@@ -34,6 +34,12 @@ public enum SseEvent {
     /** Task completed successfully. Payload: {@code {planId}} */
     COMPLETED,
 
-    /** An error occurred. Payload: {@code {message}} */
-    ERROR
+    /** An error occurred. Payload: {@code {code, message, retryable}} */
+    ERROR,
+
+    /** Sent on first SSE connect for non-terminal tasks. Payload: {@link com.travelagent.model.dto.TaskExecutionProgressResponse} */
+    PROGRESS_SNAPSHOT,
+
+    /** A retryable error occurred; agent will retry. Payload: {@code {attempt, maxAttempts, message}} */
+    RETRY
 }

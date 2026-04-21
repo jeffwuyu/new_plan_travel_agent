@@ -1,4 +1,5 @@
 com\travelagent\agent\context\TaskCheckpointSerializationTest.class
+com\travelagent\service\task\TaskProgressServiceTest.class
 com\travelagent\config\LlmConfigTest.class
 com\travelagent\service\TaskServiceTest.class
 com\travelagent\advisor\RagContextAdvisorTest.class

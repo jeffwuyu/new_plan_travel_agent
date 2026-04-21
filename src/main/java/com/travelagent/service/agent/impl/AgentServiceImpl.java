@@ -15,6 +15,7 @@ import com.travelagent.agent.tools.TrafficTimeTool;
 import com.travelagent.agent.tools.WeatherTool;
 import com.travelagent.exception.AgentException;
 import com.travelagent.exception.QuotaExhaustedException;
+import com.travelagent.service.task.TaskProgressService;
 import com.travelagent.mapper.PlanMapper;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.mapper.UserMapper;
@@ -26,9 +27,11 @@ import com.travelagent.service.agent.AgentService;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.user.QuotaService;
+import com.travelagent.monitoring.TaskMetricsService;
 import com.travelagent.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -61,6 +64,15 @@ public class AgentServiceImpl implements AgentService {
 
     private static final Logger log = LoggerFactory.getLogger(AgentServiceImpl.class);
 
+    private static final String EVT_STATE_CHANGE = "STATE_CHANGE";
+    private static final String EVT_TOOL_START   = "TOOL_START";
+    private static final String EVT_TOOL_DONE    = "TOOL_DONE";
+    private static final String EVT_STEP_DONE    = "STEP_DONE";
+    private static final String EVT_ERROR        = "ERROR";
+    private static final String EVT_RETRY        = "RETRY";
+    private static final String EVT_PAUSED       = "PAUSED";
+    private static final String EVT_COMPLETED    = "COMPLETED";
+
     @Autowired private TaskMapper taskMapper;
     @Autowired private AgentStateMachine stateMachine;
     @Autowired private SseNotificationService sseNotificationService;
@@ -70,6 +82,8 @@ public class AgentServiceImpl implements AgentService {
     @Autowired private JsonUtil jsonUtil;
     @Autowired private PlanMapper planMapper;
     @Autowired private UserMapper userMapper;
+    @Autowired private TaskProgressService taskProgressService;
+    @Autowired private TaskMetricsService taskMetricsService;
 
     // -----------------------------------------------------------------------
     // Startup recovery
@@ -155,7 +169,9 @@ public class AgentServiceImpl implements AgentService {
             return;
         }
 
+        MDC.put("taskUuid", taskUuid);
         try {
+            taskMetricsService.recordTaskStarted();
             runPlanningLoop(task, taskUuid, current);
         } catch (Exception e) {
             log.error("[AgentService] Unhandled error in task={}: {}", taskUuid, e.getMessage(), e);
@@ -163,6 +179,8 @@ public class AgentServiceImpl implements AgentService {
                     ? ae.toEventPayload()
                     : Map.of("code", "UNKNOWN", "message", String.valueOf(e.getMessage()), "retryable", false);
             markFailed(task, taskUuid, e.getMessage(), payload);
+        } finally {
+            MDC.remove("taskUuid");
         }
     }
 
@@ -184,6 +202,9 @@ public class AgentServiceImpl implements AgentService {
                 "step", checkpoint.getCurrentStepIndex(),
                 "totalSteps", checkpoint.totalPlannedSteps()
         ));
+        taskProgressService.recordEvent(taskUuid, EVT_STATE_CHANGE, planning.getCode(),
+                checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(),
+                "Task execution started", null);
 
         // Resume: replay any tool call that was interrupted mid-execution
         if (checkpoint.getPendingToolCall() != null) {
@@ -194,6 +215,10 @@ public class AgentServiceImpl implements AgentService {
         while (!checkpoint.isAllStepsDone()) {
             int stepIndex = checkpoint.getCurrentStepIndex();
             int dayNumber = (stepIndex / checkpoint.getPlanningConfig().getAttractionsPerDay()) + 1;
+
+            taskProgressService.recordEvent(taskUuid, EVT_STATE_CHANGE, planning.getCode(),
+                    stepIndex, checkpoint.totalPlannedSteps(),
+                    "Starting step " + stepIndex, null);
 
             // --- Quota check before each LLM call ---
             try {
@@ -314,6 +339,10 @@ public class AgentServiceImpl implements AgentService {
                     "trafficTimeMin", trafficMin,
                     "dayNumber", dayNumber
             ));
+            taskProgressService.recordEvent(taskUuid, EVT_STEP_DONE, planning.getCode(),
+                    stepIndex, checkpoint.totalPlannedSteps(),
+                    "Step " + stepIndex + " completed: " + attractionName,
+                    Map.of("attractionName", attractionName, "dayNumber", dayNumber));
         }
 
         // --- All steps done: persist plan and transition to COMPLETED ---
@@ -327,6 +356,10 @@ public class AgentServiceImpl implements AgentService {
         }
         taskMapper.updateStatus(task.getId(), completed.getCode());
 
+        taskMetricsService.recordTaskCompleted();
+        taskProgressService.recordEvent(taskUuid, EVT_COMPLETED, completed.getCode(),
+                checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(),
+                "Task completed successfully", Map.of("planId", planId));
         sseNotificationService.sendEvent(taskUuid, SseEvent.COMPLETED, Map.of("planId", planId));
         sseNotificationService.completeEmitter(taskUuid);
     }
@@ -352,13 +385,27 @@ public class AgentServiceImpl implements AgentService {
         checkpoint.setPendingToolCall(new PendingToolCall(toolName, arguments, idempotencyKey));
         saveCheckpoint(task, checkpoint);
 
-        Map<String, Object> result = (Map<String, Object>) toolRegistry
-                .getTool(toolName)
-                .execute(arguments, idempotencyKey);
+        taskProgressService.recordEvent(taskUuid, EVT_TOOL_START, null,
+                stepIndex, null, "Calling tool: " + toolName, arguments);
 
-        checkpoint.setPendingToolCall(null);
-        saveCheckpoint(task, checkpoint);
-        return result;
+        boolean toolSuccess = true;
+        try {
+            Map<String, Object> result = (Map<String, Object>) toolRegistry
+                    .getTool(toolName)
+                    .execute(arguments, idempotencyKey);
+
+            checkpoint.setPendingToolCall(null);
+            saveCheckpoint(task, checkpoint);
+
+            taskProgressService.recordEvent(taskUuid, EVT_TOOL_DONE, null,
+                    stepIndex, null, "Tool completed: " + toolName, result);
+            return result;
+        } catch (Exception e) {
+            toolSuccess = false;
+            throw e;
+        } finally {
+            taskMetricsService.recordToolCall(toolSuccess);
+        }
     }
 
     /**
@@ -397,6 +444,10 @@ public class AgentServiceImpl implements AgentService {
         TaskStatus paused = stateMachine.transition(TaskStatus.PLANNING, AgentEvent.QUOTA_EXHAUSTED);
         taskMapper.updateStatus(task.getId(), paused.getCode());
 
+        taskMetricsService.recordTaskPaused();
+        taskProgressService.recordEvent(taskUuid, EVT_PAUSED, TaskStatus.PAUSED.getCode(),
+                null, null, "Task paused: daily quota exhausted",
+                Map.of("resumableAt", tomorrow.toString()));
         sseNotificationService.sendEvent(taskUuid, SseEvent.PAUSED, Map.of(
                 "reason", "daily_quota_exhausted",
                 "resumableAt", tomorrow.toString()
@@ -430,9 +481,13 @@ public class AgentServiceImpl implements AgentService {
         if (checkpoint.getRetryState().isExhausted()) {
             markFailed(task, taskUuid, "Retry budget exhausted: " + exception.getMessage(), errorPayload);
         } else {
+            int attempt = checkpoint.getRetryState().getCurrentStepRetryCount();
+            int max     = checkpoint.getRetryState().getMaxRetries();
             log.warn("[AgentService] Step failed for task={}, retry {}/{}: {}",
-                    taskUuid, checkpoint.getRetryState().getCurrentStepRetryCount(),
-                    checkpoint.getRetryState().getMaxRetries(), exception.getMessage());
+                    taskUuid, attempt, max, exception.getMessage());
+            taskProgressService.recordEvent(taskUuid, EVT_RETRY, null, null, null,
+                    "Retrying: " + exception.getMessage(),
+                    Map.of("attempt", attempt, "maxAttempts", max));
             saveCheckpoint(task, checkpoint);
         }
     }
@@ -446,6 +501,9 @@ public class AgentServiceImpl implements AgentService {
                 taskMapper.updateStatus(fresh.getId(), TaskStatus.FAILED.getCode());
                 fresh.setStatus(TaskStatus.FAILED.getCode());
                 taskMapper.update(fresh);
+                taskMetricsService.recordTaskFailed();
+                taskProgressService.recordEvent(taskUuid, EVT_ERROR, TaskStatus.FAILED.getCode(),
+                        null, null, errorMsg, errorPayload);
                 sseNotificationService.sendEvent(taskUuid, SseEvent.ERROR, errorPayload);
                 sseNotificationService.completeEmitter(taskUuid);
             }

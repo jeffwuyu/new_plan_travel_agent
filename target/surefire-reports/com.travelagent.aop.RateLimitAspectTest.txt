@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.travelagent.aop.RateLimitAspectTest
 -------------------------------------------------------------------------------
-Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.147 s -- in com.travelagent.aop.RateLimitAspectTest
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.100 s -- in com.travelagent.aop.RateLimitAspectTest

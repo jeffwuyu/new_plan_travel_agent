@@ -1,9 +1,12 @@
 package com.travelagent.controller;
 
+import com.travelagent.exception.BusinessException;
 import com.travelagent.filter.JwtAuthInterceptor;
 import com.travelagent.model.dto.CreateTaskRequest;
 import com.travelagent.model.dto.Result;
+import com.travelagent.model.dto.TaskExecutionProgressResponse;
 import com.travelagent.model.dto.TaskResponse;
+import com.travelagent.service.task.TaskProgressService;
 import com.travelagent.service.task.TaskService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,6 +36,9 @@ public class TaskController {
 
     @Autowired
     private TaskService taskService;
+
+    @Autowired
+    private TaskProgressService taskProgressService;
 
     // -----------------------------------------------------------------------
     // Create
@@ -92,5 +98,24 @@ public class TaskController {
                                            HttpServletRequest httpRequest) {
         Long userId = JwtAuthInterceptor.getUserId(httpRequest);
         return Result.success(taskService.resumeTask(taskUuid, userId));
+    }
+
+    // -----------------------------------------------------------------------
+    // Progress
+    // -----------------------------------------------------------------------
+
+    @Operation(summary = "查询任务执行进度事件日志",
+               description = "返回最近N条执行事件（默认20，最多100），按时间升序排列")
+    @GetMapping("/{taskUuid}/progress")
+    public Result<TaskExecutionProgressResponse> getTaskProgress(
+            @PathVariable String taskUuid,
+            @RequestParam(defaultValue = "20") int limit,
+            HttpServletRequest httpRequest) {
+        Long userId = JwtAuthInterceptor.getUserId(httpRequest);
+        taskService.getTaskEntity(taskUuid, userId);  // ownership check
+        if (limit < 1 || limit > 100) {
+            throw new BusinessException(400, "limit 必须在 1~100 之间");
+        }
+        return Result.success(taskProgressService.getProgress(taskUuid, limit));
     }
 }

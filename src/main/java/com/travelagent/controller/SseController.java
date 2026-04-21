@@ -3,10 +3,13 @@ package com.travelagent.controller;
 import com.travelagent.exception.TaskNotFoundException;
 import com.travelagent.filter.JwtAuthInterceptor;
 import com.travelagent.mapper.TaskMapper;
+import com.travelagent.model.dto.TaskExecutionProgressResponse;
 import com.travelagent.model.entity.Task;
+import com.travelagent.model.entity.TaskExecutionEvent;
 import com.travelagent.model.enums.TaskStatus;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
+import com.travelagent.service.task.TaskProgressService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,6 +57,7 @@ public class SseController {
 
     @Autowired private SseNotificationService sseNotificationService;
     @Autowired private TaskMapper             taskMapper;
+    @Autowired private TaskProgressService    taskProgressService;
 
     @Operation(summary = "订阅任务实时进展 (SSE)",
                description = "返回 text/event-stream。需要 JWT，仅任务所有者可订阅。")
@@ -74,9 +78,9 @@ public class SseController {
 
         SseEmitter emitter = sseNotificationService.createEmitter(taskUuid);
 
-        // If the task is already in a terminal state, send the current state and close.
         TaskStatus status = TaskStatus.fromCode(task.getStatus());
         if (status.isTerminal()) {
+            // Terminal task: send current state and close immediately
             try {
                 emitter.send(SseEmitter.event()
                     .name(SseEvent.STATE_CHANGE.name())
@@ -85,6 +89,19 @@ public class SseController {
                 emitter.complete();
             } catch (IOException ignored) {
                 // Client disconnected before we could send — nothing to do
+            }
+        } else {
+            // Non-terminal task: send a PROGRESS_SNAPSHOT so the client has current state
+            try {
+                TaskExecutionEvent latest = taskProgressService.getLatestEvent(taskUuid);
+                if (latest != null) {
+                    TaskExecutionProgressResponse snapshot = taskProgressService.getProgress(taskUuid, 20);
+                    emitter.send(SseEmitter.event()
+                        .name(SseEvent.PROGRESS_SNAPSHOT.name())
+                        .data(snapshot, MediaType.APPLICATION_JSON));
+                }
+            } catch (IOException ignored) {
+                // Client disconnected before snapshot — no action needed
             }
         }
 

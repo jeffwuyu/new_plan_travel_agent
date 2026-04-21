@@ -7,6 +7,7 @@ import com.travelagent.exception.AgentErrorCode;
 import com.travelagent.exception.AgentException;
 import com.travelagent.mapper.LlmCallLogMapper;
 import com.travelagent.model.entity.LlmCallLog;
+import com.travelagent.monitoring.TaskMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -65,6 +66,9 @@ public class DashscopeLlmClient {
     private final Map<String, Advisor> advisorRegistry;
 
     @Autowired
+    private TaskMetricsService taskMetricsService;
+
+    @Autowired
     public DashscopeLlmClient(ChatClient.Builder chatClientBuilder,
                               LlmCallLogMapper llmCallLogMapper,
                               List<Advisor> advisors) {
@@ -102,39 +106,48 @@ public class DashscopeLlmClient {
         List<Advisor> resolvedAdvisors = resolveAdvisors(advisorNames);
         Map<String, Object> requestContext = advisorContext != null ? advisorContext : Map.of();
 
-        return withRetry(() -> {
-            long start = System.currentTimeMillis();
-            String status = "success";
-            int promptTokens = 0;
-            int completionTokens = 0;
+        long t0 = System.currentTimeMillis();
+        boolean success = true;
+        try {
+            return withRetry(() -> {
+                long start = System.currentTimeMillis();
+                String status = "success";
+                int promptTokens = 0;
+                int completionTokens = 0;
 
-            try {
-                ChatResponse resp = applyAdvisors(
-                        chatClient.prompt().messages(messages),
-                        resolvedAdvisors,
-                        requestContext)
-                        .call()
-                        .chatResponse();
+                try {
+                    ChatResponse resp = applyAdvisors(
+                            chatClient.prompt().messages(messages),
+                            resolvedAdvisors,
+                            requestContext)
+                            .call()
+                            .chatResponse();
 
-                String content = resp.getResult().getOutput().getText();
-                long latencyMs = System.currentTimeMillis() - start;
+                    String content = resp.getResult().getOutput().getText();
+                    long latencyMs = System.currentTimeMillis() - start;
 
-                var usage = resp.getMetadata().getUsage();
-                if (usage != null) {
-                    promptTokens = (int) usage.getPromptTokens();
-                    completionTokens = (int) usage.getCompletionTokens();
+                    var usage = resp.getMetadata().getUsage();
+                    if (usage != null) {
+                        promptTokens = (int) usage.getPromptTokens();
+                        completionTokens = (int) usage.getCompletionTokens();
+                    }
+
+                    auditLog(taskId, userId, callType, promptTokens, completionTokens,
+                            latencyMs, status, idempotencyKey);
+
+                    return content;
+                } catch (Exception e) {
+                    long latencyMs = System.currentTimeMillis() - start;
+                    auditLog(taskId, userId, callType, 0, 0, latencyMs, "error", idempotencyKey);
+                    throw e;
                 }
-
-                auditLog(taskId, userId, callType, promptTokens, completionTokens,
-                        latencyMs, status, idempotencyKey);
-
-                return content;
-            } catch (Exception e) {
-                long latencyMs = System.currentTimeMillis() - start;
-                auditLog(taskId, userId, callType, 0, 0, latencyMs, "error", idempotencyKey);
-                throw e;
-            }
-        }, "LLM call [" + callType + "]");
+            }, "LLM call [" + callType + "]");
+        } catch (Exception e) {
+            success = false;
+            throw e;
+        } finally {
+            taskMetricsService.recordLlmCall(System.currentTimeMillis() - t0, success);
+        }
     }
 
     /**
@@ -165,6 +178,7 @@ public class DashscopeLlmClient {
         List<Advisor> resolvedAdvisors = resolveAdvisors(advisorNames);
         Map<String, Object> requestContext = advisorContext != null ? advisorContext : Map.of();
         long start = System.currentTimeMillis();
+        boolean streamSuccess = true;
 
         try {
             Flux<ChatResponse> flux = applyAdvisors(
@@ -195,18 +209,22 @@ public class DashscopeLlmClient {
             auditLog(taskId, userId, callType, 0, tokenCount[0], latencyMs, "success", idempotencyKey);
             return new LlmCallResult(sb.toString(), tokenCount[0]);
         } catch (AgentException ae) {
+            streamSuccess = false;
             long latencyMs = System.currentTimeMillis() - start;
             auditLog(taskId, userId, callType, 0, 0, latencyMs, "error", idempotencyKey);
             log.error("[DashscopeLlmClient] Streaming call failed: code={} retryable={}: {}",
                     ae.getErrorCode(), ae.isRetryable(), ae.getMessage());
             throw ae;
         } catch (Exception e) {
+            streamSuccess = false;
             long latencyMs = System.currentTimeMillis() - start;
             auditLog(taskId, userId, callType, 0, 0, latencyMs, "error", idempotencyKey);
             AgentException classified = classifyLlmException(e);
             log.error("[DashscopeLlmClient] Streaming call failed: code={} retryable={}: {}",
                     classified.getErrorCode(), classified.isRetryable(), classified.getMessage());
             throw classified;
+        } finally {
+            taskMetricsService.recordLlmCall(System.currentTimeMillis() - start, streamSuccess);
         }
     }
 

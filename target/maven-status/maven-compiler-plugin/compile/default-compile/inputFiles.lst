@@ -56,6 +56,7 @@ G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\LlmCallLogM
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\PlanMapper.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\RagChunkMapper.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\RagDocumentMapper.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\TaskExecutionEventMapper.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\TaskMapper.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\UserMapper.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\mapper\UserQuotaConfigMapper.java
@@ -65,6 +66,7 @@ G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\LoginReq
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\LoginResponse.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\RegisterRequest.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\Result.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\TaskExecutionProgressResponse.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\TaskResponse.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\UserProfileResponse.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\entity\Attraction.java
@@ -74,11 +76,13 @@ G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\entity\PlanS
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\entity\RagChunk.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\entity\RagDocument.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\entity\Task.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\entity\TaskExecutionEvent.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\entity\User.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\entity\UserQuotaConfig.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\entity\UserQuotaUsage.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\enums\TaskStatus.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\enums\UserLevel.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\monitoring\TaskMetricsService.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\agent\AgentService.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\agent\impl\AgentServiceImpl.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\cache\impl\MultiLevelCacheServiceImpl.java
@@ -93,7 +97,9 @@ G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\rag\impl\P
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\rag\impl\PlainTextExtractor.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\rag\impl\RagServiceImpl.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\rag\RagService.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\task\impl\TaskProgressServiceImpl.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\task\impl\TaskServiceImpl.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\task\TaskProgressService.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\task\TaskService.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\user\impl\QuotaServiceImpl.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\service\user\impl\UserServiceImpl.java

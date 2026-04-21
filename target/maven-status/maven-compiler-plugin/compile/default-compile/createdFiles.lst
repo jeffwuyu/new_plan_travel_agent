@@ -1,10 +1,13 @@
 com\travelagent\service\rag\EmbeddingService.class
+com\travelagent\model\entity\TaskExecutionEvent.class
 com\travelagent\config\WebMvcConfig.class
 com\travelagent\exception\RateLimitExceededException.class
+com\travelagent\model\dto\TaskExecutionProgressResponse.class
 com\travelagent\model\entity\RagChunk.class
 com\travelagent\client\dashscope\LlmCallResult.class
 com\travelagent\controller\AuthController.class
 com\travelagent\controller\RagController.class
+com\travelagent\mapper\TaskExecutionEventMapper.class
 com\travelagent\agent\tools\WeatherTool.class
 com\travelagent\aop\RateLimitAspect.class
 com\travelagent\mapper\UserMapper.class
@@ -20,6 +23,7 @@ com\travelagent\controller\PlanController.class
 com\travelagent\agent\planner\MarkovPlanner$1.class
 com\travelagent\model\entity\PlanStep.class
 com\travelagent\service\agent\AgentService.class
+com\travelagent\service\task\impl\TaskProgressServiceImpl.class
 com\travelagent\service\cache\MultiLevelCacheService.class
 com\travelagent\client\dashvector\DashVectorClient$DashVectorResult.class
 com\travelagent\mapper\AttractionMapper.class
@@ -27,6 +31,7 @@ com\travelagent\service\user\impl\QuotaServiceImpl.class
 com\travelagent\aop\IdempotencyAspect.class
 com\travelagent\controller\AdminController.class
 com\travelagent\agent\tools\ToolRegistry.class
+com\travelagent\monitoring\TaskMetricsService.class
 com\travelagent\service\rag\RagService.class
 com\travelagent\mapper\PlanMapper.class
 com\travelagent\service\cache\impl\MultiLevelCacheServiceImpl.class
@@ -40,6 +45,7 @@ com\travelagent\service\task\TaskService.class
 com\travelagent\client\dashscope\DashscopeLlmClient.class
 com\travelagent\service\notification\SseEvent.class
 com\travelagent\controller\SseController.class
+com\travelagent\service\task\TaskProgressService.class
 com\travelagent\advisor\AdvisorContextKeys.class
 com\travelagent\agent\statemachine\AgentStateMachine.class
 com\travelagent\util\JsonUtil.class

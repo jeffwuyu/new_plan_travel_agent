@@ -206,6 +206,11 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
+    @Override
+    public Task getTaskEntity(String taskUuid, Long requestingUserId) {
+        return loadAndVerifyOwnership(taskUuid, requestingUserId);
+    }
+
     /** Midnight Asia/Shanghai of the next day — when daily quota resets. */
     @SuppressWarnings("unused")
     private LocalDateTime nextDailyReset() {
