@@ -2,7 +2,7 @@
   <div class="auth-container">
     <el-card class="auth-card">
       <template #header>
-        <h2 class="auth-title">旅游规划助手</h2>
+        <h2 class="auth-title">旅行规划助手</h2>
         <p class="auth-sub">登录您的账户</p>
       </template>
       <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @submit.prevent="handleLogin">
@@ -10,7 +10,13 @@
           <el-input v-model="form.username" prefix-icon="User" placeholder="请输入用户名" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" type="password" prefix-icon="Lock" placeholder="请输入密码" show-password />
+          <el-input
+            v-model="form.password"
+            type="password"
+            prefix-icon="Lock"
+            placeholder="请输入密码"
+            show-password
+          />
         </el-form-item>
         <el-button type="primary" native-type="submit" class="auth-btn" :loading="loading">登录</el-button>
       </el-form>

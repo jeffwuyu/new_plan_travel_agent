@@ -47,7 +47,7 @@ class AdminIntegrationTest extends BaseIntegrationTest {
 
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(String.format("{\"email\":\"%s\",\"password\":\"%s\"}", email, password)))
+                        .content(String.format("{\"username\":\"%s\",\"password\":\"%s\"}", username, password)))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -74,7 +74,7 @@ class AdminIntegrationTest extends BaseIntegrationTest {
         // Re-login to get JWT with lvl=3
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(String.format("{\"email\":\"%s\",\"password\":\"%s\"}", email, password)))
+                        .content(String.format("{\"username\":\"%s\",\"password\":\"%s\"}", username, password)))
                 .andExpect(status().isOk())
                 .andReturn();
 

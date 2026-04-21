@@ -9,6 +9,7 @@ import com.travelagent.model.entity.User;
 import com.travelagent.service.user.impl.UserServiceImpl;
 import com.travelagent.util.JwtUtil;
 import com.travelagent.util.RedisUtil;
+import java.util.Date;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,20 +19,18 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Date;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
-/**
- * Unit tests for UserServiceImpl.
- * All external dependencies are mocked with Mockito.
- */
-
-/**
- * 中文注释：测试类，用于验证 User Service Test 相关行为是否符合预期。
- */
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UserService Tests")
@@ -61,7 +60,7 @@ class UserServiceTest {
         validRegisterRequest.setPassword("password123");
 
         validLoginRequest = new LoginRequest();
-        validLoginRequest.setEmail("test@example.com");
+        validLoginRequest.setUsername("testuser");
         validLoginRequest.setPassword("password123");
 
         existingUser = new User();
@@ -72,8 +71,6 @@ class UserServiceTest {
         existingUser.setUserLevel(1);
         existingUser.setStatus(1);
     }
-
-    // ===================== Register =====================
 
     @Test
     @DisplayName("正常注册 - 返回用户对象，密码哈希已清空")
@@ -117,12 +114,10 @@ class UserServiceTest {
         assertTrue(ex.getMessage().contains("用户名"));
     }
 
-    // ===================== Login =====================
-
     @Test
     @DisplayName("正确凭证登录 - 返回包含 Token 的 LoginResponse")
     void login_success() {
-        when(userMapper.findByEmail("test@example.com")).thenReturn(existingUser);
+        when(userMapper.findByUsername("testuser")).thenReturn(existingUser);
         when(jwtUtil.generateToken(1L, 1)).thenReturn("mock.jwt.token");
         when(jwtUtil.getExpirationFromToken("mock.jwt.token"))
             .thenReturn(new Date(System.currentTimeMillis() + 3600000));
@@ -139,10 +134,10 @@ class UserServiceTest {
     @Test
     @DisplayName("错误密码登录 - 抛出 BusinessException(401)")
     void login_wrongPassword_throws() {
-        when(userMapper.findByEmail("test@example.com")).thenReturn(existingUser);
+        when(userMapper.findByUsername("testuser")).thenReturn(existingUser);
 
         LoginRequest wrongPwdRequest = new LoginRequest();
-        wrongPwdRequest.setEmail("test@example.com");
+        wrongPwdRequest.setUsername("testuser");
         wrongPwdRequest.setPassword("wrongpassword");
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -152,12 +147,12 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("不存在的邮箱登录 - 抛出 BusinessException(401)")
+    @DisplayName("不存在的用户名登录 - 抛出 BusinessException(401)")
     void login_userNotFound_throws() {
-        when(userMapper.findByEmail("notfound@example.com")).thenReturn(null);
+        when(userMapper.findByUsername("missing-user")).thenReturn(null);
 
         LoginRequest req = new LoginRequest();
-        req.setEmail("notfound@example.com");
+        req.setUsername("missing-user");
         req.setPassword("anypassword");
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -169,16 +164,14 @@ class UserServiceTest {
     @Test
     @DisplayName("禁用账户登录 - 抛出 BusinessException(401)")
     void login_disabledAccount_throws() {
-        existingUser.setStatus(0); // Disabled
-        when(userMapper.findByEmail("test@example.com")).thenReturn(existingUser);
+        existingUser.setStatus(0);
+        when(userMapper.findByUsername("testuser")).thenReturn(existingUser);
 
         BusinessException ex = assertThrows(BusinessException.class,
             () -> userService.login(validLoginRequest));
 
         assertEquals(401, ex.getHttpStatus());
     }
-
-    // ===================== Logout =====================
 
     @Test
     @DisplayName("登出 - Token 被加入 Redis 黑名单")
@@ -197,8 +190,6 @@ class UserServiceTest {
         assertDoesNotThrow(() -> userService.logout(null));
         verify(redisUtil, never()).set(anyString(), any(), any());
     }
-
-    // ===================== Cancel Account =====================
 
     @Test
     @DisplayName("注销账户 - 执行软删除")

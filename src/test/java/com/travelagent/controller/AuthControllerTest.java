@@ -21,17 +21,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-/**
- * Unit tests for AuthController using MockMvc (standalone, no Spring context).
- */
-
-/**
- * 中文注释：测试类，用于验证 Auth Controller Test 相关行为是否符合预期。
- */
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AuthController Tests")
@@ -54,8 +49,6 @@ class AuthControllerTest {
             .build();
         objectMapper = new ObjectMapper();
     }
-
-    // ===================== POST /api/auth/register =====================
 
     @Test
     @DisplayName("注册成功 - 返回 200 和用户信息")
@@ -86,7 +79,6 @@ class AuthControllerTest {
     @DisplayName("注册 - 缺少用户名 - 返回 400")
     void register_missingUsername_returns400() throws Exception {
         RegisterRequest request = new RegisterRequest();
-        // No username
         request.setEmail("valid@example.com");
         request.setPassword("password123");
 
@@ -128,13 +120,11 @@ class AuthControllerTest {
             .andExpect(jsonPath("$.message").value("邮箱已被注册"));
     }
 
-    // ===================== POST /api/auth/login =====================
-
     @Test
     @DisplayName("登录成功 - 返回包含 Token 的响应")
     void login_success() throws Exception {
         LoginRequest request = new LoginRequest();
-        request.setEmail("user@example.com");
+        request.setUsername("user");
         request.setPassword("password123");
 
         LoginResponse response = new LoginResponse("jwt.token.here", 1L, "user", 1,
@@ -152,13 +142,26 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("登录 - 缺少用户名 - 返回 400")
+    void login_missingUsername_returns400() throws Exception {
+        LoginRequest request = new LoginRequest();
+        request.setPassword("password123");
+
+        mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("用户名不能为空"));
+    }
+
+    @Test
     @DisplayName("登录 - 密码错误 - 返回 401")
     void login_wrongCredentials_returns401() throws Exception {
         LoginRequest request = new LoginRequest();
-        request.setEmail("user@example.com");
+        request.setUsername("user");
         request.setPassword("wrongpassword");
 
-        when(userService.login(any())).thenThrow(new BusinessException(401, "邮箱或密码错误"));
+        when(userService.login(any())).thenThrow(new BusinessException(401, "用户名或密码错误"));
 
         mockMvc.perform(post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -167,12 +170,10 @@ class AuthControllerTest {
             .andExpect(jsonPath("$.code").value(401));
     }
 
-    // ===================== POST /api/auth/logout =====================
-
     @Test
     @DisplayName("登出 - 有效 Token - 返回 200")
     void logout_success() throws Exception {
-        doNothing().when(userService).logout(anyString());
+        doNothing().when(userService).logout(any(String.class));
 
         mockMvc.perform(post("/api/auth/logout")
                 .header("Authorization", "Bearer valid.jwt.token"))

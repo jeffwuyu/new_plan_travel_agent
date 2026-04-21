@@ -1,5 +1,6 @@
 package com.travelagent.agent.planner;
 
+import com.travelagent.config.DatabaseSchemaGuard;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.enums.TaskStatus;
@@ -57,6 +58,7 @@ public class TaskDispatcher {
 
     @Autowired private TaskMapper    taskMapper;
     @Autowired private AgentService  agentService;
+    @Autowired private DatabaseSchemaGuard schemaGuard;
 
     @Autowired
     @Qualifier("agentTaskExecutor")
@@ -82,6 +84,10 @@ public class TaskDispatcher {
      */
     @Scheduled(fixedDelayString = "${agent.task.poll-interval-ms:2000}")
     public void pollAndDispatch() {
+        if (!schemaGuard.isCoreSchemaReady()) {
+            log.debug("TaskDispatcher skipped: database schema not ready yet");
+            return;
+        }
         try {
             dispatchByStatus(TaskStatus.PENDING.getCode());
             dispatchByStatus(TaskStatus.RESUMING.getCode());

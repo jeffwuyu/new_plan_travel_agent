@@ -9,82 +9,88 @@ import com.travelagent.model.entity.User;
 import com.travelagent.service.user.UserService;
 import com.travelagent.util.JwtUtil;
 import com.travelagent.util.RedisUtil;
+import java.time.Duration;
 import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Duration;
-
-/**
- * 中文注释：服务实现类，负责承载 User Service Impl 对应的核心业务逻辑。
- */
 
 @Service
 public class UserServiceImpl implements UserService {
 
     private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
-
     private static final String JWT_BLACKLIST_PREFIX = "jwt:blacklist:";
 
-    @Autowired
-    private UserMapper userMapper;
+    private final UserMapper userMapper;
+    private final JwtUtil jwtUtil;
+    private final RedisUtil redisUtil;
 
-    @Autowired
-    private JwtUtil jwtUtil;
-
-    @Autowired
-    private RedisUtil redisUtil;
+    public UserServiceImpl(UserMapper userMapper, JwtUtil jwtUtil, RedisUtil redisUtil) {
+        this.userMapper = userMapper;
+        this.jwtUtil = jwtUtil;
+        this.redisUtil = redisUtil;
+    }
 
     @Override
     @Transactional
     public User register(RegisterRequest request) {
-        if (userMapper.existsByEmail(request.getEmail())) {
-            throw new BusinessException(400, "邮箱已被注册");
-        }
-        if (userMapper.existsByUsername(request.getUsername())) {
-            throw new BusinessException(400, "用户名已被占用");
-        }
+        log.info("Register request received: username={}, email={}", request.getUsername(), request.getEmail());
+        try {
+            if (userMapper.existsByEmail(request.getEmail())) {
+                throw new BusinessException(400, "邮箱已被注册");
+            }
+            if (userMapper.existsByUsername(request.getUsername())) {
+                throw new BusinessException(400, "用户名已被占用");
+            }
 
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-        user.setPasswordHash(BCrypt.hashpw(request.getPassword(), BCrypt.gensalt()));
-        user.setUserLevel(1); // Default: REGULAR
-        user.setStatus(1);
+            User user = new User();
+            user.setUsername(request.getUsername());
+            user.setEmail(request.getEmail());
+            user.setPasswordHash(BCrypt.hashpw(request.getPassword(), BCrypt.gensalt()));
+            user.setUserLevel(1);
+            user.setStatus(1);
 
-        userMapper.insert(user);
-        log.info("New user registered: id={}, email={}", user.getId(), user.getEmail());
-        user.setPasswordHash(null); // Never expose hash
-        return user;
+            userMapper.insert(user);
+            log.info("New user registered: id={}, email={}", user.getId(), user.getEmail());
+            user.setPasswordHash(null);
+            return user;
+        } catch (BusinessException ex) {
+            log.warn("Register request rejected: username={}, email={}, reason={}",
+                request.getUsername(), request.getEmail(), ex.getMessage());
+            throw ex;
+        } catch (RuntimeException ex) {
+            log.error("Register request failed unexpectedly: username={}, email={}",
+                request.getUsername(), request.getEmail(), ex);
+            throw ex;
+        }
     }
 
     @Override
     public LoginResponse login(LoginRequest request) {
-        User user = userMapper.findByEmail(request.getEmail());
+        User user = userMapper.findByUsername(request.getUsername());
         if (user == null || !user.isActive()) {
-            throw new BusinessException(401, "邮箱或密码错误");
+            throw new BusinessException(401, "用户名或密码错误");
         }
         if (!BCrypt.checkpw(request.getPassword(), user.getPasswordHash())) {
-            throw new BusinessException(401, "邮箱或密码错误");
+            throw new BusinessException(401, "用户名或密码错误");
         }
 
         String token = jwtUtil.generateToken(user.getId(), user.getUserLevel());
         long expiresAt = jwtUtil.getExpirationFromToken(token).getTime();
 
-        log.info("User logged in: id={}", user.getId());
+        log.info("User logged in: id={}, username={}", user.getId(), user.getUsername());
         return new LoginResponse(token, user.getId(), user.getUsername(),
-                                 user.getUserLevel(), expiresAt);
+            user.getUserLevel(), expiresAt);
     }
 
     @Override
     public void logout(String token) {
-        if (token == null || token.isBlank()) return;
+        if (token == null || token.isBlank()) {
+            return;
+        }
         long remainingMs = jwtUtil.getRemainingValidityMs(token);
         if (remainingMs > 0) {
-            // Blacklist the token for the remainder of its validity
             redisUtil.set(JWT_BLACKLIST_PREFIX + token, "1",
                 Duration.ofMillis(remainingMs + 1000));
         }
@@ -118,7 +124,6 @@ public class UserServiceImpl implements UserService {
         user.setId(userId);
         user.setUserLevel(newLevel);
         userMapper.update(user);
-        // Invalidate quota config cache for this user (level changed)
         log.info("User level updated: userId={}, newLevel={}", userId, newLevel);
     }
 }

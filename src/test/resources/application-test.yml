@@ -6,8 +6,8 @@ spring:
     driver-class-name: org.h2.Driver
   sql:
     init:
-      schema-location: classpath:schema-test.sql
-      data-location: classpath:data-test.sql
+      schema-locations: classpath:schema-test.sql
+      data-locations: classpath:data-test.sql
       mode: always
   cache:
     type: none

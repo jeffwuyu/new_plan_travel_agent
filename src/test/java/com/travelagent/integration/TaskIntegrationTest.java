@@ -162,7 +162,7 @@ class TaskIntegrationTest extends BaseIntegrationTest {
 
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(String.format("{\"email\":\"%s\",\"password\":\"%s\"}", email, password)))
+                        .content(String.format("{\"username\":\"%s\",\"password\":\"%s\"}", username, password)))
                 .andExpect(status().isOk())
                 .andReturn();
 

@@ -4,6 +4,7 @@ import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.PendingToolCall;
 import com.travelagent.agent.context.RetryState;
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.config.DatabaseSchemaGuard;
 import com.travelagent.agent.planner.FinalSummaryResult;
 import com.travelagent.agent.planner.MarkovPlanner;
 import com.travelagent.agent.planner.PlanningResult;
@@ -84,6 +85,7 @@ public class AgentServiceImpl implements AgentService {
     @Autowired private UserMapper userMapper;
     @Autowired private TaskProgressService taskProgressService;
     @Autowired private TaskMetricsService taskMetricsService;
+    @Autowired private DatabaseSchemaGuard schemaGuard;
 
     // -----------------------------------------------------------------------
     // Startup recovery
@@ -104,6 +106,10 @@ public class AgentServiceImpl implements AgentService {
      */
     @EventListener(ApplicationReadyEvent.class)
     public void recoverStuckTasksOnStartup() {
+        if (!schemaGuard.isCoreSchemaReady()) {
+            log.warn("[AgentService] Startup recovery skipped - schema not initialized yet");
+            return;
+        }
         try {
             recoverStuckTasks();
         } catch (Exception e) {

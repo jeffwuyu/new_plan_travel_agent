@@ -1,18 +1,16 @@
 package com.travelagent.model.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-import jakarta.validation.constraints.NotBlank;
-
 /**
- * 中文注释：DTO 类，用于在接口或服务之间传递 Login Request 数据。
+ * DTO for login requests.
  */
-
 @Data
 public class LoginRequest {
 
-    @NotBlank(message = "邮箱不能为空")
-    private String email;
+    @NotBlank(message = "用户名不能为空")
+    private String username;
 
     @NotBlank(message = "密码不能为空")
     private String password;
