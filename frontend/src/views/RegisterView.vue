@@ -7,13 +7,13 @@
       </template>
       <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @submit.prevent="handleRegister">
         <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" prefix-icon="User" placeholder="4-32个字符" />
+          <el-input v-model="form.username" prefix-icon="User" placeholder="2-32个字符" />
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="form.email" prefix-icon="Message" placeholder="请输入邮箱" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" type="password" prefix-icon="Lock" placeholder="至少8位" show-password />
+          <el-input v-model="form.password" type="password" prefix-icon="Lock" placeholder="至少6位" show-password />
         </el-form-item>
         <el-button type="primary" native-type="submit" class="auth-btn" :loading="loading">注册</el-button>
       </el-form>
@@ -38,7 +38,7 @@ const form = ref({ username: '', email: '', password: '' })
 const rules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 4, max: 32, message: '用户名4-32个字符', trigger: 'blur' }
+    { min: 2, max: 32, message: '用户名2-32个字符', trigger: 'blur' }
   ],
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
@@ -46,7 +46,7 @@ const rules = {
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 8, message: '密码至少8位', trigger: 'blur' }
+    { min: 6, message: '密码至少6位', trigger: 'blur' }
   ]
 }
 
