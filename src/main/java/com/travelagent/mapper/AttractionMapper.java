@@ -36,4 +36,9 @@ public interface AttractionMapper {
      * Update an existing attraction's coordinates and metadata by {@code id}.
      */
     int update(Attraction attraction);
+
+    /**
+     * Update or insert an attraction matched by Amap POI ID if present, otherwise by name+region.
+     */
+    int upsert(Attraction attraction);
 }

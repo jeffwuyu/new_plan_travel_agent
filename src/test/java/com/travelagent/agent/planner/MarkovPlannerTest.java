@@ -6,10 +6,13 @@ import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.client.dashscope.LlmCallResult;
+import com.travelagent.model.dto.NearbyPoiRecommendationResponse;
+import com.travelagent.model.dto.RecommendedPoiItem;
 import com.travelagent.model.entity.Task;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.rag.RagService;
+import com.travelagent.service.recommendation.NearbyPoiRecommendationService;
 import com.travelagent.util.JsonUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +43,7 @@ class MarkovPlannerTest {
     @Mock private DashscopeLlmClient llmClient;
     @Mock private HistoryManager historyManager;
     @Mock private SseNotificationService sseNotificationService;
+    @Mock private NearbyPoiRecommendationService nearbyPoiRecommendationService;
 
     @InjectMocks
     private MarkovPlanner markovPlanner;
@@ -109,8 +113,8 @@ class MarkovPlannerTest {
 
         String prompt = markovPlanner.buildStepPrompt(cp);
 
-        assertThat(prompt).contains("step 1 of 4");
-        assertThat(prompt).contains("day 1");
+        assertThat(prompt).contains("总第1/4个");
+        assertThat(prompt).contains("推荐第1个");
         assertThat(prompt).doesNotContain("Start from");
     }
 
@@ -126,7 +130,7 @@ class MarkovPlannerTest {
         assertThat(prompt).contains("Wild Goose Pagoda");
         assertThat(prompt).contains("34.220000");
         assertThat(prompt).contains("108.960000");
-        assertThat(prompt).contains("30 km");
+        assertThat(prompt).contains("15km");
     }
 
     @Test
@@ -137,8 +141,8 @@ class MarkovPlannerTest {
 
         String prompt = markovPlanner.buildStepPrompt(cp);
 
-        assertThat(prompt).contains("day 2");
-        assertThat(prompt).contains("step 4 of 6");
+        assertThat(prompt).contains("总第4/6个");
+        assertThat(prompt).contains("推荐第2个");
     }
 
     @Test
@@ -183,6 +187,26 @@ class MarkovPlannerTest {
     }
 
     @Test
+    @DisplayName("planNextAttraction prefers recommendation engine top result")
+    void planNextAttraction_prefersRecommendationEngine() {
+        TaskCheckpoint cp = buildCheckpoint(1, 1, "Hangzhou", List.of(step("West Lake", 30.25, 120.14)), List.of("lake"));
+        cp.setCurrentStepIndex(1);
+
+        NearbyPoiRecommendationResponse response = new NearbyPoiRecommendationResponse();
+        RecommendedPoiItem item = new RecommendedPoiItem();
+        item.setName("Leifeng Pagoda");
+        response.setRecommendations(List.of(item));
+
+        when(nearbyPoiRecommendationService.recommend(any())).thenReturn(response);
+
+        PlanningResult result = markovPlanner.planNextAttraction(new Task(), cp, "rec-uuid");
+
+        assertThat(result.attractionName()).isEqualTo("Leifeng Pagoda");
+        verify(llmClient, org.mockito.Mockito.never()).callStreaming(any(), any(), anyString(), anyString(),
+                any(), anyString(), anyString(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("planNextAttraction calls LLM with advisor-aware overload")
     void planNextAttraction_callsLlmAndAppendsHistory() {
         TaskCheckpoint cp = buildCheckpoint(1, 1, "Xi'an", List.of(), List.of());
@@ -193,6 +217,7 @@ class MarkovPlannerTest {
         task.setId(1L);
         task.setUserId(10L);
 
+        when(nearbyPoiRecommendationService.recommend(any())).thenReturn(new NearbyPoiRecommendationResponse());
         when(historyManager.prepareForLlm(cp)).thenReturn(List.of());
         when(llmClient.defaultPlanningAdvisors()).thenReturn(List.of("travelPlanning", "jsonSchema", "ragContext"));
         when(llmClient.callStreaming(any(), any(), anyString(), anyString(),
@@ -217,6 +242,7 @@ class MarkovPlannerTest {
         task.setId(2L);
         task.setUserId(20L);
 
+        when(nearbyPoiRecommendationService.recommend(any())).thenReturn(new NearbyPoiRecommendationResponse());
         when(historyManager.prepareForLlm(cp)).thenReturn(List.of());
         when(llmClient.defaultPlanningAdvisors()).thenReturn(List.of("travelPlanning", "jsonSchema", "ragContext"));
         when(llmClient.callStreaming(any(), any(), anyString(), anyString(),

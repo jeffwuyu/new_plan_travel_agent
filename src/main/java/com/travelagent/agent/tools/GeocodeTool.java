@@ -90,7 +90,9 @@ public class GeocodeTool implements AgentTool {
         newAttr.setRegion(region);
         newAttr.setLatitude(BigDecimal.valueOf(((Number) result.get("lat")).doubleValue()));
         newAttr.setLongitude(BigDecimal.valueOf(((Number) result.get("lng")).doubleValue()));
+        newAttr.setSource("geocode");
         newAttr.setCachedAt(LocalDateTime.now());
+        newAttr.setLastSyncedAt(LocalDateTime.now());
         try {
             attractionMapper.insert(newAttr);
         } catch (Exception e) {

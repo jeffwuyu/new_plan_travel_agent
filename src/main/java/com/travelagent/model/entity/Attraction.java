@@ -29,7 +29,13 @@ public class Attraction {
 
     private String region;
 
+    private String city;
+
+    private String district;
+
     private String category;
+
+    private String subCategory;
 
     private BigDecimal latitude;
 
@@ -41,8 +47,38 @@ public class Attraction {
 
     private String description;
 
+    private String tagsJson;
+
+    private Integer priceLevel;
+
+    private Integer visitDurationMin;
+
+    private String openHoursJson;
+
+    private String bestVisitTimeJson;
+
+    private String crowdLevel;
+
+    private String transportAccessJson;
+
+    private String suitableForJson;
+
+    private String physicalIntensity;
+
+    private Boolean reservationRequired;
+
+    private BigDecimal popularityScore;
+
+    private String styleEmbeddingId;
+
+    private String styleEmbeddingJson;
+
+    private String source;
+
     /** DashVector embedding ID, set after RAG indexing */
     private String dashvectorId;
 
     private LocalDateTime cachedAt;
+
+    private LocalDateTime lastSyncedAt;
 }

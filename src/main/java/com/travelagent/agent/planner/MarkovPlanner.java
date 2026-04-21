@@ -7,10 +7,14 @@ import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.tools.WeatherTool;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.client.dashscope.LlmCallResult;
+import com.travelagent.model.dto.NearbyPoiRecommendationRequest;
+import com.travelagent.model.dto.NearbyPoiRecommendationResponse;
+import com.travelagent.model.dto.RoutePoint;
 import com.travelagent.model.entity.Task;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.rag.RagService;
+import com.travelagent.service.recommendation.NearbyPoiRecommendationService;
 import com.travelagent.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +56,7 @@ public class MarkovPlanner {
     @Autowired private SseNotificationService sseNotificationService;
     @Autowired private JsonUtil jsonUtil;
     @Autowired(required = false) private RagService ragService;
+    @Autowired(required = false) private NearbyPoiRecommendationService nearbyPoiRecommendationService;
 
     // -----------------------------------------------------------------------
     // Public API
@@ -73,6 +78,11 @@ public class MarkovPlanner {
      */
     public PlanningResult planNextAttraction(Task task, TaskCheckpoint cp, String taskUuid) {
         int stepIndex = cp.getCurrentStepIndex();
+        PlanningResult recommendationDriven = tryRecommendationDrivenSelection(cp);
+        if (recommendationDriven != null) {
+            return recommendationDriven;
+        }
+
         String systemPrompt = buildSystemPrompt(cp);
         String userMessage = buildStepPrompt(cp);
         String llmIdempotencyKey = taskUuid + "-step" + stepIndex + "-llm";
@@ -103,6 +113,21 @@ public class MarkovPlanner {
 
         String attractionName = parseLlmAttractionName(llmResult.content(), stepIndex);
         return new PlanningResult(attractionName, llmResult.totalTokens());
+    }
+
+    private PlanningResult tryRecommendationDrivenSelection(TaskCheckpoint cp) {
+        if (nearbyPoiRecommendationService == null) {
+            return null;
+        }
+        NearbyPoiRecommendationRequest request = buildRecommendationRequest(cp);
+        if (request == null) {
+            return null;
+        }
+        NearbyPoiRecommendationResponse response = nearbyPoiRecommendationService.recommend(request);
+        if (response == null || response.getRecommendations() == null || response.getRecommendations().isEmpty()) {
+            return null;
+        }
+        return new PlanningResult(response.getRecommendations().get(0).getName(), 0);
     }
 
     // -----------------------------------------------------------------------
@@ -192,6 +217,34 @@ public class MarkovPlanner {
     }
 
     private String nullToEmpty(String s) { return s == null ? "" : s; }
+
+    NearbyPoiRecommendationRequest buildRecommendationRequest(TaskCheckpoint cp) {
+        if (cp == null || cp.getPlanningConfig() == null) {
+            return null;
+        }
+        NearbyPoiRecommendationRequest request = new NearbyPoiRecommendationRequest();
+        request.setRegion(cp.getRegion());
+        request.setTravelMode(cp.getPlanningConfig().getTravelMode());
+        request.setPreferredTags(cp.getPlanningConfig().getPreferenceKeywords());
+        request.setTopK(5);
+        request.setQueryType(cp.getCompletedSteps() == null || cp.getCompletedSteps().isEmpty()
+                ? "nearby" : "itinerary_fill");
+
+        if (cp.getCompletedSteps() != null && !cp.getCompletedSteps().isEmpty()) {
+            CompletedStep last = cp.getCompletedSteps().get(cp.getCompletedSteps().size() - 1);
+            request.setCurrentPoiName(last.getAttractionName());
+            request.setCurrentLat(last.getLat());
+            request.setCurrentLng(last.getLng());
+            request.setSelectedPoiNames(cp.getCompletedSteps().stream()
+                    .map(CompletedStep::getAttractionName)
+                    .toList());
+            request.setRoutePoints(cp.getCompletedSteps().stream()
+                    .filter(step -> step.getLat() != null && step.getLng() != null)
+                    .map(step -> new RoutePoint(step.getLat(), step.getLng(), step.getAttractionName()))
+                    .toList());
+        }
+        return request;
+    }
 
     /**
      * Parses the LLM's JSON response for the final summary.

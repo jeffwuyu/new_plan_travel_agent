@@ -850,3 +850,15 @@ Caused by: java.sql.SQLException: Access denied for user 'root'@'localhost' (usi
 2026-04-21 10:56:47.612 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
 2026-04-21 10:56:47.615 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
 2026-04-21 10:56:47.616 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-21 15:03:25.736 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-21 15:03:25.783 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Final summary parse failed: JSON deserialization failed
+2026-04-21 15:03:25.862 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Final summary LLM call failed (using defaults): LLM timeout
+2026-04-21 15:03:25.961 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-21 15:03:25.962 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-21 15:03:25.996 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-21 15:04:51.482 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-21 15:04:51.530 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Final summary parse failed: JSON deserialization failed
+2026-04-21 15:04:51.609 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Final summary LLM call failed (using defaults): LLM timeout
+2026-04-21 15:04:51.698 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-21 15:04:51.698 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-21 15:04:51.729 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed

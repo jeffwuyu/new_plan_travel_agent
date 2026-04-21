@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -54,6 +55,12 @@ public class AmapClient {
 
     @Value("${amap.direction-url}")
     private String directionUrl;
+
+    @Value("${amap.walking-direction-url}")
+    private String walkingDirectionUrl;
+
+    @Value("${amap.nearby-search-url}")
+    private String nearbySearchUrl;
 
     @Autowired
     private OkHttpClient okHttpClient;
@@ -124,23 +131,82 @@ public class AmapClient {
      */
     public Map<String, Object> getDrivingDuration(double originLng, double originLat,
                                                    double destLng, double destLat) {
-        String cacheKey = String.format("amap:traffic:%.6f,%.6f:%.6f,%.6f",
-                originLng, originLat, destLng, destLat);
+        return getTravelDuration(originLng, originLat, destLng, destLat, "driving");
+    }
+
+    public Map<String, Object> getTravelDuration(double originLng, double originLat,
+                                                 double destLng, double destLat,
+                                                 String travelMode) {
+        String normalizedMode = travelMode == null ? "driving" : travelMode.trim().toLowerCase();
+        String cacheKey = String.format("amap:traffic:%s:%.6f,%.6f:%.6f,%.6f",
+                normalizedMode, originLng, originLat, destLng, destLat);
         Map<String, Object> cached = getCached(cacheKey);
         if (cached != null) return cached;
 
         String origin = originLng + "," + originLat;
         String destination = destLng + "," + destLat;
-        String url = directionUrl + "?key=" + apiKey
-                + "&origin=" + origin
-                + "&destination=" + destination
-                + "&strategy=0";
+        String url;
+        if ("walking".equals(normalizedMode)) {
+            url = walkingDirectionUrl + "?key=" + apiKey
+                    + "&origin=" + origin
+                    + "&destination=" + destination;
+        } else {
+            url = directionUrl + "?key=" + apiKey
+                    + "&origin=" + origin
+                    + "&destination=" + destination
+                    + "&strategy=0";
+        }
 
         String body = executeGet(url);
         Map<String, Object> result = parseDirectionResponse(body);
 
         putCached(cacheKey, result);
         return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> searchNearbyPois(double lng, double lat,
+                                                      int radius,
+                                                      String keywords,
+                                                      String types,
+                                                      int page,
+                                                      int pageSize) {
+        String cacheKey = String.format("amap:nearby:%.6f,%.6f:%d:%s:%s:%d:%d",
+                lng, lat, radius, blankToDash(keywords), blankToDash(types), page, pageSize);
+        try {
+            String cached = redisUtil.getString(cacheKey);
+            if (cached != null) {
+                return jsonUtil.fromJson(cached, new TypeReference<List<Map<String, Object>>>() {});
+            }
+        } catch (Exception e) {
+            log.warn("[AmapClient nearby cache READ error] key={}: {}", cacheKey, e.getMessage());
+        }
+
+        StringBuilder url = new StringBuilder(nearbySearchUrl)
+                .append("?key=").append(apiKey)
+                .append("&location=").append(lng).append(",").append(lat)
+                .append("&radius=").append(radius)
+                .append("&page=").append(page)
+                .append("&offset=").append(pageSize)
+                .append("&sortrule=distance");
+        if (keywords != null && !keywords.isBlank()) {
+            url.append("&keywords=").append(encode(keywords));
+        }
+        if (types != null && !types.isBlank()) {
+            url.append("&types=").append(encode(types));
+        }
+
+        String body = executeGet(url.toString());
+        try {
+            Map<String, Object> root = jsonUtil.fromJson(body, new TypeReference<Map<String, Object>>() {});
+            validateAmapStatus(root, body);
+            List<Map<String, Object>> pois = (List<Map<String, Object>>) root.get("pois");
+            List<Map<String, Object>> safePois = pois == null ? List.of() : pois;
+            redisUtil.setString(cacheKey, jsonUtil.toJson(safePois), CACHE_TTL);
+            return safePois;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse Amap nearby POI response: " + e.getMessage(), e);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -309,5 +375,9 @@ public class AmapClient {
         } catch (Exception e) {
             return value;
         }
+    }
+
+    private String blankToDash(String value) {
+        return value == null || value.isBlank() ? "-" : value;
     }
 }

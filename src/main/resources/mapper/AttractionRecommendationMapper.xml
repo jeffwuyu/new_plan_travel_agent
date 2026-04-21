@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelagent.mapper.AttractionRecommendationMapper">
+
+    <resultMap id="attractionRecommendationMap" type="Attraction">
+        <id property="id" column="id"/>
+        <result property="amapPoiId" column="amap_poi_id"/>
+        <result property="name" column="name"/>
+        <result property="region" column="region"/>
+        <result property="city" column="city"/>
+        <result property="district" column="district"/>
+        <result property="category" column="category"/>
+        <result property="subCategory" column="sub_category"/>
+        <result property="latitude" column="latitude"/>
+        <result property="longitude" column="longitude"/>
+        <result property="address" column="address"/>
+        <result property="rating" column="rating"/>
+        <result property="description" column="description"/>
+        <result property="tagsJson" column="tags_json"/>
+        <result property="priceLevel" column="price_level"/>
+        <result property="visitDurationMin" column="visit_duration_min"/>
+        <result property="openHoursJson" column="open_hours_json"/>
+        <result property="bestVisitTimeJson" column="best_visit_time_json"/>
+        <result property="crowdLevel" column="crowd_level"/>
+        <result property="transportAccessJson" column="transport_access_json"/>
+        <result property="suitableForJson" column="suitable_for_json"/>
+        <result property="physicalIntensity" column="physical_intensity"/>
+        <result property="reservationRequired" column="reservation_required"/>
+        <result property="popularityScore" column="popularity_score"/>
+        <result property="styleEmbeddingId" column="style_embedding_id"/>
+        <result property="styleEmbeddingJson" column="style_embedding_json"/>
+        <result property="source" column="source"/>
+        <result property="dashvectorId" column="dashvector_id"/>
+        <result property="cachedAt" column="cached_at"/>
+        <result property="lastSyncedAt" column="last_synced_at"/>
+    </resultMap>
+
+    <select id="findByRegion" resultMap="attractionRecommendationMap">
+        SELECT *
+        FROM attractions
+        WHERE region = #{region}
+           OR city = #{region}
+           OR district = #{region}
+        ORDER BY COALESCE(popularity_score, 0) DESC, cached_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByBoundingBox" resultMap="attractionRecommendationMap">
+        SELECT *
+        FROM attractions
+        WHERE latitude BETWEEN #{minLat} AND #{maxLat}
+          AND longitude BETWEEN #{minLng} AND #{maxLng}
+        ORDER BY COALESCE(popularity_score, 0) DESC, cached_at DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

@@ -14,14 +14,32 @@
         <result property="amapPoiId"    column="amap_poi_id"/>
         <result property="name"         column="name"/>
         <result property="region"       column="region"/>
+        <result property="city"         column="city"/>
+        <result property="district"     column="district"/>
         <result property="category"     column="category"/>
+        <result property="subCategory"  column="sub_category"/>
         <result property="latitude"     column="latitude"/>
         <result property="longitude"    column="longitude"/>
         <result property="address"      column="address"/>
         <result property="rating"       column="rating"/>
         <result property="description"  column="description"/>
+        <result property="tagsJson"     column="tags_json"/>
+        <result property="priceLevel"   column="price_level"/>
+        <result property="visitDurationMin" column="visit_duration_min"/>
+        <result property="openHoursJson" column="open_hours_json"/>
+        <result property="bestVisitTimeJson" column="best_visit_time_json"/>
+        <result property="crowdLevel"   column="crowd_level"/>
+        <result property="transportAccessJson" column="transport_access_json"/>
+        <result property="suitableForJson" column="suitable_for_json"/>
+        <result property="physicalIntensity" column="physical_intensity"/>
+        <result property="reservationRequired" column="reservation_required"/>
+        <result property="popularityScore" column="popularity_score"/>
+        <result property="styleEmbeddingId" column="style_embedding_id"/>
+        <result property="styleEmbeddingJson" column="style_embedding_json"/>
+        <result property="source"       column="source"/>
         <result property="dashvectorId" column="dashvector_id"/>
         <result property="cachedAt"     column="cached_at"/>
+        <result property="lastSyncedAt" column="last_synced_at"/>
     </resultMap>
 
     <select id="findByNameAndRegion" resultMap="attractionResultMap">
@@ -38,25 +56,94 @@
     </select>
 
     <insert id="insert" parameterType="Attraction" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO attractions (amap_poi_id, name, region, category, latitude, longitude,
-                                 address, rating, description, dashvector_id, cached_at)
-        VALUES (#{amapPoiId}, #{name}, #{region}, #{category}, #{latitude}, #{longitude},
-                #{address}, #{rating}, #{description}, #{dashvectorId}, #{cachedAt})
+        INSERT INTO attractions (amap_poi_id, name, region, city, district, category, sub_category,
+                                 latitude, longitude, address, rating, description, tags_json,
+                                 price_level, visit_duration_min, open_hours_json, best_visit_time_json,
+                                 crowd_level, transport_access_json, suitable_for_json, physical_intensity,
+                                 reservation_required, popularity_score, style_embedding_id,
+                                 style_embedding_json, source, dashvector_id, cached_at, last_synced_at)
+        VALUES (#{amapPoiId}, #{name}, #{region}, #{city}, #{district}, #{category}, #{subCategory},
+                #{latitude}, #{longitude}, #{address}, #{rating}, #{description}, #{tagsJson},
+                #{priceLevel}, #{visitDurationMin}, #{openHoursJson}, #{bestVisitTimeJson},
+                #{crowdLevel}, #{transportAccessJson}, #{suitableForJson}, #{physicalIntensity},
+                #{reservationRequired}, #{popularityScore}, #{styleEmbeddingId},
+                #{styleEmbeddingJson}, #{source}, #{dashvectorId}, #{cachedAt}, #{lastSyncedAt})
     </insert>
 
     <update id="update" parameterType="Attraction">
         UPDATE attractions
         <set>
             <if test="amapPoiId != null">amap_poi_id = #{amapPoiId},</if>
+            <if test="city != null">city = #{city},</if>
+            <if test="district != null">district = #{district},</if>
+            <if test="category != null">category = #{category},</if>
+            <if test="subCategory != null">sub_category = #{subCategory},</if>
             <if test="latitude != null">latitude = #{latitude},</if>
             <if test="longitude != null">longitude = #{longitude},</if>
             <if test="address != null">address = #{address},</if>
             <if test="rating != null">rating = #{rating},</if>
             <if test="description != null">description = #{description},</if>
+            <if test="tagsJson != null">tags_json = #{tagsJson},</if>
+            <if test="priceLevel != null">price_level = #{priceLevel},</if>
+            <if test="visitDurationMin != null">visit_duration_min = #{visitDurationMin},</if>
+            <if test="openHoursJson != null">open_hours_json = #{openHoursJson},</if>
+            <if test="bestVisitTimeJson != null">best_visit_time_json = #{bestVisitTimeJson},</if>
+            <if test="crowdLevel != null">crowd_level = #{crowdLevel},</if>
+            <if test="transportAccessJson != null">transport_access_json = #{transportAccessJson},</if>
+            <if test="suitableForJson != null">suitable_for_json = #{suitableForJson},</if>
+            <if test="physicalIntensity != null">physical_intensity = #{physicalIntensity},</if>
+            <if test="reservationRequired != null">reservation_required = #{reservationRequired},</if>
+            <if test="popularityScore != null">popularity_score = #{popularityScore},</if>
+            <if test="styleEmbeddingId != null">style_embedding_id = #{styleEmbeddingId},</if>
+            <if test="styleEmbeddingJson != null">style_embedding_json = #{styleEmbeddingJson},</if>
+            <if test="source != null">source = #{source},</if>
             <if test="dashvectorId != null">dashvector_id = #{dashvectorId},</if>
             <if test="cachedAt != null">cached_at = #{cachedAt},</if>
+            <if test="lastSyncedAt != null">last_synced_at = #{lastSyncedAt},</if>
         </set>
         WHERE id = #{id}
     </update>
+
+    <insert id="upsert" parameterType="Attraction">
+        INSERT INTO attractions (amap_poi_id, name, region, city, district, category, sub_category,
+                                 latitude, longitude, address, rating, description, tags_json,
+                                 price_level, visit_duration_min, open_hours_json, best_visit_time_json,
+                                 crowd_level, transport_access_json, suitable_for_json, physical_intensity,
+                                 reservation_required, popularity_score, style_embedding_id,
+                                 style_embedding_json, source, dashvector_id, cached_at, last_synced_at)
+        VALUES (#{amapPoiId}, #{name}, #{region}, #{city}, #{district}, #{category}, #{subCategory},
+                #{latitude}, #{longitude}, #{address}, #{rating}, #{description}, #{tagsJson},
+                #{priceLevel}, #{visitDurationMin}, #{openHoursJson}, #{bestVisitTimeJson},
+                #{crowdLevel}, #{transportAccessJson}, #{suitableForJson}, #{physicalIntensity},
+                #{reservationRequired}, #{popularityScore}, #{styleEmbeddingId},
+                #{styleEmbeddingJson}, #{source}, #{dashvectorId}, #{cachedAt}, #{lastSyncedAt})
+        ON DUPLICATE KEY UPDATE
+            city = COALESCE(VALUES(city), city),
+            district = COALESCE(VALUES(district), district),
+            category = COALESCE(VALUES(category), category),
+            sub_category = COALESCE(VALUES(sub_category), sub_category),
+            latitude = VALUES(latitude),
+            longitude = VALUES(longitude),
+            address = COALESCE(VALUES(address), address),
+            rating = COALESCE(VALUES(rating), rating),
+            description = COALESCE(VALUES(description), description),
+            tags_json = COALESCE(VALUES(tags_json), tags_json),
+            price_level = COALESCE(VALUES(price_level), price_level),
+            visit_duration_min = COALESCE(VALUES(visit_duration_min), visit_duration_min),
+            open_hours_json = COALESCE(VALUES(open_hours_json), open_hours_json),
+            best_visit_time_json = COALESCE(VALUES(best_visit_time_json), best_visit_time_json),
+            crowd_level = COALESCE(VALUES(crowd_level), crowd_level),
+            transport_access_json = COALESCE(VALUES(transport_access_json), transport_access_json),
+            suitable_for_json = COALESCE(VALUES(suitable_for_json), suitable_for_json),
+            physical_intensity = COALESCE(VALUES(physical_intensity), physical_intensity),
+            reservation_required = COALESCE(VALUES(reservation_required), reservation_required),
+            popularity_score = COALESCE(VALUES(popularity_score), popularity_score),
+            style_embedding_id = COALESCE(VALUES(style_embedding_id), style_embedding_id),
+            style_embedding_json = COALESCE(VALUES(style_embedding_json), style_embedding_json),
+            source = COALESCE(VALUES(source), source),
+            dashvector_id = COALESCE(VALUES(dashvector_id), dashvector_id),
+            cached_at = COALESCE(VALUES(cached_at), cached_at),
+            last_synced_at = COALESCE(VALUES(last_synced_at), last_synced_at)
+    </insert>
 
 </mapper>

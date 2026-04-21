@@ -66,6 +66,8 @@ amap:
   geocode-url: https://restapi.amap.com/v3/geocode/geo
   weather-url: https://restapi.amap.com/v3/weather/weatherInfo
   direction-url: https://restapi.amap.com/v3/direction/driving
+  walking-direction-url: https://restapi.amap.com/v3/direction/walking
+  nearby-search-url: https://restapi.amap.com/v3/place/around
   timeout: 10000
 
 oss:

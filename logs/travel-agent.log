@@ -23903,3 +23903,23 @@ SELECT * FROM tasks
 2026-04-21 10:56:51.865 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: a6a4517f-14c2-4fe9-aab3-daea27620a94(String)
 2026-04-21 10:56:51.866 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
 2026-04-21 10:56:51.867 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@21e441d1]
+2026-04-21 15:03:25.736 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-21 15:03:25.783 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Final summary parse failed: JSON deserialization failed
+2026-04-21 15:03:25.862 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Final summary LLM call failed (using defaults): LLM timeout
+2026-04-21 15:03:25.961 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-21 15:03:25.962 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-21 15:03:25.996 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-21 15:03:26.281 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-21 15:03:26.875 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-21 15:03:26.876 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-21 15:03:26.879 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 3 ms
+2026-04-21 15:04:51.482 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=2: JSON deserialization failed
+2026-04-21 15:04:51.530 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Final summary parse failed: JSON deserialization failed
+2026-04-21 15:04:51.609 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Final summary LLM call failed (using defaults): LLM timeout
+2026-04-21 15:04:51.698 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-21 15:04:51.698 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] Received blank LLM response at step=0
+2026-04-21 15:04:51.729 [main] WARN  com.travelagent.agent.planner.MarkovPlanner - [MarkovPlanner] JSON parse failed at step=0: JSON deserialization failed
+2026-04-21 15:04:51.969 [main] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-21 15:04:52.401 [main] INFO  org.springframework.mock.web.MockServletContext - Initializing Spring TestDispatcherServlet ''
+2026-04-21 15:04:52.401 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Initializing Servlet ''
+2026-04-21 15:04:52.405 [main] INFO  o.s.test.web.servlet.TestDispatcherServlet - Completed initialization in 4 ms
