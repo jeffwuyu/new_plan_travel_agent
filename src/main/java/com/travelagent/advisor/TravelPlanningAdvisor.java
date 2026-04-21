@@ -88,18 +88,30 @@ public class TravelPlanningAdvisor implements BaseAdvisor {
                     .map(CompletedStep::getAttractionName)
                     .filter(Objects::nonNull)
                     .filter(name -> !name.isBlank())
-                    .collect(Collectors.joining(", "));
+                    .collect(Collectors.joining("、"));
             if (!visited.isBlank()) {
-                sb.append("- Already planned attractions: ").append(visited).append("\n");
-                sb.append("- Do not recommend already planned attractions.\n");
+                sb.append("- 已规划景点（不得重复推荐）：").append(visited).append("\n");
+            }
+
+            // Day-break context: detect if we're at the start of a new day
+            if (planningConfig != null) {
+                int apd = planningConfig.getAttractionsPerDay();
+                int completedCount = completedSteps.size();
+                boolean isFirstOfNewDay = (completedCount % apd == 0) && completedCount > 0;
+                if (isFirstOfNewDay) {
+                    // Encourage geographic separation from previous day
+                    CompletedStep prevDayLast = completedSteps.get(completedSteps.size() - 1);
+                    sb.append("- 这是新一天的第一个景点，请在地理上与「")
+                      .append(prevDayLast.getAttractionName())
+                      .append("」所在区域有所区分，开拓新的参观区域。\n");
+                }
             }
         }
         if (sameDayRadiusKm != null) {
-            sb.append("- Attractions within the same day must be within ")
-                    .append(sameDayRadiusKm)
-                    .append(" km of each other.\n");
+            // Within-day follow-ons use a tighter 15km radius; day-starts use full radius
+            sb.append("- 同一天内续站景点须在上一站 15km 以内，新一天首站不受距离限制。\n");
         }
-        sb.append("- Prefer coherent sightseeing order and realistic travel continuity.");
+        sb.append("- 优先保证路线连贯、游览顺序合理、避免大范围折返。");
         return sb.toString();
     }
 

@@ -188,6 +188,17 @@ public class RagController {
     }
 
     /**
+     * Returns all registered RAG documents (admin list view).
+     */
+    @Operation(summary = "列出所有 RAG 文档",
+               description = "返回 rag_documents 全量列表，按创建时间倒序（管理员用）。")
+    @GetMapping("/documents")
+    public Result<List<RagDocument>> listDocuments(HttpServletRequest request) {
+        requireAdmin(request);
+        return Result.success(ragDocumentMapper.findAll());
+    }
+
+    /**
      * Manual retrieval test endpoint.
      * Query params: text (required), region (optional), topK (optional, default 5).
      */

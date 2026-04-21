@@ -61,13 +61,22 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request,
                              HttpServletResponse response,
                              Object handler) throws Exception {
+        // Primary: Authorization header (all normal API calls)
         String header = request.getHeader(headerName);
-        if (header == null || !header.startsWith(tokenPrefix + " ")) {
-            sendUnauthorized(response, "缺少认证Token");
-            return false;
-        }
+        String token;
 
-        String token = header.substring(tokenPrefix.length() + 1).trim();
+        if (header != null && header.startsWith(tokenPrefix + " ")) {
+            token = header.substring(tokenPrefix.length() + 1).trim();
+        } else {
+            // Fallback: ?token= query param — used by EventSource (SSE) which cannot set headers
+            String queryToken = request.getParameter("token");
+            if (queryToken != null && !queryToken.isBlank()) {
+                token = queryToken.trim();
+            } else {
+                sendUnauthorized(response, "缺少认证Token");
+                return false;
+            }
+        }
 
         // Check blacklist (logged-out tokens)
         if (redisUtil.hasKey(BLACKLIST_KEY_PREFIX + token)) {

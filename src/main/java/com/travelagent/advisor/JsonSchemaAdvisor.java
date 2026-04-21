@@ -64,17 +64,20 @@ public class JsonSchemaAdvisor implements BaseAdvisor {
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("Response format requirements:\n");
-        sb.append("- Reply ONLY with valid JSON.\n");
+        sb.append("【输出格式强制要求】\n");
+        sb.append("1. 你的回复必须以 '{' 开头，以 '}' 结尾，中间是合法 JSON 对象。\n");
+        sb.append("2. 不得使用 Markdown 代码块（禁止 ``` 或 ```json）。\n");
+        sb.append("3. JSON 前后不得有任何解释性文字、前言或后记。\n");
+        sb.append("4. 所有中文内容字段的值使用中文输出。\n");
         Object type = schema.get("type");
         if (type != null) {
-            sb.append("- Top-level JSON type: ").append(type).append(".\n");
+            sb.append("5. 顶层 JSON 类型：").append(type).append("。\n");
         }
         if (!required.isEmpty()) {
-            sb.append("- Required fields: ").append(String.join(", ", required)).append(".\n");
+            sb.append("6. 必填字段（缺少则响应无效）：")
+              .append(String.join(", ", required)).append("。\n");
         }
-        sb.append("- Do not wrap the JSON in markdown fences.\n");
-        sb.append("- Do not add explanations before or after the JSON.");
+        sb.append("\n示例合法响应：{\"attractionName\": \"兵马俑\", \"reason\": \"秦文化代表，适合历史爱好者\"}");
         return sb.toString();
     }
 

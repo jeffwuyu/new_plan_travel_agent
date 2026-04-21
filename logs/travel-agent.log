@@ -23572,3 +23572,334 @@ SELECT count(0) FROM tasks WHERE status IN (?, ?) LIMIT ? [42104-232]
 2026-04-21 10:42:42.459 [main] INFO  com.travelagent.service.user.impl.UserServiceImpl - New user registered: id=null, email=test@example.com
 2026-04-21 10:42:42.520 [main] INFO  com.travelagent.service.user.impl.UserServiceImpl - Account cancelled (soft-deleted): userId=1
 2026-04-21 10:42:42.582 [main] INFO  com.travelagent.service.user.impl.UserServiceImpl - Token blacklisted (logout), remaining validity: 3600000ms
+2026-04-21 10:51:47.293 [background-preinit] INFO  org.hibernate.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+2026-04-21 10:51:47.345 [main] INFO  com.travelagent.TravelAgentApplication - Starting TravelAgentApplication using Java 21.0.9.0.9 with PID 19356 (G:\coding\new_plan_travel_agent\target\classes started by ASUS in G:\coding\new_plan_travel_agent)
+2026-04-21 10:51:47.346 [main] INFO  com.travelagent.TravelAgentApplication - No active profile set, falling back to 1 default profile: "default"
+2026-04-21 10:51:48.369 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-04-21 10:51:48.372 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-04-21 10:51:48.419 [main] INFO  o.s.d.r.config.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 28 ms. Found 0 Redis repository interfaces.
+2026-04-21 10:51:49.328 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat initialized with port 8123 (http)
+2026-04-21 10:51:49.344 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8123"]
+2026-04-21 10:51:49.346 [main] INFO  org.apache.catalina.core.StandardService - Starting service [Tomcat]
+2026-04-21 10:51:49.346 [main] INFO  org.apache.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2026-04-21 10:51:49.408 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-04-21 10:51:49.408 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1978 ms
+2026-04-21 10:51:50.647 [main] INFO  com.travelagent.client.oss.OssClient - OSS client initialized, bucket=travel-agent-docs
+2026-04-21 10:51:50.849 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-21 10:51:50.849 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-21 10:51:50.849 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-21 10:51:51.939 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8123"]
+2026-04-21 10:51:51.953 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat started on port 8123 (http) with context path '/'
+2026-04-21 10:51:51.967 [main] INFO  com.travelagent.TravelAgentApplication - Started TravelAgentApplication in 5.121 seconds (process running for 6.55)
+2026-04-21 10:51:51.996 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-21 10:51:53.638 [main] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-21 10:51:54.644 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Startup recovery skipped — DB not ready: 
+### Error querying database.  Cause: org.springframework.jdbc.CannotGetJdbcConnectionException: Failed to obtain JDBC Connection
+### The error may exist in file [G:\coding\new_plan_travel_agent\target\classes\mapper\TaskMapper.xml]
+### The error may involve com.travelagent.mapper.TaskMapper.findByStatusIn
+### The error occurred while executing a query
+### Cause: org.springframework.jdbc.CannotGetJdbcConnectionException: Failed to obtain JDBC Connection
+2026-04-21 10:51:55.643 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-21 10:51:58.665 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-21 10:52:01.682 [scheduling-1] INFO  com.zaxxer.hikari.HikariDataSource - TravelAgentPool - Starting...
+2026-04-21 10:52:04.298 [SpringApplicationShutdownHook] INFO  o.s.boot.web.embedded.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2026-04-21 10:52:04.302 [tomcat-shutdown] INFO  o.s.boot.web.embedded.tomcat.GracefulShutdown - Graceful shutdown complete
+2026-04-21 10:56:41.454 [main] INFO  o.s.t.c.support.AnnotationConfigContextLoaderUtils - Could not detect default configuration classes for test class [com.travelagent.integration.TaskRecoveryIntegrationTest]: TaskRecoveryIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-04-21 10:56:41.735 [main] INFO  o.s.b.t.context.SpringBootTestContextBootstrapper - Found @SpringBootConfiguration com.travelagent.TravelAgentApplication for test class com.travelagent.integration.TaskRecoveryIntegrationTest
+2026-04-21 10:56:42.393 [main] INFO  c.t.integration.TaskRecoveryIntegrationTest - Starting TaskRecoveryIntegrationTest using Java 21.0.9.0.9 with PID 31248 (started by ASUS in G:\coding\new_plan_travel_agent)
+2026-04-21 10:56:42.394 [main] DEBUG c.t.integration.TaskRecoveryIntegrationTest - Running with Spring Boot v3.4.4, Spring v6.2.5
+2026-04-21 10:56:42.394 [main] INFO  c.t.integration.TaskRecoveryIntegrationTest - The following 1 profile is active: "test"
+2026-04-21 10:56:43.733 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\AttractionMapper.class]
+2026-04-21 10:56:43.733 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\LlmCallLogMapper.class]
+2026-04-21 10:56:43.733 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\PlanMapper.class]
+2026-04-21 10:56:43.733 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\RagChunkMapper.class]
+2026-04-21 10:56:43.733 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\RagDocumentMapper.class]
+2026-04-21 10:56:43.733 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\TaskExecutionEventMapper.class]
+2026-04-21 10:56:43.733 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\TaskMapper.class]
+2026-04-21 10:56:43.734 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\UserMapper.class]
+2026-04-21 10:56:43.734 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\UserQuotaConfigMapper.class]
+2026-04-21 10:56:43.734 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Identified candidate component class: file [G:\coding\new_plan_travel_agent\target\classes\com\travelagent\mapper\UserQuotaUsageMapper.class]
+2026-04-21 10:56:43.735 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'attractionMapper' and 'com.travelagent.mapper.AttractionMapper' mapperInterface
+2026-04-21 10:56:43.737 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'attractionMapper'.
+2026-04-21 10:56:43.738 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'llmCallLogMapper' and 'com.travelagent.mapper.LlmCallLogMapper' mapperInterface
+2026-04-21 10:56:43.738 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'llmCallLogMapper'.
+2026-04-21 10:56:43.738 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'planMapper' and 'com.travelagent.mapper.PlanMapper' mapperInterface
+2026-04-21 10:56:43.739 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'planMapper'.
+2026-04-21 10:56:43.739 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'ragChunkMapper' and 'com.travelagent.mapper.RagChunkMapper' mapperInterface
+2026-04-21 10:56:43.740 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'ragChunkMapper'.
+2026-04-21 10:56:43.740 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'ragDocumentMapper' and 'com.travelagent.mapper.RagDocumentMapper' mapperInterface
+2026-04-21 10:56:43.741 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'ragDocumentMapper'.
+2026-04-21 10:56:43.741 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'taskExecutionEventMapper' and 'com.travelagent.mapper.TaskExecutionEventMapper' mapperInterface
+2026-04-21 10:56:43.742 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'taskExecutionEventMapper'.
+2026-04-21 10:56:43.742 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'taskMapper' and 'com.travelagent.mapper.TaskMapper' mapperInterface
+2026-04-21 10:56:43.742 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'taskMapper'.
+2026-04-21 10:56:43.742 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'userMapper' and 'com.travelagent.mapper.UserMapper' mapperInterface
+2026-04-21 10:56:43.743 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'userMapper'.
+2026-04-21 10:56:43.743 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'userQuotaConfigMapper' and 'com.travelagent.mapper.UserQuotaConfigMapper' mapperInterface
+2026-04-21 10:56:43.744 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'userQuotaConfigMapper'.
+2026-04-21 10:56:43.745 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'userQuotaUsageMapper' and 'com.travelagent.mapper.UserQuotaUsageMapper' mapperInterface
+2026-04-21 10:56:43.746 [main] DEBUG org.mybatis.spring.mapper.ClassPathMapperScanner - Enabling autowire by type for MapperFactoryBean with name 'userQuotaUsageMapper'.
+2026-04-21 10:56:46.868 [main] DEBUG org.mybatis.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\AttractionMapper.xml]'
+2026-04-21 10:56:46.880 [main] DEBUG org.mybatis.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\LlmCallLogMapper.xml]'
+2026-04-21 10:56:46.903 [main] DEBUG org.mybatis.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\PlanMapper.xml]'
+2026-04-21 10:56:46.916 [main] DEBUG org.mybatis.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\RagChunkMapper.xml]'
+2026-04-21 10:56:46.927 [main] DEBUG org.mybatis.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\RagDocumentMapper.xml]'
+2026-04-21 10:56:46.939 [main] DEBUG org.mybatis.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\TaskExecutionEventMapper.xml]'
+2026-04-21 10:56:46.957 [main] DEBUG org.mybatis.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\TaskMapper.xml]'
+2026-04-21 10:56:46.972 [main] DEBUG org.mybatis.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\UserMapper.xml]'
+2026-04-21 10:56:46.981 [main] DEBUG org.mybatis.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\UserQuotaConfigMapper.xml]'
+2026-04-21 10:56:46.990 [main] DEBUG org.mybatis.spring.SqlSessionFactoryBean - Parsed mapper file: 'file [G:\coding\new_plan_travel_agent\target\classes\mapper\UserQuotaUsageMapper.xml]'
+2026-04-21 10:56:47.612 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: geocode
+2026-04-21 10:56:47.615 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: traffic_time
+2026-04-21 10:56:47.616 [main] INFO  com.travelagent.agent.tools.ToolRegistry - [ToolRegistry] Registered tool: weather
+2026-04-21 10:56:50.609 [main] INFO  c.t.integration.TaskRecoveryIntegrationTest - Started TaskRecoveryIntegrationTest in 8.609 seconds (process running for 10.939)
+2026-04-21 10:56:50.630 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:50.659 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@387cd426] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.073 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1730964371 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.081 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - ==>  Preparing: SELECT * FROM tasks WHERE status IN ( ? , ? ) ORDER BY created_at ASC LIMIT ?
+2026-04-21 10:56:51.091 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@387cd426]
+2026-04-21 10:56:51.257 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Startup recovery skipped — DB not ready: 
+### Error querying database.  Cause: org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "TASKS" not found (this database is empty); SQL statement:
+SELECT * FROM tasks
+        WHERE status IN
+         (  
+            ?
+         , 
+            ?
+         ) 
+        ORDER BY created_at ASC
+        LIMIT ? [42104-232]
+### The error may exist in file [G:\coding\new_plan_travel_agent\target\classes\mapper\TaskMapper.xml]
+### The error may involve com.travelagent.mapper.TaskMapper.findByStatusIn
+### The error occurred while executing a query
+### SQL: SELECT * FROM tasks         WHERE status IN          (               ?          ,              ?          )          ORDER BY created_at ASC         LIMIT ?
+### Cause: org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "TASKS" not found (this database is empty); SQL statement:
+SELECT * FROM tasks
+        WHERE status IN
+         (  
+            ?
+         , 
+            ?
+         ) 
+        ORDER BY created_at ASC
+        LIMIT ? [42104-232]
+; bad SQL grammar []
+2026-04-21 10:56:51.545 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.546 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@41e5038a] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.547 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1969425822 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.547 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - ==>  Preparing: SELECT * FROM tasks WHERE status IN ( ? , ? ) ORDER BY created_at ASC LIMIT ?
+2026-04-21 10:56:51.572 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - ==> Parameters: planning(String), tool_calling(String), 100(Integer)
+2026-04-21 10:56:51.600 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - <==      Total: 0
+2026-04-21 10:56:51.601 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@41e5038a]
+2026-04-21 10:56:51.602 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Startup recovery: no stuck tasks found.
+2026-04-21 10:56:51.657 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.658 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@7d3d89fb] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.661 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@21635151 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.662 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==>  Preparing: INSERT INTO tasks (task_uuid, user_id, status, region, schema_version, total_tokens_used, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())
+2026-04-21 10:56:51.669 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==> Parameters: 9bb3dddd-7644-4515-b515-bd4e862fa87d(String), 1(Long), planning(String), 西安(String), 1.0(String)
+2026-04-21 10:56:51.671 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - <==    Updates: 1
+2026-04-21 10:56:51.674 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@7d3d89fb]
+2026-04-21 10:56:51.675 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.675 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@63ae7031] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.676 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1044566009 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.676 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.678 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: 9bb3dddd-7644-4515-b515-bd4e862fa87d(String)
+2026-04-21 10:56:51.688 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.689 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@63ae7031]
+2026-04-21 10:56:51.690 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.690 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@8cc1bac] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.690 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@656207199 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.691 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==>  Preparing: INSERT INTO tasks (task_uuid, user_id, status, region, schema_version, total_tokens_used, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())
+2026-04-21 10:56:51.692 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==> Parameters: a69a8dee-cc12-4cd0-b44f-c2a18d9c1d6e(String), 1(Long), tool_calling(String), 西安(String), 1.0(String)
+2026-04-21 10:56:51.694 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - <==    Updates: 1
+2026-04-21 10:56:51.694 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@8cc1bac]
+2026-04-21 10:56:51.695 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.695 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20f1e26] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.696 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@498104228 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.696 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.697 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: a69a8dee-cc12-4cd0-b44f-c2a18d9c1d6e(String)
+2026-04-21 10:56:51.698 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.699 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20f1e26]
+2026-04-21 10:56:51.699 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.699 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@75c90ec5] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.699 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@905933622 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.699 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==>  Preparing: INSERT INTO tasks (task_uuid, user_id, status, region, schema_version, total_tokens_used, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())
+2026-04-21 10:56:51.700 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==> Parameters: 13993929-74c8-4f30-a7f6-c1374a4ea3ab(String), 1(Long), pending(String), 西安(String), 1.0(String)
+2026-04-21 10:56:51.701 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - <==    Updates: 1
+2026-04-21 10:56:51.701 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@75c90ec5]
+2026-04-21 10:56:51.701 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.701 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@4f7bb581] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.702 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1365833373 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.702 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.703 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: 13993929-74c8-4f30-a7f6-c1374a4ea3ab(String)
+2026-04-21 10:56:51.706 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.706 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@4f7bb581]
+2026-04-21 10:56:51.706 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.706 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6c6a7553] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.707 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@574807339 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.707 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==>  Preparing: INSERT INTO tasks (task_uuid, user_id, status, region, schema_version, total_tokens_used, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())
+2026-04-21 10:56:51.708 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==> Parameters: 55296080-157e-4988-9689-1be4911ac945(String), 1(Long), completed(String), 西安(String), 1.0(String)
+2026-04-21 10:56:51.709 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - <==    Updates: 1
+2026-04-21 10:56:51.709 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6c6a7553]
+2026-04-21 10:56:51.710 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.710 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3087b35f] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.710 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@650999756 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.711 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.711 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: 55296080-157e-4988-9689-1be4911ac945(String)
+2026-04-21 10:56:51.713 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.713 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3087b35f]
+2026-04-21 10:56:51.713 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.714 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@19324eab] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.714 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@766341923 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.714 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - ==>  Preparing: SELECT * FROM tasks WHERE status IN ( ? , ? ) ORDER BY created_at ASC LIMIT ?
+2026-04-21 10:56:51.715 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - ==> Parameters: planning(String), tool_calling(String), 100(Integer)
+2026-04-21 10:56:51.717 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - <==      Total: 2
+2026-04-21 10:56:51.717 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@19324eab]
+2026-04-21 10:56:51.717 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Startup recovery: found 2 stuck task(s) in states [planning, tool_calling]. Transitioning to RESUMING.
+2026-04-21 10:56:51.718 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.718 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20bd3082] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.725 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1290739366 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.725 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - ==>  Preparing: UPDATE tasks SET status = ?, updated_at = NOW() WHERE id = ?
+2026-04-21 10:56:51.729 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - ==> Parameters: resuming(String), 1(Long)
+2026-04-21 10:56:51.730 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - <==    Updates: 1
+2026-04-21 10:56:51.731 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@20bd3082]
+2026-04-21 10:56:51.731 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Recovered task uuid=9bb3dddd-7644-4515-b515-bd4e862fa87d (planning → resuming)
+2026-04-21 10:56:51.731 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.731 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6ddd71cc] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.732 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@189759004 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.732 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - ==>  Preparing: UPDATE tasks SET status = ?, updated_at = NOW() WHERE id = ?
+2026-04-21 10:56:51.732 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - ==> Parameters: resuming(String), 2(Long)
+2026-04-21 10:56:51.733 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - <==    Updates: 1
+2026-04-21 10:56:51.734 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6ddd71cc]
+2026-04-21 10:56:51.734 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Recovered task uuid=a69a8dee-cc12-4cd0-b44f-c2a18d9c1d6e (tool_calling → resuming)
+2026-04-21 10:56:51.734 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.734 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6258ea84] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.734 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1819412325 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.735 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.735 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: 9bb3dddd-7644-4515-b515-bd4e862fa87d(String)
+2026-04-21 10:56:51.737 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.737 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6258ea84]
+2026-04-21 10:56:51.743 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.744 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@d6de944] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.744 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1235662640 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.744 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.745 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: a69a8dee-cc12-4cd0-b44f-c2a18d9c1d6e(String)
+2026-04-21 10:56:51.746 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.747 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@d6de944]
+2026-04-21 10:56:51.747 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.747 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6dac64ea] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.747 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@872049291 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.748 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.748 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: 13993929-74c8-4f30-a7f6-c1374a4ea3ab(String)
+2026-04-21 10:56:51.750 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.750 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6dac64ea]
+2026-04-21 10:56:51.750 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.750 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@513f8279] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.751 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@761049177 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.751 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.752 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: 55296080-157e-4988-9689-1be4911ac945(String)
+2026-04-21 10:56:51.753 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.753 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@513f8279]
+2026-04-21 10:56:51.775 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.776 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3f1bde96] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.776 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@930531607 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.776 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==>  Preparing: INSERT INTO tasks (task_uuid, user_id, status, region, schema_version, total_tokens_used, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())
+2026-04-21 10:56:51.776 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==> Parameters: 1156f437-e78b-453f-83fd-111af4119102(String), 1(Long), pending(String), 西安(String), 1.0(String)
+2026-04-21 10:56:51.777 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - <==    Updates: 1
+2026-04-21 10:56:51.778 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3f1bde96]
+2026-04-21 10:56:51.779 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.779 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2cf88ae1] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.779 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@2072034835 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.780 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.780 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: 1156f437-e78b-453f-83fd-111af4119102(String)
+2026-04-21 10:56:51.782 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.782 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2cf88ae1]
+2026-04-21 10:56:51.782 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.782 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1a8e209b] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.783 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@456223916 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.783 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - ==>  Preparing: SELECT * FROM tasks WHERE status IN ( ? , ? ) ORDER BY created_at ASC LIMIT ?
+2026-04-21 10:56:51.784 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - ==> Parameters: planning(String), tool_calling(String), 100(Integer)
+2026-04-21 10:56:51.785 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - <==      Total: 0
+2026-04-21 10:56:51.786 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1a8e209b]
+2026-04-21 10:56:51.786 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Startup recovery: no stuck tasks found.
+2026-04-21 10:56:51.786 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.786 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@737652a9] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.787 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@234359538 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.787 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.787 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: 1156f437-e78b-453f-83fd-111af4119102(String)
+2026-04-21 10:56:51.788 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.789 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@737652a9]
+2026-04-21 10:56:51.811 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.811 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@c1e7bea] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.811 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@989006520 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.811 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==>  Preparing: INSERT INTO tasks (task_uuid, user_id, status, region, schema_version, total_tokens_used, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())
+2026-04-21 10:56:51.812 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==> Parameters: 03aa1ae8-4730-4052-9625-0a42f8e4c3fc(String), 1(Long), tool_calling(String), 西安(String), 1.0(String)
+2026-04-21 10:56:51.813 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - <==    Updates: 1
+2026-04-21 10:56:51.814 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@c1e7bea]
+2026-04-21 10:56:51.814 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.814 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6453c126] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.814 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1701144858 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.815 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.815 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: 03aa1ae8-4730-4052-9625-0a42f8e4c3fc(String)
+2026-04-21 10:56:51.817 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.817 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@6453c126]
+2026-04-21 10:56:51.817 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.817 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1a5b8f77] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.818 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@945811534 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.818 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - ==>  Preparing: SELECT * FROM tasks WHERE status IN ( ? , ? ) ORDER BY created_at ASC LIMIT ?
+2026-04-21 10:56:51.819 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - ==> Parameters: planning(String), tool_calling(String), 100(Integer)
+2026-04-21 10:56:51.821 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - <==      Total: 1
+2026-04-21 10:56:51.821 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1a5b8f77]
+2026-04-21 10:56:51.821 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Startup recovery: found 1 stuck task(s) in states [planning, tool_calling]. Transitioning to RESUMING.
+2026-04-21 10:56:51.821 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.822 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@42ff5c92] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.822 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@211603566 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.822 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - ==>  Preparing: UPDATE tasks SET status = ?, updated_at = NOW() WHERE id = ?
+2026-04-21 10:56:51.823 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - ==> Parameters: resuming(String), 1(Long)
+2026-04-21 10:56:51.824 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - <==    Updates: 1
+2026-04-21 10:56:51.824 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@42ff5c92]
+2026-04-21 10:56:51.824 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Recovered task uuid=03aa1ae8-4730-4052-9625-0a42f8e4c3fc (tool_calling → resuming)
+2026-04-21 10:56:51.825 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.825 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@4afad6bd] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.825 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@232821292 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.825 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.826 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: 03aa1ae8-4730-4052-9625-0a42f8e4c3fc(String)
+2026-04-21 10:56:51.827 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.828 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@4afad6bd]
+2026-04-21 10:56:51.849 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.849 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3a8dd899] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.850 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1033922792 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.850 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==>  Preparing: INSERT INTO tasks (task_uuid, user_id, status, region, schema_version, total_tokens_used, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())
+2026-04-21 10:56:51.851 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - ==> Parameters: a6a4517f-14c2-4fe9-aab3-daea27620a94(String), 1(Long), planning(String), 西安(String), 1.0(String)
+2026-04-21 10:56:51.852 [main] DEBUG com.travelagent.mapper.TaskMapper.insert - <==    Updates: 1
+2026-04-21 10:56:51.852 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@3a8dd899]
+2026-04-21 10:56:51.852 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.852 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@448861e5] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.853 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1925023490 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.853 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.853 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: a6a4517f-14c2-4fe9-aab3-daea27620a94(String)
+2026-04-21 10:56:51.855 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.855 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@448861e5]
+2026-04-21 10:56:51.856 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.856 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2620d0dc] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.857 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@418974680 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.857 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - ==>  Preparing: SELECT * FROM tasks WHERE status IN ( ? , ? ) ORDER BY created_at ASC LIMIT ?
+2026-04-21 10:56:51.858 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - ==> Parameters: planning(String), tool_calling(String), 100(Integer)
+2026-04-21 10:56:51.859 [main] DEBUG com.travelagent.mapper.TaskMapper.findByStatusIn - <==      Total: 1
+2026-04-21 10:56:51.860 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2620d0dc]
+2026-04-21 10:56:51.860 [main] WARN  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Startup recovery: found 1 stuck task(s) in states [planning, tool_calling]. Transitioning to RESUMING.
+2026-04-21 10:56:51.860 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.860 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1ff9d66b] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.861 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@31639297 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.861 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - ==>  Preparing: UPDATE tasks SET status = ?, updated_at = NOW() WHERE id = ?
+2026-04-21 10:56:51.861 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - ==> Parameters: resuming(String), 1(Long)
+2026-04-21 10:56:51.863 [main] DEBUG com.travelagent.mapper.TaskMapper.updateStatus - <==    Updates: 1
+2026-04-21 10:56:51.863 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@1ff9d66b]
+2026-04-21 10:56:51.863 [main] INFO  c.travelagent.service.agent.impl.AgentServiceImpl - [AgentService] Recovered task uuid=a6a4517f-14c2-4fe9-aab3-daea27620a94 (planning → resuming)
+2026-04-21 10:56:51.863 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Creating a new SqlSession
+2026-04-21 10:56:51.864 [main] DEBUG org.mybatis.spring.SqlSessionUtils - SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@21e441d1] was not registered for synchronization because synchronization is not active
+2026-04-21 10:56:51.864 [main] DEBUG o.m.spring.transaction.SpringManagedTransaction - JDBC Connection [HikariProxyConnection@1897081342 wrapping conn0: url=jdbc:h2:mem:travelagent_test user=SA] will not be managed by Spring
+2026-04-21 10:56:51.864 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==>  Preparing: SELECT * FROM tasks WHERE task_uuid = ? LIMIT 1
+2026-04-21 10:56:51.865 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - ==> Parameters: a6a4517f-14c2-4fe9-aab3-daea27620a94(String)
+2026-04-21 10:56:51.866 [main] DEBUG com.travelagent.mapper.TaskMapper.findByUuid - <==      Total: 1
+2026-04-21 10:56:51.867 [main] DEBUG org.mybatis.spring.SqlSessionUtils - Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@21e441d1]

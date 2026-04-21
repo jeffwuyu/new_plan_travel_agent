@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 中文注释：MyBatis 映射文件，负责 User 相关 SQL 与字段映射定义。 -->
+<!-- User 的 MyBatis 映射文件，定义 users 表的字段映射与常用查询 SQL。 -->
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.travelagent.mapper.UserMapper">
@@ -68,34 +68,24 @@
         WHERE username = #{username} AND deleted_at IS NULL
     </select>
 
-    <!--
-        管理员分页查询：列出所有未软删除用户。
-        配合 PageHelper 使用：调用前 PageHelper.startPage(page, size) 即可自动注入 LIMIT/OFFSET。
-        按注册时间倒序，方便管理员查看最新注册用户。
-    -->
+    <!-- 管理员分页查询全部未软删除用户，分页由 PageHelper 在调用侧自动注入。 -->
     <select id="findAll" resultMap="userResultMap">
         SELECT * FROM users
         WHERE deleted_at IS NULL
         ORDER BY created_at DESC
     </select>
 
-    <!--
-        返回所有 status=1（正常）且未软删除的用户 ID 列表。
-        供配额快照定时任务（QuotaServiceImpl.snapshotAllActiveUsers）批量使用，
-        仅查 id 字段，避免加载不必要的密码哈希等敏感字段。
-    -->
+    <!-- 返回所有活跃用户 ID，供配额快照等批量任务使用。 -->
     <select id="findAllActiveIds" resultType="long">
         SELECT id FROM users
         WHERE status = 1 AND deleted_at IS NULL
     </select>
 
     <!--
-        轻量级活跃状态检查：仅查主键行，返回单个布尔值。
-        true  = 账号存在且正常（status=1, deleted_at IS NULL）
-        false = 账号存在但已禁用或已软删除
+        轻量级活跃状态检查：
+        true  = 用户存在且状态正常
+        false = 用户存在但已禁用或已软删除
         null  = 用户不存在
-        供 JwtAuthInterceptor 在 JWT 签名验证通过后立即调用，
-        防止已禁用账号继续使用有效 token。
     -->
     <select id="findUserActiveStatus" resultType="java.lang.Boolean">
         SELECT (status = 1 AND deleted_at IS NULL)

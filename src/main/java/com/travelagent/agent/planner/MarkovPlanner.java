@@ -146,38 +146,52 @@ public class MarkovPlanner {
     }
 
     private String buildFinalSummarySystemPrompt(TaskCheckpoint cp) {
-        return "You are a travel writer. The user just completed planning a trip to " + cp.getRegion() + ".\n"
-                + "User intent: " + cp.getUserIntent() + "\n"
-                + "Produce a concise JSON summary of the completed itinerary. "
-                + "Respond ONLY with valid JSON matching this schema exactly:\n"
-                + "{\n"
-                + "  \"title\": \"short trip title\",\n"
-                + "  \"summary\": \"one paragraph overview\",\n"
-                + "  \"steps\": [\n"
-                + "    {\"stepOrder\": 0, \"estimatedDurationMin\": 120, \"llmDescription\": \"visit note\"}\n"
-                + "  ]\n"
-                + "}\n"
-                + "estimatedDurationMin should reflect actual attraction scale (60–240 min). "
-                + "llmDescription should be a brief, practical visit tip in Chinese.";
+        // Collect preference keywords from planning config
+        String preferenceKeywords = "";
+        if (cp.getPlanningConfig() != null
+                && cp.getPlanningConfig().getPreferenceKeywords() != null
+                && !cp.getPlanningConfig().getPreferenceKeywords().isEmpty()) {
+            preferenceKeywords = String.join("、", cp.getPlanningConfig().getPreferenceKeywords());
+        }
+        String travelMode = cp.getPlanningConfig() != null
+                ? cp.getPlanningConfig().getTravelMode() : "";
+
+        return PromptTemplates.buildFinalSummarySystem(
+                cp.getRegion(),
+                cp.getPlanningConfig() != null ? cp.getPlanningConfig().getTotalDays() : 1,
+                cp.getUserIntent(),
+                travelMode,
+                preferenceKeywords);
     }
 
     private String buildFinalSummaryUserMessage(TaskCheckpoint cp) {
-        StringBuilder sb = new StringBuilder("Completed attractions:\n");
+        StringBuilder sb = new StringBuilder(PromptTemplates.FINAL_SUMMARY_USER_PREFIX);
         for (CompletedStep s : cp.getCompletedSteps()) {
-            sb.append(String.format("  Step %d (Day %d): %s",
+            sb.append(String.format("  步骤%d（第%d天）：%s",
                     s.getStepIndex(), s.getDayNumber(), s.getAttractionName()));
             if (s.getToolCallResults() != null) {
                 Map<?, ?> weather = (Map<?, ?>) s.getToolCallResults().get(WeatherTool.NAME);
                 if (weather != null) {
-                    sb.append(String.format(", weather: %s %s°C",
+                    sb.append(String.format("，天气：%s %s°C",
                             weather.get("weather"), weather.get("temperature")));
                 }
             }
             sb.append("\n");
         }
-        sb.append("\nGenerate the JSON summary now.");
+        // Also include trip parameters so LLM can tailor descriptions
+        if (cp.getPlanningConfig() != null) {
+            sb.append("\n出行方式：").append(nullToEmpty(cp.getPlanningConfig().getTravelMode()));
+            if (cp.getPlanningConfig().getPreferenceKeywords() != null
+                    && !cp.getPlanningConfig().getPreferenceKeywords().isEmpty()) {
+                sb.append("\n用户偏好：")
+                  .append(String.join("、", cp.getPlanningConfig().getPreferenceKeywords()));
+            }
+        }
+        sb.append(PromptTemplates.FINAL_SUMMARY_USER_SUFFIX);
         return sb.toString();
     }
+
+    private String nullToEmpty(String s) { return s == null ? "" : s; }
 
     /**
      * Parses the LLM's JSON response for the final summary.
@@ -189,10 +203,7 @@ public class MarkovPlanner {
             return buildDefaultSummary(cp);
         }
         try {
-            String cleaned = llmResponse.trim();
-            if (cleaned.startsWith("```")) {
-                cleaned = cleaned.replaceAll("(?s)```[a-z]*\\s*", "").replace("```", "").trim();
-            }
+            String cleaned = LlmResponseSanitizer.sanitize(llmResponse);
             Map<String, Object> parsed = jsonUtil.fromJson(cleaned, new TypeReference<>() {});
 
             String title   = stringOrDefault(parsed.get("title"),
@@ -206,7 +217,8 @@ public class MarkovPlanner {
                     if (item instanceof Map<?, ?> stepMap) {
                         int stepOrder = toInt(stepMap.get("stepOrder"), stepSummaries.size());
                         int duration  = toInt(stepMap.get("estimatedDurationMin"), 90);
-                        if (duration < 30 || duration > 480) duration = 90; // sanity clamp
+                        // Sanity clamp: 45-360 min (widened lower bound, tightened upper bound per P2-2-3)
+                        if (duration < 45 || duration > 360) duration = 90;
                         String desc   = stringOrDefault(stepMap.get("llmDescription"), "");
                         stepSummaries.add(new FinalSummaryResult.StepSummary(stepOrder, duration, desc));
                     }
@@ -283,23 +295,37 @@ public class MarkovPlanner {
         int attractionsPerDay = cp.getPlanningConfig().getAttractionsPerDay();
         int dayNumber = (stepIndex / attractionsPerDay) + 1;
         int orderInDay = (stepIndex % attractionsPerDay) + 1;
+        int totalSteps = cp.totalPlannedSteps();
+        String region = cp.getRegion();
+        String travelMode = nullToEmpty(cp.getPlanningConfig().getTravelMode());
 
-        StringBuilder prompt = new StringBuilder();
-        prompt.append(String.format(
-                "Recommend attraction %d for day %d (overall step %d of %d). ",
-                orderInDay, dayNumber, stepIndex + 1, cp.totalPlannedSteps()));
-        prompt.append(String.format(
-                "The destination region is %s; travel mode is %s.",
-                cp.getRegion(), cp.getPlanningConfig().getTravelMode()));
+        boolean isFirstOfDay = (orderInDay == 1);
+        boolean isFirstStep  = stepIndex == 0;
 
-        if (!cp.getCompletedSteps().isEmpty()) {
-            var last = cp.getCompletedSteps().get(cp.getCompletedSteps().size() - 1);
-            prompt.append(String.format(
-                    " Start from '%s' (lat=%.6f, lng=%.6f). Choose the next attraction within 30 km.",
-                    last.getAttractionName(), last.getLat(), last.getLng()));
+        if (isFirstStep) {
+            // Very first attraction of the whole trip
+            return String.format(PromptTemplates.STEP_DAY1_START,
+                    orderInDay, dayNumber, stepIndex + 1, totalSteps, region, travelMode);
         }
 
-        return prompt.toString();
+        if (isFirstOfDay) {
+            // First attraction of a new day (but not the very first step)
+            String prevDayLastAttraction = "";
+            if (!cp.getCompletedSteps().isEmpty()) {
+                prevDayLastAttraction = cp.getCompletedSteps()
+                        .get(cp.getCompletedSteps().size() - 1).getAttractionName();
+            }
+            return String.format(PromptTemplates.STEP_DAY_START,
+                    orderInDay, dayNumber, stepIndex + 1, totalSteps,
+                    region, travelMode, prevDayLastAttraction);
+        }
+
+        // Within-day follow-on: 15 km radius for geographic clustering
+        var last = cp.getCompletedSteps().get(cp.getCompletedSteps().size() - 1);
+        return String.format(PromptTemplates.STEP_WITHIN_DAY,
+                orderInDay, dayNumber, stepIndex + 1, totalSteps,
+                region, travelMode,
+                last.getAttractionName(), last.getLat(), last.getLng());
     }
 
     private Map<String, Object> buildAdvisorContext(TaskCheckpoint cp, List<String> ragChunks) {
@@ -336,11 +362,7 @@ public class MarkovPlanner {
             return "Unknown Attraction";
         }
         try {
-            String cleaned = llmResponse.trim();
-            if (cleaned.startsWith("```")) {
-                // Strip markdown code fences: ```json\n{…}\n```
-                cleaned = cleaned.replaceAll("(?s)```[a-z]*\\s*", "").replace("```", "").trim();
-            }
+            String cleaned = LlmResponseSanitizer.sanitize(llmResponse);
             Map<String, Object> parsed = jsonUtil.fromJson(cleaned, new TypeReference<>() {});
             Object name = parsed.get("attractionName");
             if (name != null && !name.toString().isBlank()) {

@@ -31,4 +31,7 @@ public interface RagDocumentMapper {
 
     /** Hard-deletes a document record by primary key. */
     int deleteById(@Param("id") Long id);
+
+    /** Returns all documents ordered by created_at DESC. */
+    List<RagDocument> findAll();
 }

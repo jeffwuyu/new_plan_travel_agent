@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 /**
  * 中文注释：类，负责 Travel Agent Application 相关功能或数据结构定义。
  */
-
 @SpringBootApplication
 @EnableAsync
 @EnableScheduling
