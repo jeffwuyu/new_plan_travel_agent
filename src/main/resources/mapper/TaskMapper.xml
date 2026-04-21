@@ -82,7 +82,7 @@
     <select id="countActiveByUserId" resultType="int">
         SELECT COUNT(*) FROM tasks
         WHERE user_id = #{userId}
-          AND status IN ('pending', 'planning', 'tool_calling', 'resuming')
+          AND status IN ('pending', 'planning', 'tool_calling', 'awaiting_user_input', 'resuming')
     </select>
 
     <update id="updateStatus">

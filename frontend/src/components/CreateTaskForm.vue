@@ -1,24 +1,25 @@
 <template>
-  <el-dialog v-model="visible" title="创建旅行规划" width="520px" :close-on-click-modal="false">
+  <el-dialog v-model="visible" title="创建旅行规划" width="560px" :close-on-click-modal="false">
     <el-form :model="form" :rules="rules" ref="formRef" label-position="top">
-      <el-form-item label="目的地城市" prop="region">
+      <el-form-item label="目的地/区域" prop="region">
         <el-input v-model="form.region" placeholder="例如：西安市" />
       </el-form-item>
       <el-form-item label="旅行意图" prop="userIntent">
-        <el-input v-model="form.userIntent" type="textarea" :rows="2" placeholder="例如：3天历史文化深度游" maxlength="500" show-word-limit />
+        <el-input
+          v-model="form.userIntent"
+          type="textarea"
+          :rows="3"
+          maxlength="500"
+          show-word-limit
+          placeholder="例如：历史文化和美食为主，希望路线紧凑一些"
+        />
       </el-form-item>
-      <el-row :gutter="16">
-        <el-col :span="12">
-          <el-form-item label="旅行天数" prop="totalDays">
-            <el-input-number v-model="form.totalDays" :min="1" :max="14" style="width:100%" />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="每天景点数" prop="attractionsPerDay">
-            <el-input-number v-model="form.attractionsPerDay" :min="1" :max="6" style="width:100%" />
-          </el-form-item>
-        </el-col>
-      </el-row>
+      <el-form-item label="当前位置关键词" prop="currentLocationQuery">
+        <el-input
+          v-model="form.currentLocationQuery"
+          placeholder="例如：钟楼、北站、酒店名、商圈名"
+        />
+      </el-form-item>
       <el-form-item label="偏好标签（可选）">
         <el-input v-model="form.preferenceKeywords" placeholder="例如：历史文化,美食,古迹" />
       </el-form-item>
@@ -47,33 +48,44 @@ const visible = ref(false)
 const loading = ref(false)
 const formRef = ref(null)
 
-const form = ref({
+const initialForm = () => ({
   region: '',
   userIntent: '',
-  totalDays: 3,
-  attractionsPerDay: 3,
+  currentLocationQuery: '',
   preferenceKeywords: '',
   travelMode: 'driving'
 })
 
+const form = ref(initialForm())
+
 const rules = {
-  region: [{ required: true, message: '请输入目的地城市', trigger: 'blur' }],
-  userIntent: [{ required: true, message: '请输入旅行意图', trigger: 'blur' }]
+  region: [{ required: true, message: '请输入目的地/区域', trigger: 'blur' }],
+  userIntent: [{ required: true, message: '请输入旅行意图', trigger: 'blur' }],
+  currentLocationQuery: [{ required: true, message: '请输入当前位置关键词', trigger: 'blur' }]
 }
 
-function open() { visible.value = true }
+function open() {
+  visible.value = true
+}
 
 async function handleSubmit() {
   await formRef.value.validate()
   loading.value = true
   try {
-    const payload = { ...form.value }
-    if (!payload.preferenceKeywords?.trim()) delete payload.preferenceKeywords
+    const payload = { ...form.value, totalDays: 1 }
+    if (payload.preferenceKeywords?.trim()) {
+      payload.preferenceKeywords = payload.preferenceKeywords
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean)
+    } else {
+      delete payload.preferenceKeywords
+    }
     const res = await createTask(payload)
-    ElMessage.success('任务创建成功，正在规划中...')
+    ElMessage.success('任务创建成功，正在生成起点候选...')
     visible.value = false
     emit('created', res.data?.taskUuid)
-    formRef.value.resetFields()
+    form.value = initialForm()
   } catch (err) {
     ElMessage.error(err.message)
   } finally {

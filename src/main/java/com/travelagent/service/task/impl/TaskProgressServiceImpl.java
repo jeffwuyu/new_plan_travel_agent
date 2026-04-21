@@ -1,5 +1,6 @@
 package com.travelagent.service.task.impl;
 
+import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.mapper.TaskExecutionEventMapper;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.model.dto.TaskExecutionProgressResponse;
@@ -20,8 +21,8 @@ public class TaskProgressServiceImpl implements TaskProgressService {
     private static final Logger log = LoggerFactory.getLogger(TaskProgressServiceImpl.class);
 
     @Autowired private TaskExecutionEventMapper eventMapper;
-    @Autowired private TaskMapper               taskMapper;
-    @Autowired private JsonUtil                 jsonUtil;
+    @Autowired private TaskMapper taskMapper;
+    @Autowired private JsonUtil jsonUtil;
 
     @Override
     public void recordEvent(String taskUuid, String eventType, String status,
@@ -54,6 +55,7 @@ public class TaskProgressServiceImpl implements TaskProgressService {
         resp.setTaskUuid(taskUuid);
 
         Task task = taskMapper.findByUuid(taskUuid);
+        TaskCheckpoint checkpoint = parseCheckpoint(task);
         if (task != null) {
             resp.setCurrentStatus(task.getStatus());
         }
@@ -63,14 +65,22 @@ public class TaskProgressServiceImpl implements TaskProgressService {
         resp.setEvents(events);
         resp.setTotalEventCount(total);
 
-        // Derive currentStepIndex / totalSteps from most recent event that has them
-        events.stream()
-                .filter(e -> e.getStepIndex() != null)
-                .reduce((a, b) -> b)
-                .ifPresent(e -> {
-                    resp.setCurrentStepIndex(e.getStepIndex());
-                    resp.setTotalSteps(e.getTotalSteps());
-                });
+        if (checkpoint != null) {
+            resp.setCurrentStepIndex(checkpoint.getCurrentStepIndex());
+            resp.setTotalSteps(checkpoint.totalPlannedSteps());
+            resp.setPendingInputType(checkpoint.getPendingInputType());
+            resp.setAwaitingUserInput("origin_selection".equals(checkpoint.getPendingInputType()));
+            resp.setLocationCandidates(checkpoint.getLocationCandidates());
+            resp.setSelectedOrigin(checkpoint.getSelectedOrigin());
+        } else {
+            events.stream()
+                    .filter(e -> e.getStepIndex() != null)
+                    .reduce((a, b) -> b)
+                    .ifPresent(e -> {
+                        resp.setCurrentStepIndex(e.getStepIndex());
+                        resp.setTotalSteps(e.getTotalSteps());
+                    });
+        }
 
         return resp;
     }
@@ -78,5 +88,17 @@ public class TaskProgressServiceImpl implements TaskProgressService {
     @Override
     public TaskExecutionEvent getLatestEvent(String taskUuid) {
         return eventMapper.findLatestByTaskUuid(taskUuid);
+    }
+
+    private TaskCheckpoint parseCheckpoint(Task task) {
+        if (task == null || task.getCheckpointJson() == null || task.getCheckpointJson().isBlank()) {
+            return null;
+        }
+        try {
+            return jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
+        } catch (Exception e) {
+            log.warn("[TaskProgressService] Failed to parse checkpoint for task={}: {}", task.getTaskUuid(), e.getMessage());
+            return null;
+        }
     }
 }

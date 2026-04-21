@@ -27,6 +27,10 @@ public interface AttractionMapper {
      */
     Attraction findByAmapPoiId(@Param("amapPoiId") String amapPoiId);
 
+    java.util.List<Attraction> searchByRegionAndKeyword(@Param("region") String region,
+                                                        @Param("keyword") String keyword,
+                                                        @Param("limit") int limit);
+
     /**
      * Insert a new attraction record. Sets {@code id} via useGeneratedKeys.
      */

@@ -55,6 +55,14 @@
         LIMIT 1
     </select>
 
+    <select id="searchByRegionAndKeyword" resultMap="attractionResultMap">
+        SELECT * FROM attractions
+        WHERE region = #{region}
+          AND name LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY popularity_score DESC, cached_at DESC
+        LIMIT #{limit}
+    </select>
+
     <insert id="insert" parameterType="Attraction" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO attractions (amap_poi_id, name, region, city, district, category, sub_category,
                                  latitude, longitude, address, rating, description, tags_json,

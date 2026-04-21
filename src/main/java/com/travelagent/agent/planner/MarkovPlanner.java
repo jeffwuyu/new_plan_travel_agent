@@ -242,6 +242,10 @@ public class MarkovPlanner {
                     .filter(step -> step.getLat() != null && step.getLng() != null)
                     .map(step -> new RoutePoint(step.getLat(), step.getLng(), step.getAttractionName()))
                     .toList());
+        } else if (cp.getSelectedOrigin() != null) {
+            request.setCurrentPoiName(cp.getSelectedOrigin().getName());
+            request.setCurrentLat(cp.getSelectedOrigin().getLatitude());
+            request.setCurrentLng(cp.getSelectedOrigin().getLongitude());
         }
         return request;
     }
@@ -356,7 +360,20 @@ public class MarkovPlanner {
         boolean isFirstStep  = stepIndex == 0;
 
         if (isFirstStep) {
-            // Very first attraction of the whole trip
+            if (cp.getSelectedOrigin() != null && cp.getSelectedOrigin().getName() != null) {
+                return String.format(
+                        "请为第%d天推荐第%d个（总第%d/%d个）景点。\n目的地：%s，出行方式：%s。\n当前起点：%s（纬度=%.6f，经度=%.6f）。\n请优先选择从该起点出发交通顺畅、适合作为第一站的核心景点。",
+                        dayNumber,
+                        orderInDay,
+                        stepIndex + 1,
+                        totalSteps,
+                        region,
+                        travelMode,
+                        cp.getSelectedOrigin().getName(),
+                        cp.getSelectedOrigin().getLatitude() == null ? 0D : cp.getSelectedOrigin().getLatitude(),
+                        cp.getSelectedOrigin().getLongitude() == null ? 0D : cp.getSelectedOrigin().getLongitude()
+                );
+            }
             return String.format(PromptTemplates.STEP_DAY1_START,
                     orderInDay, dayNumber, stepIndex + 1, totalSteps, region, travelMode);
         }

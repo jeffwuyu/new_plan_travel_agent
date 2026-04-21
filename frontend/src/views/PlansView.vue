@@ -2,7 +2,7 @@
   <el-container class="page-container">
     <el-header class="page-header">
       <div class="header-left">
-        <span class="logo">✈ 旅游规划助手</span>
+        <span class="logo">旅行规划助手</span>
         <el-menu mode="horizontal" :default-active="'/plans'" router class="nav-menu">
           <el-menu-item index="/tasks">我的任务</el-menu-item>
           <el-menu-item index="/plans">规划结果</el-menu-item>
@@ -12,14 +12,14 @@
     </el-header>
 
     <el-main>
-      <h3 class="section-title">我的旅行规划</h3>
+      <h3 class="section-title">我的规划结果</h3>
       <el-row :gutter="16" v-loading="loading">
         <el-col v-for="plan in plans" :key="plan.id" :xs="24" :sm="12" :lg="8" class="mb-16">
           <el-card shadow="hover" class="plan-card" @click="router.push(`/plans/${plan.id}`)">
-            <div class="plan-title">{{ plan.title || `${plan.region}旅行规划` }}</div>
+            <div class="plan-title">{{ plan.title || `${plan.region} 路线规划` }}</div>
             <div class="plan-meta">
               <el-tag size="small">{{ plan.region }}</el-tag>
-              <el-tag size="small" type="success">{{ plan.totalDays }} 天</el-tag>
+              <el-tag size="small" type="info">路线结果</el-tag>
             </div>
             <p class="plan-summary">{{ plan.summary || '暂无摘要' }}</p>
             <div class="plan-time">{{ formatDate(plan.createdAt) }}</div>

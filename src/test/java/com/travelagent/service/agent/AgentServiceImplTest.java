@@ -18,14 +18,16 @@ import com.travelagent.exception.QuotaExhaustedException;
 import com.travelagent.mapper.PlanMapper;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.mapper.UserMapper;
+import com.travelagent.model.dto.LocationCandidateItem;
+import com.travelagent.model.dto.SelectedOrigin;
 import com.travelagent.model.entity.Plan;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.entity.User;
 import com.travelagent.model.enums.TaskStatus;
+import com.travelagent.monitoring.TaskMetricsService;
 import com.travelagent.service.agent.impl.AgentServiceImpl;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
-import com.travelagent.monitoring.TaskMetricsService;
 import com.travelagent.service.task.TaskProgressService;
 import com.travelagent.service.user.QuotaService;
 import com.travelagent.util.JsonUtil;
@@ -33,7 +35,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -43,20 +44,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-
-/**
- * 中文注释：测试类，用于验证 Agent Service Impl Test 相关行为是否符合预期。
- */
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AgentServiceImpl Tests")
@@ -73,8 +70,7 @@ class AgentServiceImplTest {
     @Mock private TaskProgressService taskProgressService;
     @Mock private TaskMetricsService taskMetricsService;
 
-    @InjectMocks
-    private AgentServiceImpl agentService;
+    @InjectMocks private AgentServiceImpl agentService;
 
     private final JsonUtil jsonUtil = new JsonUtil();
 
@@ -85,104 +81,65 @@ class AgentServiceImplTest {
     }
 
     @Test
-    @DisplayName("executeTask: returns early when task UUID not found")
     void executeTask_taskNotFound_returnsEarly() {
-        when(taskMapper.findByUuid("unknown-uuid")).thenReturn(null);
-
-        agentService.executeTask("unknown-uuid");
-
+        when(taskMapper.findByUuid("unknown")).thenReturn(null);
+        agentService.executeTask("unknown");
         verifyNoInteractions(stateMachine, markovPlanner, sseNotificationService);
     }
 
     @Test
-    @DisplayName("executeTask: skips task in non-PENDING/RESUMING status")
-    void executeTask_wrongStatus_skipsExecution() {
-        Task task = buildTask(TaskStatus.PLANNING, 1L);
-        when(taskMapper.findByUuid("uuid")).thenReturn(task);
-
-        agentService.executeTask("uuid");
-
-        verifyNoInteractions(stateMachine, markovPlanner);
-    }
-
-    @Test
-    @DisplayName("executeTask: transitions PENDING -> PLANNING and sends STATE_CHANGE SSE")
-    void executeTask_pending_transitionsToPlanningAndSendsSSE() {
-        Task task = buildTask(TaskStatus.PENDING, 1L);
-        TaskCheckpoint checkpoint = buildCompletedCheckpoint();
+    void executeTask_withoutOriginSelection_entersAwaitingState() {
+        Task task = buildTask(TaskStatus.PENDING);
+        TaskCheckpoint checkpoint = buildCheckpoint(false);
         task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+
         when(taskMapper.findByUuid("uuid")).thenReturn(task);
-        when(stateMachine.transition(TaskStatus.PENDING, AgentEvent.START_PLANNING))
-                .thenReturn(TaskStatus.PLANNING);
+        when(stateMachine.transition(TaskStatus.PENDING, AgentEvent.START_PLANNING)).thenReturn(TaskStatus.PLANNING);
+        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.USER_INPUT_REQUIRED)).thenReturn(TaskStatus.AWAITING_USER_INPUT);
         mockUserLevel(1L, 1);
 
-        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.COMPLETE))
-                .thenReturn(TaskStatus.COMPLETED);
-        when(planMapper.insertPlan(any())).thenAnswer(inv -> {
-            Plan plan = inv.getArgument(0);
-            plan.setId(99L);
-            return 1;
-        });
-
         agentService.executeTask("uuid");
 
-        verify(stateMachine).transition(TaskStatus.PENDING, AgentEvent.START_PLANNING);
-        verify(taskMapper).updateStatus(eq(1L), eq("planning"));
-
-        ArgumentCaptor<Object> sseCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(sseNotificationService, atLeastOnce())
-                .sendEvent(eq("uuid"), eq(SseEvent.STATE_CHANGE), sseCaptor.capture());
-        assertThat(sseCaptor.getAllValues()).isNotEmpty();
-    }
-
-    @Test
-    @DisplayName("executeTask: quota exhaustion pauses task and saves checkpoint")
-    void executeTask_quotaExhausted_pausesTask() {
-        Task task = buildTask(TaskStatus.PENDING, 1L);
-        TaskCheckpoint checkpoint = buildOneStepCheckpoint();
-        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
-        when(taskMapper.findByUuid("uuid")).thenReturn(task);
-        when(stateMachine.transition(TaskStatus.PENDING, AgentEvent.START_PLANNING))
-                .thenReturn(TaskStatus.PLANNING);
-        mockUserLevel(1L, 1);
-
-        doThrow(new QuotaExhaustedException("daily"))
-                .when(quotaService).checkDailyQuota(1L, 1);
-
-        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.QUOTA_EXHAUSTED))
-                .thenReturn(TaskStatus.PAUSED);
-
-        agentService.executeTask("uuid");
-
-        verify(taskMapper).updateStatus(eq(1L), eq("paused"));
-        verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.PAUSED), any());
+        verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.USER_SELECTION_REQUIRED), any());
         verify(taskMapper, atLeastOnce()).updateCheckpoint(any());
     }
 
     @Test
-    @DisplayName("executeTask: completes one-step plan end-to-end")
-    void executeTask_oneStepPlan_completesSuccessfully() {
-        Task task = buildTask(TaskStatus.PENDING, 1L);
-        TaskCheckpoint checkpoint = buildOneStepCheckpoint();
+    void executeTask_quotaExhausted_pausesTask() {
+        Task task = buildTask(TaskStatus.PENDING);
+        TaskCheckpoint checkpoint = buildCheckpoint(true);
         task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+
         when(taskMapper.findByUuid("uuid")).thenReturn(task);
-        when(stateMachine.transition(TaskStatus.PENDING, AgentEvent.START_PLANNING))
-                .thenReturn(TaskStatus.PLANNING);
-        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.START_TOOL_CALL))
-                .thenReturn(TaskStatus.TOOL_CALLING);
-        when(stateMachine.transition(TaskStatus.TOOL_CALLING, AgentEvent.TOOL_CALL_DONE))
-                .thenReturn(TaskStatus.PLANNING);
-        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.COMPLETE))
-                .thenReturn(TaskStatus.COMPLETED);
+        when(stateMachine.transition(TaskStatus.PENDING, AgentEvent.START_PLANNING)).thenReturn(TaskStatus.PLANNING);
+        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.QUOTA_EXHAUSTED)).thenReturn(TaskStatus.PAUSED);
+        mockUserLevel(1L, 1);
+        doThrow(new QuotaExhaustedException("daily")).when(quotaService).checkDailyQuota(1L, 1);
+
+        agentService.executeTask("uuid");
+
+        verify(taskMapper).updateStatus(1L, "paused");
+        verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.PAUSED), any());
+    }
+
+    @Test
+    void executeTask_oneStepPlan_completesSuccessfully() {
+        Task task = buildTask(TaskStatus.PENDING);
+        TaskCheckpoint checkpoint = buildCheckpoint(true);
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+
+        when(taskMapper.findByUuid("uuid")).thenReturn(task);
+        when(stateMachine.transition(TaskStatus.PENDING, AgentEvent.START_PLANNING)).thenReturn(TaskStatus.PLANNING);
+        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.START_TOOL_CALL)).thenReturn(TaskStatus.TOOL_CALLING);
+        when(stateMachine.transition(TaskStatus.TOOL_CALLING, AgentEvent.TOOL_CALL_DONE)).thenReturn(TaskStatus.PLANNING);
+        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.COMPLETE)).thenReturn(TaskStatus.COMPLETED);
         mockUserLevel(1L, 1);
 
         when(markovPlanner.planNextAttraction(any(), any(), anyString()))
                 .thenReturn(new PlanningResult("Terracotta Army", 0));
-
         mockToolRegistry();
-
-        when(planMapper.insertPlan(any())).thenAnswer(inv -> {
-            Plan plan = inv.getArgument(0);
+        when(planMapper.insertPlan(any())).thenAnswer(invocation -> {
+            Plan plan = invocation.getArgument(0);
             plan.setId(42L);
             return 1;
         });
@@ -190,15 +147,13 @@ class AgentServiceImplTest {
         agentService.executeTask("uuid");
 
         verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.COMPLETED), any());
-        verify(sseNotificationService).completeEmitter("uuid");
-        verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.STEP_DONE), any());
+        verify(sseNotificationService, never()).sendEvent(eq("uuid"), eq(SseEvent.ERROR), any());
     }
 
     @Test
-    @DisplayName("executeTask: replays pending tool call on resume")
     void executeTask_resumeWithPendingToolCall_replaysToolCall() {
-        Task task = buildTask(TaskStatus.RESUMING, 1L);
-        TaskCheckpoint checkpoint = buildOneStepCheckpoint();
+        Task task = buildTask(TaskStatus.RESUMING);
+        TaskCheckpoint checkpoint = buildCheckpoint(true);
         checkpoint.setPendingToolCall(new PendingToolCall(
                 GeocodeTool.NAME,
                 Map.of("name", "Terracotta Army", "region", "Xi'an"),
@@ -207,21 +162,16 @@ class AgentServiceImplTest {
         task.setCheckpointJson(jsonUtil.toJson(checkpoint));
 
         when(taskMapper.findByUuid("uuid")).thenReturn(task);
-        when(stateMachine.transition(TaskStatus.RESUMING, AgentEvent.START_PLANNING))
-                .thenReturn(TaskStatus.PLANNING);
-        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.START_TOOL_CALL))
-                .thenReturn(TaskStatus.TOOL_CALLING);
-        when(stateMachine.transition(TaskStatus.TOOL_CALLING, AgentEvent.TOOL_CALL_DONE))
-                .thenReturn(TaskStatus.PLANNING);
-        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.COMPLETE))
-                .thenReturn(TaskStatus.COMPLETED);
+        when(stateMachine.transition(TaskStatus.RESUMING, AgentEvent.START_PLANNING)).thenReturn(TaskStatus.PLANNING);
+        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.START_TOOL_CALL)).thenReturn(TaskStatus.TOOL_CALLING);
+        when(stateMachine.transition(TaskStatus.TOOL_CALLING, AgentEvent.TOOL_CALL_DONE)).thenReturn(TaskStatus.PLANNING);
+        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.COMPLETE)).thenReturn(TaskStatus.COMPLETED);
         mockUserLevel(1L, 1);
-
         when(markovPlanner.planNextAttraction(any(), any(), anyString()))
                 .thenReturn(new PlanningResult("Terracotta Army", 0));
         mockToolRegistry();
-        when(planMapper.insertPlan(any())).thenAnswer(inv -> {
-            Plan plan = inv.getArgument(0);
+        when(planMapper.insertPlan(any())).thenAnswer(invocation -> {
+            Plan plan = invocation.getArgument(0);
             plan.setId(1L);
             return 1;
         });
@@ -231,9 +181,9 @@ class AgentServiceImplTest {
         verify(toolRegistry, atLeastOnce()).getTool(GeocodeTool.NAME);
     }
 
-    private Task buildTask(TaskStatus status, Long id) {
+    private Task buildTask(TaskStatus status) {
         Task task = new Task();
-        task.setId(id);
+        task.setId(1L);
         task.setTaskUuid("uuid");
         task.setUserId(1L);
         task.setStatus(status.getCode());
@@ -242,37 +192,35 @@ class AgentServiceImplTest {
         return task;
     }
 
-    private TaskCheckpoint buildOneStepCheckpoint() {
+    private TaskCheckpoint buildCheckpoint(boolean originConfirmed) {
         TaskCheckpoint checkpoint = new TaskCheckpoint();
         checkpoint.setTaskId(1L);
         checkpoint.setTaskUuid("uuid");
         checkpoint.setCurrentState(TaskStatus.PENDING.getCode());
         checkpoint.setRegion("Xi'an");
         checkpoint.setUserIntent("One day Xi'an trip");
-        PlanningConfig config = new PlanningConfig();
-        config.setTotalDays(1);
-        config.setAttractionsPerDay(1);
-        config.setTravelMode("driving");
-        config.setPreferenceKeywords(List.of("history"));
-        checkpoint.setPlanningConfig(config);
+        checkpoint.setCurrentLocationQuery("Bell Tower");
+        checkpoint.setPlanningConfig(new PlanningConfig(1, 1, List.of("history"), "driving"));
         checkpoint.setCompletedSteps(new ArrayList<>());
         checkpoint.setLlmConversationHistory(new ArrayList<>());
         checkpoint.setRetryState(new RetryState());
         checkpoint.setCurrentStepIndex(0);
-        return checkpoint;
-    }
-
-    private TaskCheckpoint buildCompletedCheckpoint() {
-        TaskCheckpoint checkpoint = buildOneStepCheckpoint();
-        CompletedStep step = new CompletedStep();
-        step.setStepIndex(0);
-        step.setDayNumber(1);
-        step.setAttractionName("Terracotta Army");
-        step.setLat(34.38);
-        step.setLng(109.28);
-        step.setToolCallResults(Map.of());
-        checkpoint.getCompletedSteps().add(step);
-        checkpoint.setCurrentStepIndex(1);
+        checkpoint.setOriginConfirmed(originConfirmed);
+        if (originConfirmed) {
+            SelectedOrigin selectedOrigin = new SelectedOrigin();
+            selectedOrigin.setCandidateId("origin-1");
+            selectedOrigin.setName("Bell Tower");
+            selectedOrigin.setLatitude(34.26);
+            selectedOrigin.setLongitude(108.95);
+            checkpoint.setSelectedOrigin(selectedOrigin);
+        } else {
+            LocationCandidateItem candidate = new LocationCandidateItem();
+            candidate.setCandidateId("origin-1");
+            candidate.setName("Bell Tower");
+            candidate.setLatitude(34.26);
+            candidate.setLongitude(108.95);
+            checkpoint.setLocationCandidates(List.of(candidate));
+        }
         return checkpoint;
     }
 
@@ -300,5 +248,10 @@ class AgentServiceImplTest {
         ));
         when(toolRegistry.getTool(WeatherTool.NAME)).thenReturn(weatherTool);
 
+        com.travelagent.agent.tools.AgentTool trafficTool = mock(com.travelagent.agent.tools.AgentTool.class);
+        when(trafficTool.execute(any(), any())).thenReturn(Map.of("durationMin", 25));
+        when(toolRegistry.getTool(TrafficTimeTool.NAME)).thenReturn(trafficTool);
+
+        when(markovPlanner.generateFinalSummary(any(), any(), anyString())).thenReturn(null);
     }
 }

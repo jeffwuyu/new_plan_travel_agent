@@ -119,8 +119,11 @@ async function handleResume(uuid) {
   }
 }
 
-async function onTaskCreated() {
+async function onTaskCreated(taskUuid) {
   await store.fetchTasks()
+  if (taskUuid) {
+    router.push(`/tasks/${taskUuid}`)
+  }
 }
 
 function formatTime(ts) {

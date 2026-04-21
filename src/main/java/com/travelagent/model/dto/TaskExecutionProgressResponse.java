@@ -4,16 +4,21 @@ import com.travelagent.model.entity.TaskExecutionEvent;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
 @NoArgsConstructor
 public class TaskExecutionProgressResponse {
 
-    private String                   taskUuid;
-    private String                   currentStatus;
-    private Integer                  currentStepIndex;
-    private Integer                  totalSteps;
+    private String taskUuid;
+    private String currentStatus;
+    private Integer currentStepIndex;
+    private Integer totalSteps;
     private List<TaskExecutionEvent> events;
-    private int                      totalEventCount;
+    private int totalEventCount;
+    private Boolean awaitingUserInput = false;
+    private String pendingInputType;
+    private List<LocationCandidateItem> locationCandidates = new ArrayList<>();
+    private SelectedOrigin selectedOrigin;
 }

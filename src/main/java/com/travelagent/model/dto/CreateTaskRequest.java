@@ -1,39 +1,37 @@
 package com.travelagent.model.dto;
 
-import lombok.Data;
-
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.util.List;
+import lombok.Data;
 
-/**
- * 中文注释：DTO 类，用于在接口或服务之间传递 Create Task Request 数据。
- */
+import java.util.List;
 
 @Data
 public class CreateTaskRequest {
 
-    @NotBlank(message = "目的地区域不能为空")
-    @Size(max = 128, message = "区域名称过长")
+    @NotBlank(message = "destination region is required")
+    @Size(max = 128, message = "destination region is too long")
     private String region;
 
-    @NotBlank(message = "旅行意图不能为空")
-    @Size(max = 500, message = "旅行意图描述过长")
+    @NotBlank(message = "user intent is required")
+    @Size(max = 500, message = "user intent is too long")
     private String userIntent;
 
-    @Min(value = 1, message = "最少1天")
-    @Max(value = 14, message = "最多14天")
-    private int totalDays = 3;
+    @NotBlank(message = "current location query is required")
+    @Size(max = 128, message = "current location query is too long")
+    private String currentLocationQuery;
 
-    @Min(value = 1, message = "每天至少1个景点")
-    @Max(value = 6, message = "每天最多6个景点")
+    @Min(value = 1, message = "trip days must be at least 1")
+    @Max(value = 14, message = "trip days must be at most 14")
+    private int totalDays = 1;
+
+    @Min(value = 1, message = "attractions per day must be at least 1")
+    @Max(value = 6, message = "attractions per day must be at most 6")
     private int attractionsPerDay = 3;
 
-    /** User preference tags, e.g. ["历史", "美食", "自然"] */
     private List<String> preferenceKeywords;
 
-    /** driving | walking | transit */
     private String travelMode = "driving";
 }

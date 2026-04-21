@@ -11,16 +11,16 @@
           <h2 class="plan-title">{{ plan.title }}</h2>
           <div class="plan-meta">
             <el-tag>{{ plan.region }}</el-tag>
-            <el-tag type="success">{{ plan.totalDays }} 天行程</el-tag>
+            <el-tag type="info">路线结果</el-tag>
           </div>
           <p class="plan-summary">{{ plan.summary }}</p>
         </el-card>
 
         <PlanDayCard
-          v-for="(steps, day) in groupedSteps"
+          v-for="(stepsForDay, day) in groupedSteps"
           :key="day"
           :day-number="Number(day)"
-          :steps="steps"
+          :steps="stepsForDay"
         />
       </template>
     </el-main>
@@ -45,20 +45,17 @@ const loading = ref(true)
 
 const groupedSteps = computed(() => {
   const groups = {}
-  for (const s of steps.value) {
-    const day = s.dayNumber || 1
+  for (const step of steps.value) {
+    const day = step.dayNumber || 1
     if (!groups[day]) groups[day] = []
-    groups[day].push(s)
+    groups[day].push(step)
   }
   return groups
 })
 
 onMounted(async () => {
   try {
-    const [planRes, stepsRes] = await Promise.all([
-      getPlan(planId),
-      getPlanSteps(planId)
-    ])
+    const [planRes, stepsRes] = await Promise.all([getPlan(planId), getPlanSteps(planId)])
     plan.value = planRes.data
     steps.value = stepsRes.data || []
   } catch (err) {
@@ -81,7 +78,6 @@ onMounted(async () => {
 }
 .page-title { font-size: 16px; font-weight: 600; }
 .mb-20 { margin-bottom: 20px; }
-.plan-overview { }
 .plan-title { margin: 0 0 12px; font-size: 20px; }
 .plan-meta { display: flex; gap: 8px; margin-bottom: 12px; }
 .plan-summary { margin: 0; font-size: 14px; color: #606266; line-height: 1.7; }

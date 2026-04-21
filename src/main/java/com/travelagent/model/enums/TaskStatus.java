@@ -2,21 +2,13 @@ package com.travelagent.model.enums;
 
 import lombok.Getter;
 
-/**
- * Agent task lifecycle states.
- * Matches the state machine transitions in AgentStateMachine.
- */
-
-/**
- * 中文注释：枚举枚举，用于声明 Task Status 的可选取值集合。
- */
-
 @Getter
 public enum TaskStatus {
-    PENDING("pending", "待执行"),
+    PENDING("pending", "等待中"),
     PLANNING("planning", "规划中"),
     TOOL_CALLING("tool_calling", "工具调用中"),
-    PAUSED("paused", "已暂停(配额耗尽)"),
+    AWAITING_USER_INPUT("awaiting_user_input", "等待选择起点"),
+    PAUSED("paused", "已暂停"),
     RESUMING("resuming", "恢复中"),
     COMPLETED("completed", "已完成"),
     FAILED("failed", "失败"),
@@ -32,22 +24,25 @@ public enum TaskStatus {
 
     public static TaskStatus fromCode(String code) {
         for (TaskStatus status : values()) {
-            if (status.code.equals(code)) return status;
+            if (status.code.equals(code)) {
+                return status;
+            }
         }
         throw new IllegalArgumentException("Unknown task status: " + code);
     }
 
-    /** Returns true if the task can accept a resume request. */
     public boolean isResumable() {
         return this == PAUSED;
     }
 
-    /** Returns true if the task is in an active (running) state. */
-    public boolean isActive() {
-        return this == PLANNING || this == TOOL_CALLING || this == RESUMING;
+    public boolean isAwaitingUserInput() {
+        return this == AWAITING_USER_INPUT;
     }
 
-    /** Returns true if the task has reached a terminal state. */
+    public boolean isActive() {
+        return this == PLANNING || this == TOOL_CALLING || this == RESUMING || this == AWAITING_USER_INPUT;
+    }
+
     public boolean isTerminal() {
         return this == COMPLETED || this == FAILED || this == CANCELLED;
     }
