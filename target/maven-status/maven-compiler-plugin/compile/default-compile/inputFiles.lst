@@ -38,6 +38,7 @@ G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\config\ThreadPoolC
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\config\WebMvcConfig.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\AdminController.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\AuthController.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\HealthController.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\PlanController.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\RagController.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\controller\SseController.java
@@ -68,6 +69,7 @@ G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\Register
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\Result.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\TaskExecutionProgressResponse.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\TaskResponse.java
+G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\UploadRagDocumentResponse.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\dto\UserProfileResponse.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\entity\Attraction.java
 G:\coding\new_plan_travel_agent\src\main\java\com\travelagent\model\entity\LlmCallLog.java

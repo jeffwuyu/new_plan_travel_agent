@@ -23,6 +23,7 @@ com\travelagent\controller\PlanController.class
 com\travelagent\agent\planner\MarkovPlanner$1.class
 com\travelagent\model\entity\PlanStep.class
 com\travelagent\service\agent\AgentService.class
+com\travelagent\model\dto\UploadRagDocumentResponse.class
 com\travelagent\service\task\impl\TaskProgressServiceImpl.class
 com\travelagent\service\cache\MultiLevelCacheService.class
 com\travelagent\client\dashvector\DashVectorClient$DashVectorResult.class
@@ -83,6 +84,7 @@ com\travelagent\mapper\LlmCallLogMapper.class
 com\travelagent\agent\tools\TrafficTimeTool.class
 com\travelagent\exception\AgentErrorCode.class
 com\travelagent\util\JwtUtil.class
+com\travelagent\controller\HealthController.class
 com\travelagent\service\rag\impl\RagServiceImpl.class
 com\travelagent\config\LlmConfig.class
 com\travelagent\model\entity\Plan.class

@@ -1,15 +1,18 @@
 package com.travelagent.controller;
 
+import com.travelagent.client.oss.OssClient;
 import com.travelagent.exception.BusinessException;
 import com.travelagent.filter.JwtAuthInterceptor;
 import com.travelagent.mapper.RagDocumentMapper;
 import com.travelagent.model.dto.Result;
+import com.travelagent.model.dto.UploadRagDocumentResponse;
 import com.travelagent.model.entity.RagDocument;
 import com.travelagent.service.rag.RagService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,9 +20,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * 管理员专用 RAG 控制器。
@@ -38,6 +45,7 @@ public class RagController {
 
     @Autowired private RagService ragService;
     @Autowired private RagDocumentMapper ragDocumentMapper;
+    @Autowired private OssClient ossClient;
 
     // -----------------------------------------------------------------------
     // Admin guard
@@ -53,6 +61,61 @@ public class RagController {
     // -----------------------------------------------------------------------
     // Endpoints
     // -----------------------------------------------------------------------
+
+    /**
+     * Accepts a multipart file, uploads it to OSS, registers the document in MySQL,
+     * and triggers async ingestion. Returns immediately with status=pending.
+     */
+    @Operation(summary = "上传 RAG 文档文件",
+               description = "multipart/form-data 上传，验证后写入 OSS，注册 DB，触发异步入库。最大 50MB。")
+    @PostMapping(value = "/documents/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<UploadRagDocumentResponse> uploadDocument(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("title") String title,
+            @RequestParam(value = "region", required = false) String region,
+            @RequestParam("docType") String docType,
+            HttpServletRequest request) {
+        requireAdmin(request);
+
+        if (!List.of("pdf", "markdown", "text").contains(docType)) {
+            throw new BusinessException(400, "docType 必须为 pdf、markdown 或 text");
+        }
+        if (file.isEmpty()) {
+            throw new BusinessException(400, "文件不能为空");
+        }
+        if (file.getSize() > 50L * 1024 * 1024) {
+            throw new BusinessException(400, "文件大小不超过 50MB");
+        }
+
+        String originalFilename = file.getOriginalFilename() != null
+                ? file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._\\-]", "_")
+                : "document";
+        byte[] prefix = new byte[8];
+        new Random().nextBytes(prefix);
+        String ossKey = "rag/documents/" + HexFormat.of().formatHex(prefix) + "-" + originalFilename;
+
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException(500, "文件读取失败: " + e.getMessage());
+        }
+
+        ossClient.uploadDocument(ossKey, bytes, resolveContentType(docType));
+        RagDocument doc = ragService.registerDocument(ossKey, title, region, docType);
+        ragService.ingestDocument(doc.getId());
+
+        return Result.success(new UploadRagDocumentResponse(
+                doc.getId(), ossKey, title, region, docType));
+    }
+
+    private String resolveContentType(String docType) {
+        return switch (docType) {
+            case "pdf"      -> "application/pdf";
+            case "markdown" -> "text/markdown";
+            default         -> "text/plain";
+        };
+    }
 
     /**
      * Registers document metadata in MySQL.
