@@ -116,13 +116,16 @@ class MarkovPlannerTest {
         NearbyPoiRecommendationResponse response = new NearbyPoiRecommendationResponse();
         RecommendedPoiItem item = new RecommendedPoiItem();
         item.setName("Leifeng Pagoda");
+        item.setAmapPoiId("poi-1");
         response.setRecommendations(List.of(item));
 
         when(nearbyPoiRecommendationService.recommend(any())).thenReturn(response);
 
         PlanningResult result = markovPlanner.planNextAttraction(new Task(), cp, "rec-uuid");
 
-        assertThat(result.attractionName()).isEqualTo("Leifeng Pagoda");
+        assertThat(result.requiresUserSelection()).isTrue();
+        assertThat(result.recommendationCandidates()).hasSize(1);
+        assertThat(result.recommendationCandidates().get(0).getName()).isEqualTo("Leifeng Pagoda");
     }
 
     @Test

@@ -106,6 +106,10 @@ class CandidateRankingServiceImplTest {
     void rankCandidates_returnsExplanationAndFeatures() {
         NearbyPoiRecommendationRequest request = baseRequest();
         Attraction attraction = attraction("sample", 30.001, 120.001, List.of("湖景", "散步"), true, 1);
+        attraction.setDescription("适合边走边拍照，也适合轻松停留。");
+        attraction.setBestVisitTimeJson("[\"傍晚景色更好\"]");
+        attraction.setSuitableForJson("[\"亲子\", \"慢节奏游玩\"]");
+        attraction.setVisitDurationMin(90);
 
         List<RecommendedPoiItem> ranked = rankingService.rankCandidates(request, List.of(attraction));
 
@@ -116,6 +120,9 @@ class CandidateRankingServiceImplTest {
         assertThat(item.getFeatures()).isNotNull();
         assertThat(item.getFeatures().getGeoScore()).isNotNull();
         assertThat(item.getFeatures().getStyleSimilarity()).isNotNull();
+        assertThat(item.getRouteSummary()).isNotBlank();
+        assertThat(item.getHighlights()).isNotEmpty();
+        assertThat(item.getVisitDurationMin()).isEqualTo(90);
     }
 
     private NearbyPoiRecommendationRequest baseRequest() {

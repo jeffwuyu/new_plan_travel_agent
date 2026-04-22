@@ -1,10 +1,11 @@
-import { ref, onUnmounted } from 'vue'
+import { onUnmounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
 export function useTaskStream(taskUuid) {
   const events = ref([])
   const currentStatus = ref('')
   const llmTokenBuffer = ref('')
+  const currentTokens = ref(0)
   const isStreaming = ref(false)
 
   let es = null
@@ -32,6 +33,7 @@ export function useTaskStream(taskUuid) {
       'USER_SELECTION_REQUIRED',
       'USER_SELECTION_CONFIRMED'
     ]
+
     eventTypes.forEach(type => {
       es.addEventListener(type, (e) => handleEvent(type, e))
     })
@@ -52,6 +54,7 @@ export function useTaskStream(taskUuid) {
     switch (type) {
       case 'STATE_CHANGE':
         currentStatus.value = data.status || data.data?.status || ''
+        currentTokens.value = toNumber(data.totalTokensUsed ?? data.data?.totalTokensUsed)
         pushEvent({ eventType: 'STATE_CHANGE', ...data, createdAt: new Date().toISOString() })
         break
       case 'STEP_DONE':
@@ -65,6 +68,7 @@ export function useTaskStream(taskUuid) {
         break
       case 'COMPLETED':
         currentStatus.value = 'completed'
+        currentTokens.value = toNumber(data.totalTokensUsed ?? data.data?.totalTokensUsed ?? currentTokens.value)
         pushEvent({ eventType: 'COMPLETED', ...data, createdAt: new Date().toISOString() })
         disconnect()
         break
@@ -84,6 +88,7 @@ export function useTaskStream(taskUuid) {
           events.value = data.data.events
         }
         currentStatus.value = data.currentStatus || data.data?.currentStatus || data.data?.status || currentStatus.value
+        currentTokens.value = toNumber(data.totalTokensUsed ?? data.data?.totalTokensUsed ?? currentTokens.value)
         break
       case 'RETRY':
         pushEvent({ eventType: 'RETRY', ...data, createdAt: new Date().toISOString() })
@@ -113,7 +118,12 @@ export function useTaskStream(taskUuid) {
     isStreaming.value = false
   }
 
+  function toNumber(value) {
+    const num = Number(value)
+    return Number.isFinite(num) ? num : 0
+  }
+
   onUnmounted(disconnect)
 
-  return { events, currentStatus, llmTokenBuffer, isStreaming, connect, disconnect }
+  return { events, currentStatus, llmTokenBuffer, currentTokens, isStreaming, connect, disconnect }
 }

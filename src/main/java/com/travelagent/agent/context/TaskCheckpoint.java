@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -44,8 +45,11 @@ public class TaskCheckpoint {
     private Integer projectedReturnToDestinationMin = 0;
     private String pendingInputType;
     private List<LocationCandidateItem> locationCandidates = new ArrayList<>();
+    private List<LocationCandidateItem> recommendationCandidates = new ArrayList<>();
+    private Map<String, Object> currentContext = new LinkedHashMap<>();
     private ResolvedLocation selectedOrigin;
     private ResolvedLocation selectedDestination;
+    private LocationCandidateItem selectedAttractionCandidate;
     private boolean originConfirmed;
 
     public int completedStepCount() {

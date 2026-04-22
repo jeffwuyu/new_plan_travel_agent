@@ -11,6 +11,7 @@ import com.travelagent.client.dashscope.LlmCallResult;
 import com.travelagent.mapper.LlmCallLogMapper;
 import com.travelagent.model.dto.NearbyPoiRecommendationRequest;
 import com.travelagent.model.dto.NearbyPoiRecommendationResponse;
+import com.travelagent.model.dto.LocationCandidateItem;
 import com.travelagent.model.dto.RoutePoint;
 import com.travelagent.model.entity.Task;
 import com.travelagent.service.notification.SseEvent;
@@ -79,7 +80,7 @@ public class MarkovPlanner {
 
         String attractionName = parseLlmAttractionName(llmResult.content(), stepIndex);
         int resolvedTokens = resolvePlanningTokens(task.getId(), llmIdempotencyKey, llmResult.totalTokens());
-        return new PlanningResult(attractionName, resolvedTokens);
+        return PlanningResult.forAttraction(attractionName, resolvedTokens);
     }
 
     private PlanningResult tryRecommendationDrivenSelection(TaskCheckpoint cp) {
@@ -94,7 +95,27 @@ public class MarkovPlanner {
         if (response == null || response.getRecommendations() == null || response.getRecommendations().isEmpty()) {
             return null;
         }
-        return new PlanningResult(response.getRecommendations().get(0).getName(), 0);
+        List<LocationCandidateItem> candidates = response.getRecommendations().stream()
+                .map(item -> {
+                    LocationCandidateItem candidate = new LocationCandidateItem();
+                    candidate.setCandidateId(firstNonBlank(item.getAmapPoiId(), item.getPoiId(), item.getName()));
+                    candidate.setName(item.getName());
+                    candidate.setRegion(item.getRegion());
+                    candidate.setDistrict(item.getDistrict());
+                    candidate.setCategory(item.getCategory());
+                    candidate.setAddress(item.getAddress());
+                    candidate.setLatitude(item.getLatitude());
+                    candidate.setLongitude(item.getLongitude());
+                    candidate.setSource(item.getSource());
+                    candidate.setScore(item.getScore());
+                    candidate.setRouteSummary(item.getRouteSummary());
+                    candidate.setVisitDurationMin(item.getVisitDurationMin());
+                    candidate.setExplanations(item.getExplanations() == null ? List.of() : item.getExplanations());
+                    candidate.setHighlights(item.getHighlights() == null ? List.of() : item.getHighlights());
+                    return candidate;
+                })
+                .toList();
+        return PlanningResult.forCandidates(candidates);
     }
 
     public FinalSummaryResult generateFinalSummary(Task task, TaskCheckpoint cp, String taskUuid) {
@@ -419,6 +440,18 @@ public class MarkovPlanner {
                     taskId, idempotencyKey, e.getMessage());
             return 0;
         }
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     String parseLlmAttractionName(String llmResponse, int stepIndex) {

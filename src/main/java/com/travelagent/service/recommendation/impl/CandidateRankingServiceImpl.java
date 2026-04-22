@@ -53,11 +53,17 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
             item.setAmapPoiId(candidate.getAmapPoiId());
             item.setName(candidate.getName());
             item.setRegion(candidate.getRegion());
+            item.setDistrict(candidate.getDistrict());
             item.setCategory(candidate.getCategory());
+            item.setAddress(candidate.getAddress());
             item.setLatitude(candidate.getLatitude() != null ? candidate.getLatitude().doubleValue() : null);
             item.setLongitude(candidate.getLongitude() != null ? candidate.getLongitude().doubleValue() : null);
+            item.setSource(candidate.getSource());
             item.setScore(round(score));
+            item.setVisitDurationMin(candidate.getVisitDurationMin());
             item.setFeatures(features);
+            item.setRouteSummary(buildRouteSummary(request, features));
+            item.setHighlights(buildHighlights(candidate));
             item.setExplanations(explanationService.buildExplanations(request, candidate, item));
             ranked.add(item);
         }
@@ -258,6 +264,66 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
         return Math.max(0.0d, Math.min(1.0d, score));
     }
 
+    private String buildRouteSummary(NearbyPoiRecommendationRequest request, RecommendationFeatureBreakdown features) {
+        List<String> segments = new ArrayList<>();
+        if (features.getTravelTimeMin() != null) {
+            segments.add(String.format("从当前点位前往约 %d 分钟", features.getTravelTimeMin()));
+        } else if (features.getDistanceKm() != null) {
+            segments.add(String.format("距离当前点位约 %.1fkm", features.getDistanceKm()));
+        }
+        if (features.getRouteDeltaKm() != null) {
+            segments.add(String.format("加入当前路线额外绕路约 %.1fkm", features.getRouteDeltaKm()));
+        }
+        if (features.getDistanceKm() != null && features.getTravelTimeMin() != null) {
+            segments.add(String.format("预计%s可达", normalizeTravelMode(request.getTravelMode())));
+        }
+        return String.join("，", segments);
+    }
+
+    private List<String> buildHighlights(Attraction candidate) {
+        List<String> highlights = new ArrayList<>();
+        appendShortValues(highlights, parseStringList(candidate.getTagsJson()), 3);
+        appendShortValues(highlights, parseStringList(candidate.getBestVisitTimeJson()), 1);
+        appendShortValues(highlights, parseStringList(candidate.getSuitableForJson()), 1);
+        appendDescription(highlights, candidate.getDescription());
+        return highlights.size() > 5 ? highlights.subList(0, 5) : highlights;
+    }
+
+    private void appendShortValues(List<String> target, List<String> values, int maxAppend) {
+        if (values == null || values.isEmpty() || maxAppend <= 0) {
+            return;
+        }
+        for (String value : values) {
+            if (value == null) {
+                continue;
+            }
+            String trimmed = value.trim();
+            if (trimmed.isEmpty() || target.contains(trimmed)) {
+                continue;
+            }
+            target.add(trimmed);
+            if (--maxAppend == 0) {
+                return;
+            }
+        }
+    }
+
+    private void appendDescription(List<String> target, String description) {
+        if (description == null) {
+            return;
+        }
+        String trimmed = description.trim();
+        if (trimmed.isEmpty()) {
+            return;
+        }
+        if (trimmed.length() > 48) {
+            trimmed = trimmed.substring(0, 48).trim() + "...";
+        }
+        if (!target.contains(trimmed)) {
+            target.add(trimmed);
+        }
+    }
+
     private List<String> parseStringList(String json) {
         if (json == null || json.isBlank()) {
             return List.of();
@@ -285,6 +351,16 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
 
     private double round(double value) {
         return Math.round(value * 1000.0d) / 1000.0d;
+    }
+
+    private String normalizeTravelMode(String travelMode) {
+        if ("walking".equalsIgnoreCase(travelMode)) {
+            return "步行";
+        }
+        if ("transit".equalsIgnoreCase(travelMode)) {
+            return "公交/地铁";
+        }
+        return "驾车";
     }
 
     private double haversineKm(double lat1, double lng1, double lat2, double lng2) {

@@ -9,7 +9,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -41,6 +43,8 @@ public class TaskResponse {
     private Integer projectedReturnToDestinationMin;
     private List<DailyTimeWindow> dailyTimeWindows = new ArrayList<>();
     private List<LocationCandidateItem> locationCandidates = new ArrayList<>();
+    private List<LocationCandidateItem> recommendationCandidates = new ArrayList<>();
+    private Map<String, Object> currentContext = new LinkedHashMap<>();
     private ResolvedLocation selectedOrigin;
     private ResolvedLocation selectedDestination;
 
@@ -74,7 +78,7 @@ public class TaskResponse {
             r.currentStepIndex = checkpoint.getCurrentStepIndex();
             r.totalSteps = checkpoint.totalPlannedSteps();
             r.pendingInputType = checkpoint.getPendingInputType();
-            r.awaitingUserInput = "origin_selection".equals(checkpoint.getPendingInputType());
+            r.awaitingUserInput = checkpoint.getPendingInputType() != null && !checkpoint.getPendingInputType().isBlank();
             r.pauseReason = checkpoint.getPauseReason();
             r.usedTimeBudgetMin = checkpoint.getUsedTimeBudgetMin();
             r.remainingTimeBudgetMin = checkpoint.getRemainingTimeBudgetMin();
@@ -85,6 +89,12 @@ public class TaskResponse {
             r.locationCandidates = checkpoint.getLocationCandidates() == null
                     ? new ArrayList<>()
                     : checkpoint.getLocationCandidates();
+            r.recommendationCandidates = checkpoint.getRecommendationCandidates() == null
+                    ? new ArrayList<>()
+                    : checkpoint.getRecommendationCandidates();
+            r.currentContext = checkpoint.getCurrentContext() == null
+                    ? new LinkedHashMap<>()
+                    : checkpoint.getCurrentContext();
             r.selectedOrigin = checkpoint.getSelectedOrigin();
             r.selectedDestination = checkpoint.getSelectedDestination();
         }

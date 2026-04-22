@@ -6,6 +6,8 @@ import lombok.Data;
 @Data
 public class ConfirmOriginSelectionRequest {
 
+    private String pendingInputType;
+
     @NotBlank(message = "selected candidate id is required")
     private String selectedCandidateId;
 

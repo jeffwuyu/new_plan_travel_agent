@@ -55,7 +55,7 @@ class TaskIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/tasks")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"region\":\"\",\"userIntent\":\"游览\"}"))
+                        .content(invalidTaskBody("", "游览")))
                 .andExpect(status().isBadRequest());
     }
 
@@ -67,7 +67,7 @@ class TaskIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/tasks")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"region\":\"上海\",\"userIntent\":\"\"}"))
+                        .content(invalidTaskBody("上海", "")))
                 .andExpect(status().isBadRequest());
     }
 
@@ -187,6 +187,29 @@ class TaskIntegrationTest extends BaseIntegrationTest {
     }
 
     private String taskBody(String region, String intent) {
-        return String.format("{\"region\":\"%s\",\"userIntent\":\"%s\"}", region, intent);
+        return String.format("""
+                {
+                  "region":"%s",
+                  "userIntent":"%s",
+                  "startLocationQuery":"钟楼",
+                  "endLocationQuery":"西安北站",
+                  "startTime":"2026-04-22T09:00:00",
+                  "endTime":"2026-04-22T21:00:00",
+                  "travelMode":"driving"
+                }
+                """, region, intent);
+    }
+
+    private String invalidTaskBody(String region, String intent) {
+        return String.format("""
+                {
+                  "region":"%s",
+                  "userIntent":"%s",
+                  "startLocationQuery":"钟楼",
+                  "endLocationQuery":"西安北站",
+                  "startTime":"2026-04-22T09:00:00",
+                  "endTime":"2026-04-22T21:00:00"
+                }
+                """, region, intent);
     }
 }

@@ -88,7 +88,17 @@ class AdminIntegrationTest extends BaseIntegrationTest {
         MvcResult result = mockMvc.perform(post("/api/tasks")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(String.format("{\"region\":\"%s\",\"userIntent\":\"%s\"}", region, intent)))
+                        .content(String.format("""
+                                {
+                                  "region":"%s",
+                                  "userIntent":"%s",
+                                  "startLocationQuery":"钟楼",
+                                  "endLocationQuery":"西安北站",
+                                  "startTime":"2026-04-22T09:00:00",
+                                  "endTime":"2026-04-22T21:00:00",
+                                  "travelMode":"driving"
+                                }
+                                """, region, intent)))
                 .andExpect(status().isOk())
                 .andReturn();
         JsonNode json = objectMapper.readTree(result.getResponse().getContentAsString());

@@ -24,6 +24,9 @@ public class OriginCandidateServiceImpl implements OriginCandidateService {
         Map<String, LocationCandidateItem> merged = new LinkedHashMap<>();
 
         for (Attraction attraction : attractionMapper.searchByRegionAndKeyword(region, currentLocationQuery, 5)) {
+            if (attraction.getLatitude() == null || attraction.getLongitude() == null) {
+                continue;
+            }
             LocationCandidateItem item = new LocationCandidateItem();
             item.setCandidateId(attraction.getAmapPoiId() != null && !attraction.getAmapPoiId().isBlank()
                     ? attraction.getAmapPoiId()
@@ -33,8 +36,8 @@ public class OriginCandidateServiceImpl implements OriginCandidateService {
             item.setDistrict(attraction.getDistrict());
             item.setCategory(attraction.getCategory());
             item.setAddress(attraction.getAddress());
-            item.setLatitude(attraction.getLatitude() == null ? null : attraction.getLatitude().doubleValue());
-            item.setLongitude(attraction.getLongitude() == null ? null : attraction.getLongitude().doubleValue());
+            item.setLatitude(attraction.getLatitude().doubleValue());
+            item.setLongitude(attraction.getLongitude().doubleValue());
             item.setSource("catalog");
             merged.put(item.getCandidateId(), item);
         }

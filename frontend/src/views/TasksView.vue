@@ -19,14 +19,15 @@
       <div class="main-toolbar">
         <h3 class="section-title">我的规划任务</h3>
         <el-button type="primary" @click="createFormRef.open()">
-          <el-icon><Plus /></el-icon> 新建规划
+          <el-icon><Plus /></el-icon>
+          新建规划
         </el-button>
       </div>
 
       <el-card shadow="never" class="quota-card">
         <div class="quota-header">
           <div>
-            <div class="quota-title">免费 Token 额度概览</div>
+            <div class="quota-title">免费 Token 配额概览</div>
             <div class="quota-subtitle">{{ auth.userLevelLabel || '当前账户' }}</div>
           </div>
         </div>
@@ -57,7 +58,11 @@
             <TaskStatusBadge :status="row.status" />
           </template>
         </el-table-column>
-        <el-table-column prop="totalTokensUsed" label="Token 消耗" width="120" align="right" />
+        <el-table-column label="Token 消耗" width="120" align="right">
+          <template #default="{ row }">
+            {{ formatQuotaValue(row.totalTokensUsed) }}
+          </template>
+        </el-table-column>
         <el-table-column label="创建时间" width="180">
           <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
         </el-table-column>
@@ -69,20 +74,24 @@
               size="small"
               type="danger"
               @click="handleCancel(row.taskUuid)"
-            >取消</el-button>
+            >
+              取消
+            </el-button>
             <el-button
               v-if="row.status === 'paused'"
               size="small"
               type="warning"
               @click="handleResume(row.taskUuid)"
-            >恢复</el-button>
+            >
+              恢复
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
 
       <el-empty
         v-if="!store.loading && !store.tasks.length"
-        description="暂无规划任务，点击新建开始规划"
+        description="暂无规划任务，点击新建开始规划。"
       />
     </el-main>
 
@@ -94,6 +103,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import { cancelTask, resumeTask } from '@/api/tasks'
 import { logout } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
@@ -140,7 +150,7 @@ async function handleLogout() {
 }
 
 async function handleCancel(uuid) {
-  await ElMessageBox.confirm('确认取消该规划任务？', '提示', { type: 'warning' })
+  await ElMessageBox.confirm('确认取消这个规划任务吗？', '提示', { type: 'warning' })
   try {
     await cancelTask(uuid)
     ElMessage.success('任务已取消')
@@ -173,7 +183,7 @@ function formatTime(ts) {
 }
 
 function formatQuotaValue(value) {
-  return new Intl.NumberFormat('zh-CN').format(Number(value || 0))
+  return new Intl.NumberFormat('zh-CN').format(Number(value ?? 0))
 }
 
 function formatRemaining(value, limit) {

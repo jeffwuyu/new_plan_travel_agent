@@ -7,6 +7,7 @@ import com.travelagent.exception.GlobalExceptionHandler;
 import com.travelagent.exception.QuotaExhaustedException;
 import com.travelagent.exception.TaskNotFoundException;
 import com.travelagent.filter.JwtAuthInterceptor;
+import com.travelagent.model.dto.ConfirmOriginSelectionRequest;
 import com.travelagent.model.dto.CreateTaskRequest;
 import com.travelagent.model.dto.TaskResponse;
 import com.travelagent.model.enums.TaskStatus;
@@ -162,8 +163,28 @@ class TaskControllerTest {
                 .thenThrow(new BusinessException(400, "only paused tasks can be resumed"));
 
         mockMvc.perform(post("/api/tasks/{uuid}/resume", TASK_UUID)
-                        .requestAttr(JwtAuthInterceptor.ATTR_USER_ID, USER_ID))
+                .requestAttr(JwtAuthInterceptor.ATTR_USER_ID, USER_ID))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void confirmSelection_validRequest_returns200() throws Exception {
+        when(taskService.confirmOriginSelection(eq(TASK_UUID), eq(USER_ID), any(ConfirmOriginSelectionRequest.class)))
+                .thenReturn(buildTaskResponse(TaskStatus.RESUMING.getCode()));
+
+        ConfirmOriginSelectionRequest request = new ConfirmOriginSelectionRequest();
+        request.setPendingInputType("attraction_selection");
+        request.setSelectedCandidateId("poi-1");
+        request.setSelectedCandidateName("Forbidden City");
+        request.setSelectedLat(39.9163);
+        request.setSelectedLng(116.3972);
+
+        mockMvc.perform(post("/api/tasks/{uuid}/origin-selection", TASK_UUID)
+                        .requestAttr(JwtAuthInterceptor.ATTR_USER_ID, USER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("resuming"));
     }
 
     private TaskResponse buildTaskResponse(String status) {

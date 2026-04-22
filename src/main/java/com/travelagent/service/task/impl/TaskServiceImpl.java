@@ -35,6 +35,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -143,37 +144,40 @@ public class TaskServiceImpl implements TaskService {
         Task task = loadAndVerifyOwnership(taskUuid, requestingUserId);
         TaskStatus current = TaskStatus.fromCode(task.getStatus());
         if (!current.isAwaitingUserInput()) {
-            throw new BusinessException(400, "task is not waiting for origin selection");
+            throw new BusinessException(400, "task is not waiting for selection");
         }
 
         TaskCheckpoint checkpoint = parseCheckpoint(task);
-        if (checkpoint == null || checkpoint.getLocationCandidates() == null || checkpoint.getLocationCandidates().isEmpty()) {
-            throw new BusinessException(400, "no origin candidates available");
+        if (checkpoint == null) {
+            throw new BusinessException(400, "task checkpoint is missing");
         }
-        if (checkpoint.isOriginConfirmed()) {
-            throw new BusinessException(400, "origin has already been selected");
+        String pendingInputType = resolvePendingInputType(checkpoint, request);
+        List<LocationCandidateItem> pendingCandidates = resolvePendingCandidates(checkpoint, pendingInputType);
+        if (pendingCandidates.isEmpty()) {
+            throw new BusinessException(400, "no pending candidates available");
         }
 
-        LocationCandidateItem candidate = checkpoint.getLocationCandidates().stream()
+        LocationCandidateItem candidate = pendingCandidates.stream()
                 .filter(item -> item.getCandidateId().equals(request.getSelectedCandidateId()))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(400, "selected candidate does not belong to this task"));
 
-        ResolvedLocation selectedOrigin = new ResolvedLocation();
-        selectedOrigin.setCandidateId(candidate.getCandidateId());
-        selectedOrigin.setName(request.getSelectedCandidateName());
-        selectedOrigin.setRegion(candidate.getRegion());
-        selectedOrigin.setDistrict(candidate.getDistrict());
-        selectedOrigin.setAddress(candidate.getAddress());
-        selectedOrigin.setLatitude(request.getSelectedLat() != null ? request.getSelectedLat() : candidate.getLatitude());
-        selectedOrigin.setLongitude(request.getSelectedLng() != null ? request.getSelectedLng() : candidate.getLongitude());
-        selectedOrigin.setAdcode(candidate.getAdcode());
-        selectedOrigin.setSource(candidate.getSource());
+        if ("origin_selection".equals(pendingInputType)) {
+            if (checkpoint.isOriginConfirmed()) {
+                throw new BusinessException(400, "origin has already been selected");
+            }
+            checkpoint.setSelectedOrigin(toResolvedLocation(candidate, request));
+            checkpoint.setOriginConfirmed(true);
+            checkpoint.setLocationCandidates(List.of());
+        } else if ("attraction_selection".equals(pendingInputType)) {
+            checkpoint.setSelectedAttractionCandidate(mergeSelectedCandidate(candidate, request));
+        } else {
+            throw new BusinessException(400, "unsupported pending input type: " + pendingInputType);
+        }
 
-        checkpoint.setSelectedOrigin(selectedOrigin);
-        checkpoint.setOriginConfirmed(true);
         checkpoint.setPendingInputType(null);
-        checkpoint.setLocationCandidates(List.of());
+        checkpoint.setRecommendationCandidates(List.of());
+        checkpoint.setCurrentContext(new LinkedHashMap<>());
         checkpoint.setCurrentState(TaskStatus.RESUMING.getCode());
         checkpoint.setPauseReason(null);
         checkpoint.setResumableAt(null);
@@ -186,12 +190,15 @@ public class TaskServiceImpl implements TaskService {
 
         Map<String, Object> payload = Map.of(
                 "taskUuid", taskUuid,
-                "selectedOrigin", selectedOrigin
+                "pendingInputType", pendingInputType,
+                "selectedCandidate", mergeSelectedCandidate(candidate, request),
+                "selectedOrigin", checkpoint.getSelectedOrigin()
         );
         sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_CONFIRMED, payload);
         sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE, Map.of(
                 "status", next.getCode(),
-                "taskUuid", taskUuid
+                "taskUuid", taskUuid,
+                "pendingInputType", checkpoint.getPendingInputType()
         ));
 
         Task updated = taskMapper.findByUuid(taskUuid);
@@ -245,6 +252,7 @@ public class TaskServiceImpl implements TaskService {
         cp.setProjectedReturnToDestinationMin(0);
         cp.setRemainingTimeBudgetMin(Math.max(0, totalAvailableMinutes - config.getDestinationBufferMin()));
         cp.setLocationCandidates(originCandidateService.generateCandidates(req.getRegion(), req.getStartLocationQuery()));
+        cp.setRecommendationCandidates(new ArrayList<>(cp.getLocationCandidates()));
         cp.setSelectedDestination(resolveDestination(req.getRegion(), req.getEndLocationQuery()));
         cp.setOriginConfirmed(false);
         cp.setPauseReason(null);
@@ -351,5 +359,66 @@ public class TaskServiceImpl implements TaskService {
             log.warn("Failed to parse checkpoint for task={}: {}", task.getTaskUuid(), e.getMessage());
             return null;
         }
+    }
+
+    private String resolvePendingInputType(TaskCheckpoint checkpoint, ConfirmOriginSelectionRequest request) {
+        String checkpointType = checkpoint.getPendingInputType();
+        String requestType = request.getPendingInputType();
+        if (requestType == null || requestType.isBlank()) {
+            return checkpointType;
+        }
+        if (checkpointType != null && !checkpointType.isBlank() && !checkpointType.equals(requestType)) {
+            throw new BusinessException(400, "pending input type mismatch");
+        }
+        return requestType;
+    }
+
+    private List<LocationCandidateItem> resolvePendingCandidates(TaskCheckpoint checkpoint, String pendingInputType) {
+        if ("origin_selection".equals(pendingInputType)) {
+            return checkpoint.getLocationCandidates() == null ? List.of() : checkpoint.getLocationCandidates();
+        }
+        if ("attraction_selection".equals(pendingInputType)) {
+            return checkpoint.getRecommendationCandidates() == null ? List.of() : checkpoint.getRecommendationCandidates();
+        }
+        return List.of();
+    }
+
+    private ResolvedLocation toResolvedLocation(LocationCandidateItem candidate, ConfirmOriginSelectionRequest request) {
+        ResolvedLocation resolvedLocation = new ResolvedLocation();
+        resolvedLocation.setCandidateId(candidate.getCandidateId());
+        resolvedLocation.setName(request.getSelectedCandidateName());
+        resolvedLocation.setRegion(candidate.getRegion());
+        resolvedLocation.setDistrict(candidate.getDistrict());
+        resolvedLocation.setAddress(candidate.getAddress());
+        Double lat = request.getSelectedLat() != null ? request.getSelectedLat() : candidate.getLatitude();
+        Double lng = request.getSelectedLng() != null ? request.getSelectedLng() : candidate.getLongitude();
+        if (lat == null || lng == null) {
+            throw new BusinessException(400, "所选地点缺少坐标信息，请重新搜索或选择其他候选");
+        }
+        resolvedLocation.setLatitude(lat);
+        resolvedLocation.setLongitude(lng);
+        resolvedLocation.setAdcode(candidate.getAdcode());
+        resolvedLocation.setSource(candidate.getSource());
+        return resolvedLocation;
+    }
+
+    private LocationCandidateItem mergeSelectedCandidate(LocationCandidateItem candidate, ConfirmOriginSelectionRequest request) {
+        LocationCandidateItem selected = new LocationCandidateItem();
+        selected.setCandidateId(candidate.getCandidateId());
+        selected.setName(request.getSelectedCandidateName());
+        selected.setRegion(candidate.getRegion());
+        selected.setDistrict(candidate.getDistrict());
+        selected.setCategory(candidate.getCategory());
+        selected.setAddress(candidate.getAddress());
+        selected.setLatitude(request.getSelectedLat() != null ? request.getSelectedLat() : candidate.getLatitude());
+        selected.setLongitude(request.getSelectedLng() != null ? request.getSelectedLng() : candidate.getLongitude());
+        selected.setAdcode(candidate.getAdcode());
+        selected.setSource(candidate.getSource());
+        selected.setScore(candidate.getScore());
+        selected.setRouteSummary(candidate.getRouteSummary());
+        selected.setVisitDurationMin(candidate.getVisitDurationMin());
+        selected.setExplanations(candidate.getExplanations() == null ? List.of() : candidate.getExplanations());
+        selected.setHighlights(candidate.getHighlights() == null ? List.of() : candidate.getHighlights());
+        return selected;
     }
 }

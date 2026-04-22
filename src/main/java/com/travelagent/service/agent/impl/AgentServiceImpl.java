@@ -146,7 +146,7 @@ public class AgentServiceImpl implements AgentService {
         task.setStatus(planning.getCode());
         checkpoint.setCurrentState(planning.getCode());
         taskMapper.updateStatus(task.getId(), planning.getCode());
-        sendStateChange(taskUuid, checkpoint, planning.getCode());
+        sendStateChange(taskUuid, checkpoint, planning.getCode(), task);
         taskProgressService.recordEvent(taskUuid, EVT_STATE_CHANGE, planning.getCode(),
                 checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(),
                 "Task execution started", null);
@@ -156,7 +156,9 @@ public class AgentServiceImpl implements AgentService {
             return;
         }
 
-        if (current == TaskStatus.RESUMING && checkpoint.getSelectedOrigin() != null) {
+        if (current == TaskStatus.RESUMING
+                && checkpoint.getSelectedOrigin() != null
+                && checkpoint.getSelectedAttractionCandidate() == null) {
             taskProgressService.recordEvent(taskUuid, EVT_USER_SELECTION_CONFIRMED, TaskStatus.RESUMING.getCode(),
                     checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(),
                     "Origin selected: " + checkpoint.getSelectedOrigin().getName(),
@@ -188,30 +190,40 @@ public class AgentServiceImpl implements AgentService {
             }
 
             String attractionName;
-            try {
-                PlanningResult planResult = markovPlanner.planNextAttraction(task, checkpoint, taskUuid);
-                attractionName = planResult.attractionName();
-                int tokensUsed = planResult.totalTokens();
+            LocationCandidateItem selectedCandidate = checkpoint.getSelectedAttractionCandidate();
+            if (selectedCandidate != null) {
+                attractionName = selectedCandidate.getName();
+            } else {
                 try {
-                    quotaService.debitTokens(task.getUserId(), userLevel, tokensUsed);
-                } catch (QuotaExhaustedException qe) {
+                    PlanningResult planResult = markovPlanner.planNextAttraction(task, checkpoint, taskUuid);
+                    if (planResult.requiresUserSelection()) {
+                        handleAwaitingAttractionSelection(task, checkpoint, taskUuid, stepIndex, dayNumber,
+                                planResult.recommendationCandidates());
+                        return;
+                    }
+                    attractionName = planResult.attractionName();
+                    int tokensUsed = planResult.totalTokens();
+                    try {
+                        quotaService.debitTokens(task.getUserId(), userLevel, tokensUsed);
+                    } catch (QuotaExhaustedException qe) {
+                        handleQuotaExhaustion(task, checkpoint, taskUuid);
+                        return;
+                    }
+                    task.setTotalTokensUsed((task.getTotalTokensUsed() == null ? 0 : task.getTotalTokensUsed()) + tokensUsed);
+                } catch (QuotaExhaustedException e) {
                     handleQuotaExhaustion(task, checkpoint, taskUuid);
                     return;
+                } catch (Exception e) {
+                    handleRetryOrFail(task, checkpoint, taskUuid, e);
+                    return;
                 }
-                task.setTotalTokensUsed((task.getTotalTokensUsed() == null ? 0 : task.getTotalTokensUsed()) + tokensUsed);
-            } catch (QuotaExhaustedException e) {
-                handleQuotaExhaustion(task, checkpoint, taskUuid);
-                return;
-            } catch (Exception e) {
-                handleRetryOrFail(task, checkpoint, taskUuid, e);
-                return;
             }
 
             TaskStatus toolCalling = stateMachine.transition(TaskStatus.PLANNING, AgentEvent.START_TOOL_CALL);
             task.setStatus(toolCalling.getCode());
             checkpoint.setCurrentState(toolCalling.getCode());
             taskMapper.updateStatus(task.getId(), toolCalling.getCode());
-            sendStateChange(taskUuid, checkpoint, toolCalling.getCode());
+            sendStateChange(taskUuid, checkpoint, toolCalling.getCode(), task);
 
             Map<String, Object> geocodeResult;
             Map<String, Object> weatherResult;
@@ -264,7 +276,7 @@ public class AgentServiceImpl implements AgentService {
             task.setStatus(backToPlanning.getCode());
             checkpoint.setCurrentState(backToPlanning.getCode());
             taskMapper.updateStatus(task.getId(), backToPlanning.getCode());
-            sendStateChange(taskUuid, checkpoint, backToPlanning.getCode());
+            sendStateChange(taskUuid, checkpoint, backToPlanning.getCode(), task);
 
             int trafficMin = trafficResult != null
                     ? ((Number) trafficResult.getOrDefault("durationMin", 0)).intValue() : 0;
@@ -286,6 +298,9 @@ public class AgentServiceImpl implements AgentService {
             checkpoint.setUsedTimeBudgetMin(Math.min(checkpoint.totalAvailableMinutes(), plannedEndOffset));
             checkpoint.setProjectedReturnToDestinationMin(returnToDestinationMin);
             checkpoint.setPendingToolCall(null);
+            checkpoint.setSelectedAttractionCandidate(null);
+            checkpoint.setRecommendationCandidates(List.of());
+            checkpoint.setCurrentContext(Map.of());
             refreshRemainingBudget(checkpoint);
             if (checkpoint.getRetryState() != null) {
                 checkpoint.getRetryState().reset();
@@ -422,6 +437,8 @@ public class AgentServiceImpl implements AgentService {
 
         TaskStatus awaiting = stateMachine.transition(TaskStatus.PLANNING, AgentEvent.USER_INPUT_REQUIRED);
         checkpoint.setPendingInputType("origin_selection");
+        checkpoint.setRecommendationCandidates(new ArrayList<>(candidates));
+        checkpoint.setCurrentContext(Map.of());
         checkpoint.setCurrentState(awaiting.getCode());
         task.setStatus(awaiting.getCode());
         saveCheckpoint(task, checkpoint);
@@ -432,11 +449,50 @@ public class AgentServiceImpl implements AgentService {
         payload.put("startLocationQuery", checkpoint.getStartLocationQuery());
         payload.put("pendingInputType", "origin_selection");
         payload.put("locationCandidates", candidates);
+        payload.put("recommendationCandidates", candidates);
+        payload.put("currentContext", Map.of());
 
         sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_REQUIRED, payload);
         taskProgressService.recordEvent(taskUuid, EVT_USER_SELECTION_REQUIRED, awaiting.getCode(),
                 checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(),
                 "Waiting for origin selection",
+                payload);
+    }
+
+    private void handleAwaitingAttractionSelection(Task task,
+                                                   TaskCheckpoint checkpoint,
+                                                   String taskUuid,
+                                                   int stepIndex,
+                                                   int dayNumber,
+                                                   List<LocationCandidateItem> candidates) {
+        if (candidates == null || candidates.isEmpty()) {
+            markFailed(task, taskUuid, "No attraction candidates were generated",
+                    Map.of("code", "NO_ATTRACTION_CANDIDATES", "message", "No attraction candidates were generated", "retryable", false));
+            return;
+        }
+
+        TaskStatus awaiting = stateMachine.transition(TaskStatus.PLANNING, AgentEvent.USER_INPUT_REQUIRED);
+        Map<String, Object> currentContext = buildAttractionSelectionContext(checkpoint, stepIndex, dayNumber);
+        checkpoint.setPendingInputType("attraction_selection");
+        checkpoint.setRecommendationCandidates(new ArrayList<>(candidates));
+        checkpoint.setCurrentContext(currentContext);
+        checkpoint.setCurrentState(awaiting.getCode());
+        task.setStatus(awaiting.getCode());
+        saveCheckpoint(task, checkpoint);
+        taskMapper.updateStatus(task.getId(), awaiting.getCode());
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("taskUuid", taskUuid);
+        payload.put("pendingInputType", "attraction_selection");
+        payload.put("stepIndex", stepIndex);
+        payload.put("dayNumber", dayNumber);
+        payload.put("recommendationCandidates", candidates);
+        payload.put("currentContext", currentContext);
+
+        sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_REQUIRED, payload);
+        taskProgressService.recordEvent(taskUuid, EVT_USER_SELECTION_REQUIRED, awaiting.getCode(),
+                stepIndex, checkpoint.totalPlannedSteps(),
+                "Waiting for attraction selection",
                 payload);
     }
 
@@ -632,13 +688,14 @@ public class AgentServiceImpl implements AgentService {
         taskMapper.updateCheckpoint(task);
     }
 
-    private void sendStateChange(String taskUuid, TaskCheckpoint checkpoint, String status) {
+    private void sendStateChange(String taskUuid, TaskCheckpoint checkpoint, String status, Task task) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("status", status);
         payload.put("step", checkpoint.getCurrentStepIndex());
         payload.put("totalSteps", checkpoint.totalPlannedSteps());
         payload.put("pendingInputType", checkpoint.getPendingInputType());
         payload.put("remainingTimeBudgetMin", checkpoint.getRemainingTimeBudgetMin());
+        payload.put("totalTokensUsed", task.getTotalTokensUsed() == null ? 0 : task.getTotalTokensUsed());
         sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE, payload);
     }
 
@@ -772,5 +829,31 @@ public class AgentServiceImpl implements AgentService {
         } catch (Exception e) {
             return 1;
         }
+    }
+
+    private Map<String, Object> buildAttractionSelectionContext(TaskCheckpoint checkpoint, int stepIndex, int dayNumber) {
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("stepIndex", stepIndex);
+        context.put("dayNumber", dayNumber);
+        context.put("remainingTimeBudgetMin", checkpoint.getRemainingTimeBudgetMin());
+        context.put("projectedReturnToDestinationMin", checkpoint.getProjectedReturnToDestinationMin());
+        context.put("currentPositionName", resolveCurrentPositionName(checkpoint));
+        context.put("destinationName", checkpoint.getSelectedDestination() != null
+                ? checkpoint.getSelectedDestination().getName()
+                : checkpoint.getEndLocationQuery());
+        context.put("travelMode", checkpoint.getPlanningConfig() != null
+                ? checkpoint.getPlanningConfig().getTravelMode()
+                : null);
+        return context;
+    }
+
+    private String resolveCurrentPositionName(TaskCheckpoint checkpoint) {
+        if (checkpoint.getCompletedSteps() != null && !checkpoint.getCompletedSteps().isEmpty()) {
+            return checkpoint.getCompletedSteps().get(checkpoint.getCompletedSteps().size() - 1).getAttractionName();
+        }
+        if (checkpoint.getSelectedOrigin() != null) {
+            return checkpoint.getSelectedOrigin().getName();
+        }
+        return checkpoint.getStartLocationQuery();
     }
 }

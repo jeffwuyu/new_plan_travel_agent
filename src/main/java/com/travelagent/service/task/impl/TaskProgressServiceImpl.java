@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class TaskProgressServiceImpl implements TaskProgressService {
@@ -58,6 +59,7 @@ public class TaskProgressServiceImpl implements TaskProgressService {
         TaskCheckpoint checkpoint = parseCheckpoint(task);
         if (task != null) {
             resp.setCurrentStatus(task.getStatus());
+            resp.setTotalTokensUsed(task.getTotalTokensUsed());
         }
 
         int total = eventMapper.countByTaskUuid(taskUuid);
@@ -69,9 +71,11 @@ public class TaskProgressServiceImpl implements TaskProgressService {
             resp.setCurrentStepIndex(checkpoint.getCurrentStepIndex());
             resp.setTotalSteps(checkpoint.totalPlannedSteps());
             resp.setPendingInputType(checkpoint.getPendingInputType());
-            resp.setAwaitingUserInput("origin_selection".equals(checkpoint.getPendingInputType()));
+            resp.setAwaitingUserInput(checkpoint.getPendingInputType() != null && !checkpoint.getPendingInputType().isBlank());
             resp.setPauseReason(checkpoint.getPauseReason());
             resp.setLocationCandidates(checkpoint.getLocationCandidates());
+            resp.setRecommendationCandidates(checkpoint.getRecommendationCandidates());
+            resp.setCurrentContext(checkpoint.getCurrentContext() == null ? Map.of() : checkpoint.getCurrentContext());
             resp.setSelectedOrigin(checkpoint.getSelectedOrigin());
             resp.setSelectedDestination(checkpoint.getSelectedDestination());
         } else {

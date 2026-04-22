@@ -23,6 +23,7 @@ import com.travelagent.mapper.PlanMapper;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.mapper.UserMapper;
 import com.travelagent.model.dto.LocationCandidateItem;
+import com.travelagent.model.dto.ConfirmOriginSelectionRequest;
 import com.travelagent.model.dto.ResolvedLocation;
 import com.travelagent.model.entity.Plan;
 import com.travelagent.model.entity.Task;
@@ -144,7 +145,7 @@ class AgentServiceImplTest {
         mockStandardTransitions(TaskStatus.PENDING);
         mockUserLevel(1L, 1);
         when(markovPlanner.planNextAttraction(any(), any(), anyString()))
-                .thenReturn(new PlanningResult("Terracotta Army", 0));
+                .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
         when(amapClient.getTravelDuration(any(Double.class), any(Double.class), any(Double.class), any(Double.class), anyString()))
                 .thenReturn(Map.of("durationMin", 25));
         mockToolRegistry();
@@ -176,7 +177,7 @@ class AgentServiceImplTest {
         mockStandardTransitions(TaskStatus.RESUMING);
         mockUserLevel(1L, 1);
         when(markovPlanner.planNextAttraction(any(), any(), anyString()))
-                .thenReturn(new PlanningResult("Terracotta Army", 0));
+                .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
         when(amapClient.getTravelDuration(any(Double.class), any(Double.class), any(Double.class), any(Double.class), anyString()))
                 .thenReturn(Map.of("durationMin", 20));
         mockToolRegistry();
@@ -203,7 +204,7 @@ class AgentServiceImplTest {
         mockStandardTransitions(TaskStatus.RESUMING);
         mockUserLevel(1L, 1);
         when(markovPlanner.planNextAttraction(any(), any(), anyString()))
-                .thenReturn(new PlanningResult("Terracotta Army", 0));
+                .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
         when(planMapper.insertPlan(any())).thenAnswer(invocation -> {
             Plan plan = invocation.getArgument(0);
             plan.setId(7L);
@@ -233,6 +234,30 @@ class AgentServiceImplTest {
         verify(taskProgressService, atLeastOnce()).recordEvent(eq("uuid"), eq("RETRY"), any(), any(), any(), anyString(), any());
         verify(sseNotificationService, atLeastOnce()).sendEvent(eq("uuid"), eq(SseEvent.RETRY), any());
         verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.COMPLETED), any());
+    }
+
+    @Test
+    void executeTask_withAttractionCandidates_entersAwaitingUserInput() {
+        Task task = buildTask(TaskStatus.PENDING);
+        TaskCheckpoint checkpoint = buildCheckpoint(true);
+        checkpoint.getPlanningConfig().setDynamicTargetSteps(1);
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+
+        LocationCandidateItem candidate = new LocationCandidateItem();
+        candidate.setCandidateId("poi-1");
+        candidate.setName("Terracotta Army");
+
+        when(taskMapper.findByUuid("uuid")).thenReturn(task);
+        when(stateMachine.transition(TaskStatus.PENDING, AgentEvent.START_PLANNING)).thenReturn(TaskStatus.PLANNING);
+        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.USER_INPUT_REQUIRED)).thenReturn(TaskStatus.AWAITING_USER_INPUT);
+        mockUserLevel(1L, 1);
+        when(markovPlanner.planNextAttraction(any(), any(), anyString()))
+                .thenReturn(PlanningResult.forCandidates(List.of(candidate)));
+
+        agentService.executeTask("uuid");
+
+        verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.USER_SELECTION_REQUIRED), any());
+        verify(toolRegistry, never()).getTool(GeocodeTool.NAME);
     }
 
     private void mockStandardTransitions(TaskStatus initialStatus) {

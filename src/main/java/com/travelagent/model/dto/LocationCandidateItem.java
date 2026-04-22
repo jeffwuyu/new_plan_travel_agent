@@ -3,6 +3,9 @@ package com.travelagent.model.dto;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 public class LocationCandidateItem {
@@ -17,4 +20,9 @@ public class LocationCandidateItem {
     private Double longitude;
     private String adcode;
     private String source;
+    private Double score;
+    private String routeSummary;
+    private Integer visitDurationMin;
+    private List<String> explanations = new ArrayList<>();
+    private List<String> highlights = new ArrayList<>();
 }
