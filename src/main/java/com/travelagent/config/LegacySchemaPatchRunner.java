@@ -46,6 +46,36 @@ public class LegacySchemaPatchRunner implements ApplicationRunner {
                 ensureColumn(appliedPatches, "users", "deleted_at",
                     "ALTER TABLE users ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL COMMENT 'NULL means not deleted (soft delete)'");
             }
+
+            if (!schemaGuard.tableExists("plans")) {
+                log.info("Legacy schema patch skipped: plans table does not exist yet");
+            } else {
+                ensureColumn(appliedPatches, "plans", "start_location_query",
+                    "ALTER TABLE plans ADD COLUMN start_location_query VARCHAR(128) NULL");
+                ensureColumn(appliedPatches, "plans", "end_location_query",
+                    "ALTER TABLE plans ADD COLUMN end_location_query VARCHAR(128) NULL");
+                ensureColumn(appliedPatches, "plans", "trip_start_time",
+                    "ALTER TABLE plans ADD COLUMN trip_start_time DATETIME NULL");
+                ensureColumn(appliedPatches, "plans", "trip_end_time",
+                    "ALTER TABLE plans ADD COLUMN trip_end_time DATETIME NULL");
+                ensureColumn(appliedPatches, "plans", "full_day_start_time",
+                    "ALTER TABLE plans ADD COLUMN full_day_start_time TIME NULL");
+                ensureColumn(appliedPatches, "plans", "full_day_end_time",
+                    "ALTER TABLE plans ADD COLUMN full_day_end_time TIME NULL");
+                ensureColumn(appliedPatches, "plans", "destination_buffer_min",
+                    "ALTER TABLE plans ADD COLUMN destination_buffer_min INT NULL");
+            }
+
+            if (!schemaGuard.tableExists("plan_steps")) {
+                log.info("Legacy schema patch skipped: plan_steps table does not exist yet");
+            } else {
+                ensureColumn(appliedPatches, "plan_steps", "planned_start_time",
+                    "ALTER TABLE plan_steps ADD COLUMN planned_start_time DATETIME NULL");
+                ensureColumn(appliedPatches, "plan_steps", "planned_end_time",
+                    "ALTER TABLE plan_steps ADD COLUMN planned_end_time DATETIME NULL");
+                ensureColumn(appliedPatches, "plan_steps", "travel_time_to_destination_min",
+                    "ALTER TABLE plan_steps ADD COLUMN travel_time_to_destination_min INT NULL");
+            }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to inspect database schema for compatibility patches", ex);
         }
