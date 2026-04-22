@@ -52,6 +52,7 @@ async function handleLogin() {
   try {
     const res = await login(form.value)
     auth.setAuth(res.data)
+    await auth.bootstrapAuthData()
     const redirect = route.query.redirect || '/tasks'
     router.push(redirect)
   } catch (err) {

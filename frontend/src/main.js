@@ -16,6 +16,7 @@ app.use(pinia)
 // Load auth from localStorage before router navigation
 const auth = useAuthStore()
 auth.loadFromStorage()
+auth.bootstrapAuthData()
 
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })

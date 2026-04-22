@@ -19,6 +19,8 @@ public class TaskExecutionProgressResponse {
     private int totalEventCount;
     private Boolean awaitingUserInput = false;
     private String pendingInputType;
+    private String pauseReason;
     private List<LocationCandidateItem> locationCandidates = new ArrayList<>();
-    private SelectedOrigin selectedOrigin;
+    private ResolvedLocation selectedOrigin;
+    private ResolvedLocation selectedDestination;
 }

@@ -16,8 +16,13 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Locale;
 import java.util.List;
 import java.util.Map;
+import java.util.Deque;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Client for the Amap (高德地图) REST API v3.
@@ -41,8 +46,18 @@ import java.util.Map;
 public class AmapClient {
 
     private static final Logger log = LoggerFactory.getLogger(AmapClient.class);
+    private static final int MAX_REQUESTS_PER_SECOND_PER_API = 3;
+    private static final long RATE_LIMIT_WINDOW_MILLIS = 1000L;
+    private static final List<String> RATE_LIMIT_HINTS = List.of(
+            "CUQPS_HAS_EXCEEDED_THE_LIMIT",
+            "DAILY_QUERY_OVER_LIMIT",
+            "ACCESS_TOO_FREQUENT",
+            "USER_DAILY_QUERY_OVER_LIMIT",
+            "IP_QUERY_OVER_LIMIT"
+    );
 
     private static final Duration CACHE_TTL = Duration.ofHours(1);
+    private final ConcurrentMap<String, Deque<Long>> localRateWindows = new ConcurrentHashMap<>();
 
     @Value("${amap.api-key}")
     private String apiKey;
@@ -91,7 +106,7 @@ public class AmapClient {
                 + "&address=" + encode(attractionName)
                 + "&city=" + encode(region);
 
-        String body = executeGet(url);
+        String body = executeGet(url, "geocode");
         Map<String, Object> result = parseGeocodeResponse(body);
 
         putCached(cacheKey, result);
@@ -114,7 +129,7 @@ public class AmapClient {
                 + "&city=" + adcode
                 + "&extensions=base";
 
-        String body = executeGet(url);
+        String body = executeGet(url, "weather");
         Map<String, Object> result = parseWeatherResponse(body);
 
         putCached(cacheKey, result);
@@ -157,7 +172,7 @@ public class AmapClient {
                     + "&strategy=0";
         }
 
-        String body = executeGet(url);
+        String body = executeGet(url, "direction");
         Map<String, Object> result = parseDirectionResponse(body);
 
         putCached(cacheKey, result);
@@ -196,10 +211,10 @@ public class AmapClient {
             url.append("&types=").append(encode(types));
         }
 
-        String body = executeGet(url.toString());
+        String body = executeGet(url.toString(), "nearby");
         try {
             Map<String, Object> root = jsonUtil.fromJson(body, new TypeReference<Map<String, Object>>() {});
-            validateAmapStatus(root, body);
+            validateAmapStatus(root, body, "nearby");
             List<Map<String, Object>> pois = (List<Map<String, Object>>) root.get("pois");
             List<Map<String, Object>> safePois = pois == null ? List.of() : pois;
             redisUtil.setString(cacheKey, jsonUtil.toJson(safePois), CACHE_TTL);
@@ -213,7 +228,8 @@ public class AmapClient {
     // Private: HTTP execution
     // -----------------------------------------------------------------------
 
-    private String executeGet(String url) {
+    private String executeGet(String url, String apiName) {
+        awaitRateLimitPermit(apiName);
         Request request = new Request.Builder().url(url).get().build();
         try (Response response = okHttpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
@@ -243,6 +259,54 @@ public class AmapClient {
                 "Amap API error: " + e.getMessage(), e);
     }
 
+    private void awaitRateLimitPermit(String apiName) {
+        Deque<Long> window = localRateWindows.computeIfAbsent(apiName, key -> new ArrayDeque<>());
+        long waitMillis = 0L;
+        synchronized (window) {
+            long now = System.currentTimeMillis();
+            trimExpired(window, now);
+            if (window.size() >= MAX_REQUESTS_PER_SECOND_PER_API) {
+                long oldest = window.peekFirst() == null ? now : window.peekFirst();
+                waitMillis = Math.max(1L, RATE_LIMIT_WINDOW_MILLIS - (now - oldest));
+            }
+        }
+
+        if (waitMillis > 0L) {
+            try {
+                Thread.sleep(waitMillis);
+            } catch (InterruptedException interruptedException) {
+                Thread.currentThread().interrupt();
+                throw new AgentException(AgentErrorCode.TOOL_AMAP_ERROR,
+                        "Interrupted while waiting for local Amap rate limiter", interruptedException);
+            }
+        }
+
+        synchronized (window) {
+            long now = System.currentTimeMillis();
+            trimExpired(window, now);
+            while (window.size() >= MAX_REQUESTS_PER_SECOND_PER_API) {
+                long oldest = window.peekFirst() == null ? now : window.peekFirst();
+                long remainingMillis = Math.max(1L, RATE_LIMIT_WINDOW_MILLIS - (now - oldest));
+                try {
+                    Thread.sleep(remainingMillis);
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    throw new AgentException(AgentErrorCode.TOOL_AMAP_ERROR,
+                            "Interrupted while waiting for local Amap rate limiter", interruptedException);
+                }
+                now = System.currentTimeMillis();
+                trimExpired(window, now);
+            }
+            window.addLast(now);
+        }
+    }
+
+    private void trimExpired(Deque<Long> window, long now) {
+        while (!window.isEmpty() && now - window.peekFirst() >= RATE_LIMIT_WINDOW_MILLIS) {
+            window.pollFirst();
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Private: JSON parsing
     // -----------------------------------------------------------------------
@@ -251,7 +315,7 @@ public class AmapClient {
     private Map<String, Object> parseGeocodeResponse(String json) {
         try {
             Map<String, Object> root = jsonUtil.fromJson(json, new TypeReference<Map<String, Object>>() {});
-            validateAmapStatus(root, json);
+            validateAmapStatus(root, json, "geocode");
 
             java.util.List<Map<String, Object>> geocodes =
                     (java.util.List<Map<String, Object>>) root.get("geocodes");
@@ -282,7 +346,7 @@ public class AmapClient {
     private Map<String, Object> parseWeatherResponse(String json) {
         try {
             Map<String, Object> root = jsonUtil.fromJson(json, new TypeReference<Map<String, Object>>() {});
-            validateAmapStatus(root, json);
+            validateAmapStatus(root, json, "weather");
 
             java.util.List<Map<String, Object>> lives =
                     (java.util.List<Map<String, Object>>) root.get("lives");
@@ -309,7 +373,7 @@ public class AmapClient {
     private Map<String, Object> parseDirectionResponse(String json) {
         try {
             Map<String, Object> root = jsonUtil.fromJson(json, new TypeReference<Map<String, Object>>() {});
-            validateAmapStatus(root, json);
+            validateAmapStatus(root, json, "direction");
 
             Map<String, Object> route = (Map<String, Object>) root.get("route");
             if (route == null) {
@@ -334,13 +398,37 @@ public class AmapClient {
         }
     }
 
-    private void validateAmapStatus(Map<String, Object> root, String rawJson) {
+    private void validateAmapStatus(Map<String, Object> root, String rawJson, String apiName) {
         Object status = root.get("status");
         if (!"1".equals(String.valueOf(status))) {
             String info = String.valueOf(root.getOrDefault("info", "unknown"));
+            String maskedRawJson = maskApiKey(rawJson);
+            log.warn("[AmapClient] api={} status={} info={} payload={}", apiName, status, info, maskedRawJson);
+            if (isRateLimited(info)) {
+                throw new AgentException(AgentErrorCode.TOOL_AMAP_RATE_LIMIT,
+                        "Amap rate limit exceeded for " + apiName + ": status=" + status + ", info=" + info);
+            }
             throw new AgentException(AgentErrorCode.TOOL_AMAP_ERROR,
-                    "Amap API error: status=" + status + ", info=" + info);
+                    "Amap API error for " + apiName + ": status=" + status + ", info=" + info);
         }
+    }
+
+    private boolean isRateLimited(String info) {
+        if (info == null || info.isBlank()) {
+            return false;
+        }
+        String normalized = info.toUpperCase(Locale.ROOT);
+        return RATE_LIMIT_HINTS.stream().anyMatch(normalized::contains);
+    }
+
+    private String maskApiKey(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            return text;
+        }
+        return text.replace(apiKey, "***");
     }
 
     // -----------------------------------------------------------------------

@@ -1,6 +1,7 @@
 package com.travelagent.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.travelagent.exception.BusinessException;
 import com.travelagent.exception.GlobalExceptionHandler;
 import com.travelagent.exception.QuotaExhaustedException;
@@ -23,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -30,7 +32,6 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -60,6 +61,7 @@ class TaskControllerTest {
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
         objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
     }
 
     @Test
@@ -78,10 +80,9 @@ class TaskControllerTest {
     }
 
     @Test
-    void createTask_missingCurrentLocation_returns400() throws Exception {
-        CreateTaskRequest req = buildRequest()
-        ;
-        req.setCurrentLocationQuery("");
+    void createTask_missingStartLocation_returns400() throws Exception {
+        CreateTaskRequest req = buildRequest();
+        req.setStartLocationQuery("");
 
         mockMvc.perform(post("/api/tasks")
                         .requestAttr(JwtAuthInterceptor.ATTR_USER_ID, USER_ID)
@@ -170,7 +171,12 @@ class TaskControllerTest {
         r.setTaskUuid(TASK_UUID);
         r.setStatus(status);
         r.setRegion("Beijing");
-        r.setCurrentLocationQuery("Guomao");
+        r.setStartLocationQuery("Guomao");
+        r.setEndLocationQuery("Capital Airport");
+        r.setTripStartTime(LocalDateTime.of(2026, 4, 22, 9, 0));
+        r.setTripEndTime(LocalDateTime.of(2026, 4, 22, 21, 0));
+        r.setFullDayStartTime(LocalTime.of(7, 0));
+        r.setFullDayEndTime(LocalTime.of(21, 0));
         r.setTotalTokensUsed(0);
         r.setCreatedAt(LocalDateTime.now());
         return r;
@@ -180,9 +186,10 @@ class TaskControllerTest {
         CreateTaskRequest req = new CreateTaskRequest();
         req.setRegion("Beijing");
         req.setUserIntent("culture trip");
-        req.setCurrentLocationQuery("Guomao");
-        req.setTotalDays(1);
-        req.setAttractionsPerDay(3);
+        req.setStartLocationQuery("Guomao");
+        req.setEndLocationQuery("Capital Airport");
+        req.setStartTime(LocalDateTime.of(2026, 4, 22, 9, 0));
+        req.setEndTime(LocalDateTime.of(2026, 4, 22, 21, 0));
         req.setTravelMode("driving");
         return req;
     }

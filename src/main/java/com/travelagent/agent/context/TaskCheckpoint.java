@@ -2,7 +2,7 @@ package com.travelagent.agent.context;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.travelagent.model.dto.LocationCandidateItem;
-import com.travelagent.model.dto.SelectedOrigin;
+import com.travelagent.model.dto.ResolvedLocation;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -33,11 +33,19 @@ public class TaskCheckpoint {
     private TokenBudgetSnapshot tokenBudgetSnapshot;
     private RetryState retryState;
     private LocalDateTime resumableAt;
-
-    private String currentLocationQuery;
+    private String pauseReason;
+    private String startLocationQuery;
+    private String endLocationQuery;
+    private LocalDateTime tripStartTime;
+    private LocalDateTime tripEndTime;
+    private List<DailyTimeWindow> dailyTimeWindows = new ArrayList<>();
+    private Integer usedTimeBudgetMin = 0;
+    private Integer remainingTimeBudgetMin = 0;
+    private Integer projectedReturnToDestinationMin = 0;
     private String pendingInputType;
     private List<LocationCandidateItem> locationCandidates = new ArrayList<>();
-    private SelectedOrigin selectedOrigin;
+    private ResolvedLocation selectedOrigin;
+    private ResolvedLocation selectedDestination;
     private boolean originConfirmed;
 
     public int completedStepCount() {
@@ -50,5 +58,22 @@ public class TaskCheckpoint {
 
     public boolean isAllStepsDone() {
         return planningConfig != null && completedStepCount() >= planningConfig.totalSteps();
+    }
+
+    public DailyTimeWindow getDailyWindow(int dayNumber) {
+        if (dailyTimeWindows == null || dailyTimeWindows.isEmpty()) {
+            return null;
+        }
+        return dailyTimeWindows.stream()
+                .filter(window -> window.getDayNumber() == dayNumber)
+                .findFirst()
+                .orElse(null);
+    }
+
+    public int totalAvailableMinutes() {
+        if (dailyTimeWindows == null || dailyTimeWindows.isEmpty()) {
+            return 0;
+        }
+        return dailyTimeWindows.stream().mapToInt(DailyTimeWindow::availableMinutes).sum();
     }
 }

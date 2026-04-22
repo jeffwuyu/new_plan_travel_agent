@@ -10,6 +10,7 @@ public enum AgentErrorCode {
 
     // Tool errors
     TOOL_AMAP_TIMEOUT(true),
+    TOOL_AMAP_RATE_LIMIT(true),
     TOOL_AMAP_ERROR(false),
     TOOL_DASHVECTOR_TIMEOUT(true),
     TOOL_DASHVECTOR_ERROR(false),

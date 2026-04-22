@@ -21,4 +21,14 @@
           AND created_at BETWEEN #{startDate} AND #{endDate}
     </select>
 
+    <select id="findLatestSuccessfulTotalTokens" resultType="int">
+        SELECT total_tokens
+        FROM llm_call_logs
+        WHERE task_id = #{taskId}
+          AND idempotency_key = #{idempotencyKey}
+          AND status = 'success'
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
 </mapper>

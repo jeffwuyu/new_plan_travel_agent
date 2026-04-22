@@ -1,7 +1,9 @@
 package com.travelagent.service.agent.impl;
 
 import com.travelagent.agent.context.CompletedStep;
+import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.PendingToolCall;
+import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.RetryState;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.planner.FinalSummaryResult;
@@ -13,14 +15,15 @@ import com.travelagent.agent.tools.GeocodeTool;
 import com.travelagent.agent.tools.ToolRegistry;
 import com.travelagent.agent.tools.TrafficTimeTool;
 import com.travelagent.agent.tools.WeatherTool;
+import com.travelagent.client.amap.AmapClient;
 import com.travelagent.config.DatabaseSchemaGuard;
+import com.travelagent.exception.AgentErrorCode;
 import com.travelagent.exception.AgentException;
 import com.travelagent.exception.QuotaExhaustedException;
 import com.travelagent.mapper.PlanMapper;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.mapper.UserMapper;
 import com.travelagent.model.dto.LocationCandidateItem;
-import com.travelagent.model.dto.SelectedOrigin;
 import com.travelagent.model.entity.Plan;
 import com.travelagent.model.entity.PlanStep;
 import com.travelagent.model.entity.Task;
@@ -52,6 +55,10 @@ import java.util.Map;
 public class AgentServiceImpl implements AgentService {
 
     private static final Logger log = LoggerFactory.getLogger(AgentServiceImpl.class);
+    private static final String PAUSE_REASON_DAILY_QUOTA = "daily_quota_exhausted";
+    private static final String PAUSE_REASON_AMAP_RATE_LIMITED = "amap_rate_limited";
+    private static final int[] AMAP_RATE_LIMIT_BACKOFF_SECONDS = {2, 5, 10};
+    private static final int FALLBACK_RETURN_TO_DESTINATION_MIN = 45;
 
     private static final String EVT_STATE_CHANGE = "STATE_CHANGE";
     private static final String EVT_TOOL_START = "TOOL_START";
@@ -76,6 +83,7 @@ public class AgentServiceImpl implements AgentService {
     @Autowired private TaskProgressService taskProgressService;
     @Autowired private TaskMetricsService taskMetricsService;
     @Autowired private DatabaseSchemaGuard schemaGuard;
+    @Autowired private AmapClient amapClient;
 
     @EventListener(ApplicationReadyEvent.class)
     public void recoverStuckTasksOnStartup() {
@@ -159,13 +167,18 @@ public class AgentServiceImpl implements AgentService {
             replayPendingToolCall(task, checkpoint, taskUuid);
         }
 
-        while (!checkpoint.isAllStepsDone()) {
+        refreshRemainingBudget(checkpoint);
+
+        while (!checkpoint.isAllStepsDone() && canPlanAnotherStep(checkpoint)) {
             int stepIndex = checkpoint.getCurrentStepIndex();
-            int dayNumber = (stepIndex / checkpoint.getPlanningConfig().getAttractionsPerDay()) + 1;
+            int dayNumber = resolveDayNumberForOffset(checkpoint, checkpoint.getUsedTimeBudgetMin());
 
             taskProgressService.recordEvent(taskUuid, EVT_STATE_CHANGE, planning.getCode(),
                     stepIndex, checkpoint.totalPlannedSteps(),
-                    "Starting step " + stepIndex, null);
+                    "Starting step " + stepIndex, Map.of(
+                            "remainingTimeBudgetMin", checkpoint.getRemainingTimeBudgetMin(),
+                            "dayNumber", dayNumber
+                    ));
 
             try {
                 quotaService.checkDailyQuota(task.getUserId(), userLevel);
@@ -253,24 +266,40 @@ public class AgentServiceImpl implements AgentService {
             taskMapper.updateStatus(task.getId(), backToPlanning.getCode());
             sendStateChange(taskUuid, checkpoint, backToPlanning.getCode());
 
+            int trafficMin = trafficResult != null
+                    ? ((Number) trafficResult.getOrDefault("durationMin", 0)).intValue() : 0;
+            int visitDurationMin = checkpoint.getPlanningConfig().getDefaultVisitDurationMin();
+            int usedBeforeStep = valueOrZero(checkpoint.getUsedTimeBudgetMin());
+            int plannedStartOffset = usedBeforeStep + trafficMin;
+            int plannedEndOffset = plannedStartOffset + visitDurationMin;
+            LocalDateTime plannedStart = resolveDateTimeForOffset(checkpoint, plannedStartOffset);
+            LocalDateTime plannedEnd = resolveDateTimeForOffset(checkpoint, plannedEndOffset);
+
             double lat = ((Number) geocodeResult.get("lat")).doubleValue();
             double lng = ((Number) geocodeResult.get("lng")).doubleValue();
-            CompletedStep step = buildCompletedStep(stepIndex, dayNumber, attractionName, lat, lng, geocodeResult, weatherResult, trafficResult);
+            int returnToDestinationMin = estimateTravelTimeToDestination(checkpoint, lat, lng);
+            CompletedStep step = buildCompletedStep(stepIndex, dayNumber, attractionName, lat, lng,
+                    geocodeResult, weatherResult, trafficResult, trafficMin, visitDurationMin,
+                    plannedStart, plannedEnd, returnToDestinationMin);
             checkpoint.getCompletedSteps().add(step);
             checkpoint.setCurrentStepIndex(stepIndex + 1);
+            checkpoint.setUsedTimeBudgetMin(Math.min(checkpoint.totalAvailableMinutes(), plannedEndOffset));
+            checkpoint.setProjectedReturnToDestinationMin(returnToDestinationMin);
             checkpoint.setPendingToolCall(null);
+            refreshRemainingBudget(checkpoint);
             if (checkpoint.getRetryState() != null) {
                 checkpoint.getRetryState().reset();
             }
             saveCheckpoint(task, checkpoint);
 
-            int trafficMin = trafficResult != null
-                    ? ((Number) trafficResult.getOrDefault("durationMin", 0)).intValue() : 0;
             Map<String, Object> stepPayload = new HashMap<>();
             stepPayload.put("stepIndex", stepIndex);
             stepPayload.put("attractionName", attractionName);
             stepPayload.put("trafficTimeMin", trafficMin);
             stepPayload.put("dayNumber", dayNumber);
+            stepPayload.put("plannedStartTime", plannedStart);
+            stepPayload.put("plannedEndTime", plannedEnd);
+            stepPayload.put("travelTimeToDestinationMin", returnToDestinationMin);
             if (stepIndex == 0 && checkpoint.getSelectedOrigin() != null) {
                 stepPayload.put("originName", checkpoint.getSelectedOrigin().getName());
             }
@@ -296,6 +325,91 @@ public class AgentServiceImpl implements AgentService {
         sseNotificationService.completeEmitter(taskUuid);
     }
 
+    private boolean canPlanAnotherStep(TaskCheckpoint checkpoint) {
+        if (checkpoint.getPlanningConfig() == null) {
+            return false;
+        }
+        if (checkpoint.getCurrentStepIndex() >= checkpoint.totalPlannedSteps()) {
+            return false;
+        }
+        refreshRemainingBudget(checkpoint);
+        return valueOrZero(checkpoint.getRemainingTimeBudgetMin()) >= checkpoint.getPlanningConfig().getMinContinueBudgetMin();
+    }
+
+    private void refreshRemainingBudget(TaskCheckpoint checkpoint) {
+        int totalAvailable = checkpoint.totalAvailableMinutes();
+        int used = valueOrZero(checkpoint.getUsedTimeBudgetMin());
+        int buffer = checkpoint.getPlanningConfig() == null ? 0 : checkpoint.getPlanningConfig().getDestinationBufferMin();
+        int returnReserve = shouldReserveReturnToDestination(checkpoint)
+                ? Math.max(valueOrZero(checkpoint.getProjectedReturnToDestinationMin()), FALLBACK_RETURN_TO_DESTINATION_MIN)
+                : 0;
+        checkpoint.setRemainingTimeBudgetMin(Math.max(0, totalAvailable - used - buffer - returnReserve));
+    }
+
+    private boolean shouldReserveReturnToDestination(TaskCheckpoint checkpoint) {
+        if (checkpoint.getSelectedDestination() == null
+                || checkpoint.getSelectedDestination().getLatitude() == null
+                || checkpoint.getSelectedDestination().getLongitude() == null) {
+            return false;
+        }
+        return resolveDayNumberForOffset(checkpoint, valueOrZero(checkpoint.getUsedTimeBudgetMin()))
+                >= checkpoint.getPlanningConfig().getTotalDays();
+    }
+
+    private int resolveDayNumberForOffset(TaskCheckpoint checkpoint, Integer offsetMin) {
+        int remaining = Math.max(0, valueOrZero(offsetMin));
+        List<DailyTimeWindow> windows = checkpoint.getDailyTimeWindows();
+        if (windows == null || windows.isEmpty()) {
+            return 1;
+        }
+        for (DailyTimeWindow window : windows) {
+            int dayMinutes = window.availableMinutes();
+            if (remaining < dayMinutes) {
+                return window.getDayNumber();
+            }
+            remaining -= dayMinutes;
+        }
+        return windows.get(windows.size() - 1).getDayNumber();
+    }
+
+    private LocalDateTime resolveDateTimeForOffset(TaskCheckpoint checkpoint, int offsetMin) {
+        int remaining = Math.max(0, offsetMin);
+        List<DailyTimeWindow> windows = checkpoint.getDailyTimeWindows();
+        if (windows == null || windows.isEmpty()) {
+            return checkpoint.getTripStartTime();
+        }
+        for (DailyTimeWindow window : windows) {
+            int dayMinutes = window.availableMinutes();
+            if (remaining <= dayMinutes) {
+                return window.getStartTime().plusMinutes(remaining);
+            }
+            remaining -= dayMinutes;
+        }
+        DailyTimeWindow lastWindow = windows.get(windows.size() - 1);
+        return lastWindow.getEndTime();
+    }
+
+    private int estimateTravelTimeToDestination(TaskCheckpoint checkpoint, double originLat, double originLng) {
+        if (!shouldReserveReturnToDestination(checkpoint)) {
+            return 0;
+        }
+        if (checkpoint.getSelectedDestination() == null
+                || checkpoint.getSelectedDestination().getLatitude() == null
+                || checkpoint.getSelectedDestination().getLongitude() == null) {
+            return FALLBACK_RETURN_TO_DESTINATION_MIN;
+        }
+        try {
+            Map<String, Object> duration = amapClient.getTravelDuration(
+                    originLng, originLat,
+                    checkpoint.getSelectedDestination().getLongitude(),
+                    checkpoint.getSelectedDestination().getLatitude(),
+                    checkpoint.getPlanningConfig().getTravelMode());
+            return ((Number) duration.getOrDefault("durationMin", FALLBACK_RETURN_TO_DESTINATION_MIN)).intValue();
+        } catch (Exception e) {
+            return FALLBACK_RETURN_TO_DESTINATION_MIN;
+        }
+    }
+
     private void handleAwaitingOriginSelection(Task task, TaskCheckpoint checkpoint, String taskUuid) {
         List<LocationCandidateItem> candidates = checkpoint.getLocationCandidates() == null
                 ? List.of()
@@ -315,7 +429,7 @@ public class AgentServiceImpl implements AgentService {
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("taskUuid", taskUuid);
-        payload.put("currentLocationQuery", checkpoint.getCurrentLocationQuery());
+        payload.put("startLocationQuery", checkpoint.getStartLocationQuery());
         payload.put("pendingInputType", "origin_selection");
         payload.put("locationCandidates", candidates);
 
@@ -366,17 +480,26 @@ public class AgentServiceImpl implements AgentService {
         TaskStatus currentStatus = TaskStatus.fromCode(checkpoint.getCurrentState());
         checkpoint.setCurrentState(TaskStatus.PAUSED.getCode());
         checkpoint.setResumableAt(tomorrow);
+        checkpoint.setPauseReason(PAUSE_REASON_DAILY_QUOTA);
         saveCheckpoint(task, checkpoint);
 
         TaskStatus paused = stateMachine.transition(currentStatus, AgentEvent.QUOTA_EXHAUSTED);
         taskMapper.updateStatus(task.getId(), paused.getCode());
         taskMetricsService.recordTaskPaused();
         taskProgressService.recordEvent(taskUuid, EVT_PAUSED, paused.getCode(), null, null,
-                "Task paused: daily quota exhausted", Map.of("resumableAt", tomorrow.toString()));
-        sseNotificationService.sendEvent(taskUuid, SseEvent.PAUSED, Map.of("reason", "daily_quota_exhausted", "resumableAt", tomorrow.toString()));
+                "Task paused: daily quota exhausted",
+                Map.of("reason", PAUSE_REASON_DAILY_QUOTA, "resumableAt", tomorrow.toString()));
+        sseNotificationService.sendEvent(taskUuid, SseEvent.PAUSED,
+                Map.of("reason", PAUSE_REASON_DAILY_QUOTA, "resumableAt", tomorrow.toString()));
     }
 
     private void handleRetryOrFail(Task task, TaskCheckpoint checkpoint, String taskUuid, Exception exception) {
+        if (exception instanceof AgentException agentException
+                && agentException.getErrorCode() == AgentErrorCode.TOOL_AMAP_RATE_LIMIT) {
+            handleAmapRateLimit(task, checkpoint, taskUuid, agentException);
+            return;
+        }
+
         boolean retryable = !(exception instanceof AgentException ae) || ae.isRetryable();
         Map<String, Object> errorPayload = (exception instanceof AgentException ae)
                 ? ae.toEventPayload()
@@ -399,6 +522,78 @@ public class AgentServiceImpl implements AgentService {
             taskProgressService.recordEvent(taskUuid, EVT_RETRY, null, null, null,
                     "Retrying: " + exception.getMessage(), Map.of("attempt", attempt, "maxAttempts", max));
             saveCheckpoint(task, checkpoint);
+        }
+    }
+
+    private void handleAmapRateLimit(Task task, TaskCheckpoint checkpoint, String taskUuid, AgentException exception) {
+        if (checkpoint.getRetryState() == null) {
+            checkpoint.setRetryState(new RetryState());
+        }
+
+        int attempt = checkpoint.getRetryState().increment();
+        int max = checkpoint.getRetryState().getMaxRetries();
+        Map<String, Object> retryPayload = Map.of(
+                "attempt", attempt,
+                "maxAttempts", max,
+                "message", "地图服务调用过于频繁，系统正在自动重试",
+                "code", exception.getErrorCode().name()
+        );
+
+        if (attempt >= max) {
+            pauseForAmapRateLimit(task, checkpoint, taskUuid, exception, retryPayload);
+            return;
+        }
+
+        saveCheckpoint(task, checkpoint);
+        taskProgressService.recordEvent(taskUuid, EVT_RETRY, null, null, null,
+                "地图服务调用过于频繁，系统正在自动重试", retryPayload);
+        sseNotificationService.sendEvent(taskUuid, SseEvent.RETRY, retryPayload);
+
+        int backoffSeconds = AMAP_RATE_LIMIT_BACKOFF_SECONDS[Math.min(attempt - 1, AMAP_RATE_LIMIT_BACKOFF_SECONDS.length - 1)];
+        sleepForRateLimitBackoff(backoffSeconds, taskUuid);
+        checkpoint.setCurrentState(TaskStatus.RESUMING.getCode());
+        checkpoint.setPauseReason(null);
+        checkpoint.setResumableAt(null);
+        saveCheckpoint(task, checkpoint);
+        taskMapper.updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
+        try {
+            executeTask(taskUuid);
+        } catch (Exception recursiveException) {
+            log.warn("[AgentService] Recursive retry execution failed for task={}: {}", taskUuid, recursiveException.getMessage());
+        }
+    }
+
+    private void pauseForAmapRateLimit(Task task, TaskCheckpoint checkpoint, String taskUuid,
+                                       AgentException exception, Map<String, Object> retryPayload) {
+        LocalDateTime resumableAt = LocalDateTime.now().plusMinutes(2);
+        TaskStatus currentStatus = TaskStatus.fromCode(checkpoint.getCurrentState());
+        checkpoint.setCurrentState(TaskStatus.PAUSED.getCode());
+        checkpoint.setPauseReason(PAUSE_REASON_AMAP_RATE_LIMITED);
+        checkpoint.setResumableAt(resumableAt);
+        saveCheckpoint(task, checkpoint);
+
+        TaskStatus paused = stateMachine.transition(currentStatus, AgentEvent.QUOTA_EXHAUSTED);
+        taskMapper.updateStatus(task.getId(), paused.getCode());
+        taskMetricsService.recordTaskPaused();
+
+        Map<String, Object> pausePayload = new HashMap<>(retryPayload);
+        pausePayload.put("reason", PAUSE_REASON_AMAP_RATE_LIMITED);
+        pausePayload.put("resumableAt", resumableAt.toString());
+        pausePayload.put("retryable", true);
+        pausePayload.put("message", "高德接口限流，任务已暂时暂停，可稍后恢复");
+        pausePayload.put("rawMessage", exception.getMessage());
+
+        taskProgressService.recordEvent(taskUuid, EVT_PAUSED, paused.getCode(), null, null,
+                "高德接口限流，任务已暂时暂停，可稍后恢复", pausePayload);
+        sseNotificationService.sendEvent(taskUuid, SseEvent.PAUSED, pausePayload);
+    }
+
+    private void sleepForRateLimitBackoff(int seconds, String taskUuid) {
+        try {
+            Thread.sleep(seconds * 1000L);
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+            log.warn("[AgentService] Retry backoff interrupted for task={}", taskUuid);
         }
     }
 
@@ -443,6 +638,7 @@ public class AgentServiceImpl implements AgentService {
         payload.put("step", checkpoint.getCurrentStepIndex());
         payload.put("totalSteps", checkpoint.totalPlannedSteps());
         payload.put("pendingInputType", checkpoint.getPendingInputType());
+        payload.put("remainingTimeBudgetMin", checkpoint.getRemainingTimeBudgetMin());
         sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE, payload);
     }
 
@@ -459,6 +655,13 @@ public class AgentServiceImpl implements AgentService {
         plan.setUserId(task.getUserId());
         plan.setRegion(checkpoint.getRegion());
         plan.setTotalDays(checkpoint.getPlanningConfig().getTotalDays());
+        plan.setStartLocationQuery(checkpoint.getStartLocationQuery());
+        plan.setEndLocationQuery(checkpoint.getEndLocationQuery());
+        plan.setTripStartTime(checkpoint.getTripStartTime());
+        plan.setTripEndTime(checkpoint.getTripEndTime());
+        plan.setFullDayStartTime(checkpoint.getPlanningConfig().resolveFullDayStartTime());
+        plan.setFullDayEndTime(checkpoint.getPlanningConfig().resolveFullDayEndTime());
+        plan.setDestinationBufferMin(checkpoint.getPlanningConfig().getDestinationBufferMin());
         if (summary != null) {
             plan.setTitle(summary.title());
             plan.setSummary(summary.summary());
@@ -494,14 +697,19 @@ public class AgentServiceImpl implements AgentService {
             ps.setLongitude(cs.getLng() != null ? BigDecimal.valueOf(cs.getLng()) : null);
 
             FinalSummaryResult.StepSummary ss = summaryByOrder.get(cs.getStepIndex());
-            ps.setEstimatedDurationMin(ss != null ? ss.estimatedDurationMin() : 90);
+            ps.setEstimatedDurationMin(ss != null ? ss.estimatedDurationMin() : cs.getEstimatedVisitDurationMin());
             ps.setLlmDescription(ss != null ? ss.llmDescription() : null);
+            ps.setPlannedStartTime(cs.getPlannedStartTime());
+            ps.setPlannedEndTime(cs.getPlannedEndTime());
+            ps.setTravelTimeToDestinationMin(cs.getTravelTimeToDestinationMin());
 
             Map<String, Object> toolResults = cs.getToolCallResults();
             if (toolResults != null) {
                 Map<?, ?> traffic = (Map<?, ?>) toolResults.get(TrafficTimeTool.NAME);
                 if (traffic != null && traffic.get("durationMin") != null) {
                     ps.setTrafficTimeFromPrev(((Number) traffic.get("durationMin")).intValue());
+                } else {
+                    ps.setTrafficTimeFromPrev(cs.getTrafficTimeFromPrevMin());
                 }
                 Map<?, ?> weather = (Map<?, ?>) toolResults.get(WeatherTool.NAME);
                 if (weather != null) {
@@ -521,13 +729,23 @@ public class AgentServiceImpl implements AgentService {
                                              double lat, double lng,
                                              Map<String, Object> geocodeResult,
                                              Map<String, Object> weatherResult,
-                                             Map<String, Object> trafficResult) {
+                                             Map<String, Object> trafficResult,
+                                             int trafficMin,
+                                             int visitDurationMin,
+                                             LocalDateTime plannedStart,
+                                             LocalDateTime plannedEnd,
+                                             int returnToDestinationMin) {
         CompletedStep step = new CompletedStep();
         step.setStepIndex(stepIndex);
         step.setDayNumber(dayNumber);
         step.setAttractionName(attractionName);
         step.setLat(lat);
         step.setLng(lng);
+        step.setTrafficTimeFromPrevMin(trafficMin);
+        step.setEstimatedVisitDurationMin(visitDurationMin);
+        step.setTravelTimeToDestinationMin(returnToDestinationMin);
+        step.setPlannedStartTime(plannedStart);
+        step.setPlannedEndTime(plannedEnd);
 
         Map<String, Object> toolResults = new HashMap<>();
         if (geocodeResult != null) {
@@ -541,6 +759,10 @@ public class AgentServiceImpl implements AgentService {
         }
         step.setToolCallResults(toolResults);
         return step;
+    }
+
+    private int valueOrZero(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private int resolveUserLevel(Long userId) {

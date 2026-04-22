@@ -2,7 +2,7 @@
   <el-container class="page-container">
     <el-header class="page-header">
       <div class="header-left">
-        <span class="logo">✈ 旅游规划助手</span>
+        <span class="logo">旅行规划助手</span>
         <el-menu mode="horizontal" :default-active="'/tasks'" router class="nav-menu">
           <el-menu-item index="/tasks">我的任务</el-menu-item>
           <el-menu-item index="/plans">规划结果</el-menu-item>
@@ -23,6 +23,33 @@
         </el-button>
       </div>
 
+      <el-card shadow="never" class="quota-card">
+        <div class="quota-header">
+          <div>
+            <div class="quota-title">免费 Token 额度概览</div>
+            <div class="quota-subtitle">{{ auth.userLevelLabel || '当前账户' }}</div>
+          </div>
+        </div>
+        <div class="quota-grid">
+          <div class="quota-item">
+            <span class="quota-label">今日已用</span>
+            <strong>{{ formatQuotaValue(auth.quota.dailyUsed) }}</strong>
+          </div>
+          <div class="quota-item">
+            <span class="quota-label">今日剩余免费 Token</span>
+            <strong>{{ formatRemaining(auth.quota.dailyRemaining, auth.quota.dailyLimit) }}</strong>
+          </div>
+          <div class="quota-item">
+            <span class="quota-label">本月已用</span>
+            <strong>{{ formatQuotaValue(auth.quota.monthlyUsed) }}</strong>
+          </div>
+          <div class="quota-item">
+            <span class="quota-label">本月剩余免费 Token</span>
+            <strong>{{ formatRemaining(auth.quota.monthlyRemaining, auth.quota.monthlyLimit) }}</strong>
+          </div>
+        </div>
+      </el-card>
+
       <el-table :data="store.tasks" v-loading="store.loading" stripe>
         <el-table-column prop="region" label="目的地" min-width="100" />
         <el-table-column label="状态" width="110">
@@ -30,8 +57,8 @@
             <TaskStatusBadge :status="row.status" />
           </template>
         </el-table-column>
-        <el-table-column prop="totalTokensUsed" label="Token 消耗" width="110" align="right" />
-        <el-table-column label="创建时间" width="160">
+        <el-table-column prop="totalTokensUsed" label="Token 消耗" width="120" align="right" />
+        <el-table-column label="创建时间" width="180">
           <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="160" fixed="right">
@@ -39,19 +66,24 @@
             <el-button size="small" @click="router.push(`/tasks/${row.taskUuid}`)">详情</el-button>
             <el-button
               v-if="!isTerminal(row.status) && row.status !== 'paused'"
-              size="small" type="danger"
+              size="small"
+              type="danger"
               @click="handleCancel(row.taskUuid)"
             >取消</el-button>
             <el-button
               v-if="row.status === 'paused'"
-              size="small" type="warning"
+              size="small"
+              type="warning"
               @click="handleResume(row.taskUuid)"
             >恢复</el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <el-empty v-if="!store.loading && !store.tasks.length" description="暂无规划任务，点击新建开始规划" />
+      <el-empty
+        v-if="!store.loading && !store.tasks.length"
+        description="暂无规划任务，点击新建开始规划"
+      />
     </el-main>
 
     <CreateTaskForm ref="createFormRef" @created="onTaskCreated" />
@@ -59,13 +91,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { cancelTask, resumeTask } from '@/api/tasks'
+import { logout } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { useTasksStore } from '@/stores/tasks'
-import { logout } from '@/api/auth'
 import TaskStatusBadge from '@/components/TaskStatusBadge.vue'
 import CreateTaskForm from '@/components/CreateTaskForm.vue'
 
@@ -75,12 +107,12 @@ const store = useTasksStore()
 const createFormRef = ref(null)
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled'])
-const isTerminal = (s) => TERMINAL.has(s)
+const isTerminal = (status) => TERMINAL.has(status)
 
 let pollTimer = null
 
 onMounted(async () => {
-  await store.fetchTasks()
+  await Promise.allSettled([store.fetchTasks(), auth.refreshQuota()])
   schedulePoll()
 })
 
@@ -88,12 +120,21 @@ onUnmounted(() => clearInterval(pollTimer))
 
 function schedulePoll() {
   pollTimer = setInterval(async () => {
-    if (store.hasActiveTask()) await store.fetchTasks()
+    const jobs = []
+    if (store.hasActiveTask()) {
+      jobs.push(store.fetchTasks())
+    }
+    jobs.push(auth.refreshQuota())
+    await Promise.allSettled(jobs)
   }, 10000)
 }
 
 async function handleLogout() {
-  try { await logout() } catch { /* ignore */ }
+  try {
+    await logout()
+  } catch {
+    // ignore logout API failure, local session should still clear
+  }
   auth.logout()
   router.push('/login')
 }
@@ -103,7 +144,7 @@ async function handleCancel(uuid) {
   try {
     await cancelTask(uuid)
     ElMessage.success('任务已取消')
-    await store.fetchTasks()
+    await Promise.allSettled([store.fetchTasks(), auth.refreshQuota()])
   } catch (err) {
     ElMessage.error(err.message)
   }
@@ -113,14 +154,14 @@ async function handleResume(uuid) {
   try {
     await resumeTask(uuid)
     ElMessage.success('任务已恢复')
-    await store.fetchTasks()
+    await Promise.allSettled([store.fetchTasks(), auth.refreshQuota()])
   } catch (err) {
     ElMessage.error(err.message)
   }
 }
 
 async function onTaskCreated(taskUuid) {
-  await store.fetchTasks()
+  await Promise.allSettled([store.fetchTasks(), auth.refreshQuota()])
   if (taskUuid) {
     router.push(`/tasks/${taskUuid}`)
   }
@@ -129,6 +170,15 @@ async function onTaskCreated(taskUuid) {
 function formatTime(ts) {
   if (!ts) return '-'
   return new Date(ts).toLocaleString('zh-CN')
+}
+
+function formatQuotaValue(value) {
+  return new Intl.NumberFormat('zh-CN').format(Number(value || 0))
+}
+
+function formatRemaining(value, limit) {
+  if (!limit) return '--'
+  return formatQuotaValue(value)
 }
 </script>
 
@@ -149,4 +199,15 @@ function formatTime(ts) {
 .username { font-size: 14px; color: #606266; }
 .main-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .section-title { margin: 0; font-size: 16px; }
+.quota-card { margin-bottom: 16px; }
+.quota-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.quota-title { font-size: 16px; font-weight: 600; color: #303133; }
+.quota-subtitle { margin-top: 4px; font-size: 13px; color: #909399; }
+.quota-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.quota-item { padding: 14px 16px; border-radius: 12px; background: #f5f7fa; display: flex; flex-direction: column; gap: 8px; }
+.quota-label { font-size: 13px; color: #606266; }
+
+@media (max-width: 900px) {
+  .quota-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 </style>

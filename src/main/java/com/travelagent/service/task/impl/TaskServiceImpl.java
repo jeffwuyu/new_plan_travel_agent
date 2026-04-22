@@ -1,17 +1,19 @@
 package com.travelagent.service.task.impl;
 
+import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.RetryState;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
+import com.travelagent.client.amap.AmapClient;
 import com.travelagent.exception.BusinessException;
 import com.travelagent.exception.TaskNotFoundException;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.model.dto.ConfirmOriginSelectionRequest;
 import com.travelagent.model.dto.CreateTaskRequest;
 import com.travelagent.model.dto.LocationCandidateItem;
-import com.travelagent.model.dto.SelectedOrigin;
+import com.travelagent.model.dto.ResolvedLocation;
 import com.travelagent.model.dto.TaskResponse;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.entity.UserQuotaConfig;
@@ -28,6 +30,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,7 +44,7 @@ import java.util.stream.Collectors;
 public class TaskServiceImpl implements TaskService {
 
     private static final Logger log = LoggerFactory.getLogger(TaskServiceImpl.class);
-    private static final int DEFAULT_TOTAL_DAYS = 1;
+    private static final int ESTIMATED_MINUTES_PER_STOP = 150;
 
     @Autowired private TaskMapper taskMapper;
     @Autowired private QuotaService quotaService;
@@ -45,11 +52,13 @@ public class TaskServiceImpl implements TaskService {
     @Autowired private SseNotificationService sseNotificationService;
     @Autowired private JsonUtil jsonUtil;
     @Autowired private OriginCandidateService originCandidateService;
+    @Autowired private AmapClient amapClient;
 
     @Override
     @Transactional
     public TaskResponse createTask(Long userId, int userLevel, CreateTaskRequest request) {
         quotaService.checkDailyQuota(userId, userLevel);
+        validateCreateRequest(request);
 
         UserQuotaConfig config = quotaService.getQuotaConfig(userLevel);
         int activeCount = taskMapper.countActiveByUserId(userId);
@@ -113,6 +122,15 @@ public class TaskServiceImpl implements TaskService {
             throw new BusinessException(400, "only paused tasks can be resumed");
         }
 
+        TaskCheckpoint checkpoint = parseCheckpoint(task);
+        if (checkpoint != null) {
+            checkpoint.setPauseReason(null);
+            checkpoint.setResumableAt(null);
+            checkpoint.setCurrentState(TaskStatus.RESUMING.getCode());
+            task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+            taskMapper.updateCheckpoint(task);
+        }
+
         TaskStatus next = stateMachine.transition(current, AgentEvent.RESUME);
         taskMapper.updateStatus(task.getId(), next.getCode());
         Task updated = taskMapper.findByUuid(taskUuid);
@@ -141,7 +159,7 @@ public class TaskServiceImpl implements TaskService {
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(400, "selected candidate does not belong to this task"));
 
-        SelectedOrigin selectedOrigin = new SelectedOrigin();
+        ResolvedLocation selectedOrigin = new ResolvedLocation();
         selectedOrigin.setCandidateId(candidate.getCandidateId());
         selectedOrigin.setName(request.getSelectedCandidateName());
         selectedOrigin.setRegion(candidate.getRegion());
@@ -157,6 +175,8 @@ public class TaskServiceImpl implements TaskService {
         checkpoint.setPendingInputType(null);
         checkpoint.setLocationCandidates(List.of());
         checkpoint.setCurrentState(TaskStatus.RESUMING.getCode());
+        checkpoint.setPauseReason(null);
+        checkpoint.setResumableAt(null);
         task.setStatus(TaskStatus.RESUMING.getCode());
         task.setCheckpointJson(jsonUtil.toJson(checkpoint));
 
@@ -183,13 +203,29 @@ public class TaskServiceImpl implements TaskService {
         return loadAndVerifyOwnership(taskUuid, requestingUserId);
     }
 
+    private void validateCreateRequest(CreateTaskRequest request) {
+        if (request.getStartTime() == null || request.getEndTime() == null
+                || !request.getEndTime().isAfter(request.getStartTime())) {
+            throw new BusinessException(400, "end time must be later than start time");
+        }
+        if ((request.getFullDayStartTime() == null) != (request.getFullDayEndTime() == null)) {
+            throw new BusinessException(400, "full day start time and end time must be provided together");
+        }
+        if (request.getFullDayStartTime() != null
+                && !request.getFullDayEndTime().isAfter(request.getFullDayStartTime())) {
+            throw new BusinessException(400, "full day end time must be later than full day start time");
+        }
+    }
+
     private TaskCheckpoint buildInitialCheckpoint(Task task, CreateTaskRequest req) {
-        PlanningConfig config = new PlanningConfig(
-                DEFAULT_TOTAL_DAYS,
-                req.getAttractionsPerDay(),
-                req.getPreferenceKeywords(),
-                req.getTravelMode()
-        );
+        int totalDays = calculateTotalDays(req.getStartTime(), req.getEndTime());
+        PlanningConfig config = buildPlanningConfig(req, totalDays);
+        List<DailyTimeWindow> dailyWindows = buildDailyWindows(config);
+        int totalAvailableMinutes = totalAvailableMinutes(dailyWindows);
+        int dynamicTargetSteps = computeDynamicTargetSteps(totalAvailableMinutes, config, totalDays);
+        config.setDynamicTargetSteps(dynamicTargetSteps);
+        config.setAttractionsPerDay(Math.max(1, (int) Math.ceil((double) dynamicTargetSteps / totalDays)));
+
         TaskCheckpoint cp = new TaskCheckpoint();
         cp.setSchemaVersion("1.0");
         cp.setTaskId(task.getId());
@@ -197,13 +233,101 @@ public class TaskServiceImpl implements TaskService {
         cp.setCurrentState(TaskStatus.PENDING.getCode());
         cp.setRegion(req.getRegion());
         cp.setUserIntent(req.getUserIntent());
-        cp.setCurrentLocationQuery(req.getCurrentLocationQuery());
+        cp.setStartLocationQuery(req.getStartLocationQuery());
+        cp.setEndLocationQuery(req.getEndLocationQuery());
+        cp.setTripStartTime(req.getStartTime());
+        cp.setTripEndTime(req.getEndTime());
         cp.setPlanningConfig(config);
         cp.setCurrentStepIndex(0);
         cp.setRetryState(new RetryState(0, 3));
-        cp.setLocationCandidates(originCandidateService.generateCandidates(req.getRegion(), req.getCurrentLocationQuery()));
+        cp.setDailyTimeWindows(dailyWindows);
+        cp.setUsedTimeBudgetMin(0);
+        cp.setProjectedReturnToDestinationMin(0);
+        cp.setRemainingTimeBudgetMin(Math.max(0, totalAvailableMinutes - config.getDestinationBufferMin()));
+        cp.setLocationCandidates(originCandidateService.generateCandidates(req.getRegion(), req.getStartLocationQuery()));
+        cp.setSelectedDestination(resolveDestination(req.getRegion(), req.getEndLocationQuery()));
         cp.setOriginConfirmed(false);
+        cp.setPauseReason(null);
         return cp;
+    }
+
+    private PlanningConfig buildPlanningConfig(CreateTaskRequest req, int totalDays) {
+        PlanningConfig config = new PlanningConfig();
+        config.setTotalDays(totalDays);
+        config.setPreferenceKeywords(req.getPreferenceKeywords());
+        config.setTravelMode(req.getTravelMode());
+        config.setStartLocationQuery(req.getStartLocationQuery());
+        config.setEndLocationQuery(req.getEndLocationQuery());
+        config.setStartTime(req.getStartTime());
+        config.setEndTime(req.getEndTime());
+        config.setFullDayStartTime(req.getFullDayStartTime());
+        config.setFullDayEndTime(req.getFullDayEndTime());
+        config.setAttractionsPerDay(Math.max(1, req.getAttractionsPerDay()));
+        return config;
+    }
+
+    private int calculateTotalDays(LocalDateTime startTime, LocalDateTime endTime) {
+        LocalDate startDate = startTime.toLocalDate();
+        LocalDate endDate = endTime.toLocalDate();
+        return (int) (Duration.between(startDate.atStartOfDay(), endDate.atStartOfDay()).toDays() + 1);
+    }
+
+    private List<DailyTimeWindow> buildDailyWindows(PlanningConfig config) {
+        List<DailyTimeWindow> windows = new ArrayList<>();
+        LocalDateTime tripStart = config.getStartTime();
+        LocalDateTime tripEnd = config.getEndTime();
+        LocalTime fullDayStart = config.resolveFullDayStartTime();
+        LocalTime fullDayEnd = config.resolveFullDayEndTime();
+
+        for (int i = 0; i < config.getTotalDays(); i++) {
+            LocalDate currentDate = tripStart.toLocalDate().plusDays(i);
+            LocalDateTime dayStart;
+            LocalDateTime dayEnd;
+            if (config.getTotalDays() == 1) {
+                dayStart = tripStart;
+                dayEnd = tripEnd;
+            } else if (i == 0) {
+                dayStart = tripStart;
+                dayEnd = LocalDateTime.of(currentDate, fullDayEnd);
+            } else if (i == config.getTotalDays() - 1) {
+                dayStart = LocalDateTime.of(currentDate, fullDayStart);
+                dayEnd = tripEnd;
+            } else {
+                dayStart = LocalDateTime.of(currentDate, fullDayStart);
+                dayEnd = LocalDateTime.of(currentDate, fullDayEnd);
+            }
+            windows.add(new DailyTimeWindow(i + 1, dayStart, dayEnd));
+        }
+        return windows;
+    }
+
+    private int totalAvailableMinutes(List<DailyTimeWindow> windows) {
+        return windows.stream().mapToInt(DailyTimeWindow::availableMinutes).sum();
+    }
+
+    private int computeDynamicTargetSteps(int totalAvailableMinutes, PlanningConfig config, int totalDays) {
+        int effectiveMinutes = Math.max(0, totalAvailableMinutes - config.getDestinationBufferMin());
+        int estimatedSteps = Math.max(1, effectiveMinutes / ESTIMATED_MINUTES_PER_STOP);
+        int perDayUpperBound = Math.max(1, Math.max(config.getAttractionsPerDay(), estimatedSteps / Math.max(1, totalDays)));
+        return Math.max(1, Math.min(estimatedSteps, totalDays * Math.max(2, perDayUpperBound + 2)));
+    }
+
+    private ResolvedLocation resolveDestination(String region, String endLocationQuery) {
+        ResolvedLocation destination = new ResolvedLocation();
+        destination.setName(endLocationQuery);
+        destination.setRegion(region);
+        destination.setSource("query");
+        try {
+            Map<String, Object> geocode = amapClient.geocode(endLocationQuery, region);
+            destination.setLatitude(((Number) geocode.get("lat")).doubleValue());
+            destination.setLongitude(((Number) geocode.get("lng")).doubleValue());
+            destination.setAdcode(String.valueOf(geocode.getOrDefault("adcode", "")));
+            destination.setSource("geocode");
+            destination.setCandidateId("geo:" + endLocationQuery.trim().toLowerCase());
+        } catch (Exception e) {
+            log.warn("Failed to geocode destination '{}': {}", endLocationQuery, e.getMessage());
+        }
+        return destination;
     }
 
     private Task loadAndVerifyOwnership(String taskUuid, Long requestingUserId) {

@@ -3,7 +3,7 @@
     <el-header class="page-header">
       <el-button :icon="ArrowLeft" @click="router.push('/tasks')">返回任务列表</el-button>
       <div class="header-meta" v-if="task">
-        <span class="page-title">对话式规划工作台</span>
+        <span class="page-title">规划执行详情</span>
         <TaskStatusBadge :status="displayStatus" />
       </div>
     </el-header>
@@ -13,25 +13,54 @@
         <section class="summary-panel">
           <div>
             <div class="summary-title">{{ task.region }}</div>
-            <div class="summary-sub">
-              当前位置：{{ task.selectedOrigin?.name || task.currentLocationQuery || '未提供' }}
-            </div>
+            <div class="summary-sub">开始位置：{{ task.selectedOrigin?.name || task.startLocationQuery || '未提供' }}</div>
+            <div class="summary-sub">结束位置：{{ task.selectedDestination?.name || task.endLocationQuery || '未提供' }}</div>
+            <div class="summary-sub">时间范围：{{ formatTime(task.tripStartTime) }} - {{ formatTime(task.tripEndTime) }}</div>
           </div>
           <div class="summary-right">
             <el-progress :percentage="progressPercent" :status="progressBarStatus" />
             <div class="summary-count">{{ task.currentStepIndex ?? 0 }} / {{ task.totalSteps ?? 0 }}</div>
+            <div class="summary-budget">
+              剩余时间预算：{{ task.remainingTimeBudgetMin ?? 0 }} 分钟
+            </div>
           </div>
+        </section>
+
+        <section class="window-panel">
+          <el-card shadow="never">
+            <template #header>时间窗配置</template>
+            <div class="window-item">
+              <span>完整天默认时间</span>
+              <strong>{{ formatFullDayWindow(task) }}</strong>
+            </div>
+            <div class="window-item">
+              <span>终点缓冲</span>
+              <strong>至少 30 分钟</strong>
+            </div>
+            <div class="window-item">
+              <span>当前预估去终点交通</span>
+              <strong>{{ task.projectedReturnToDestinationMin ?? 0 }} 分钟</strong>
+            </div>
+            <div v-if="task.dailyTimeWindows?.length" class="window-list">
+              <div v-for="window in task.dailyTimeWindows" :key="window.dayNumber" class="window-chip">
+                第 {{ window.dayNumber }} 天：{{ formatTime(window.startTime) }} - {{ formatTime(window.endTime) }}
+              </div>
+            </div>
+          </el-card>
         </section>
 
         <section class="chat-shell">
           <div class="messages">
             <article class="message message-user">
-              <div class="avatar">你</div>
+              <div class="avatar">我</div>
               <div class="bubble">
                 <div class="bubble-title">规划需求</div>
                 <p>目的地：{{ task.region }}</p>
+                <p>开始位置：{{ task.startLocationQuery }}</p>
+                <p>结束位置：{{ task.endLocationQuery }}</p>
+                <p>开始时间：{{ formatTime(task.tripStartTime) }}</p>
+                <p>结束时间：{{ formatTime(task.tripEndTime) }}</p>
                 <p>意图：{{ task.userIntent }}</p>
-                <p>当前位置关键词：{{ task.currentLocationQuery }}</p>
               </div>
             </article>
 
@@ -41,7 +70,7 @@
               class="message"
               :class="item.role === 'user' ? 'message-user' : 'message-system'"
             >
-              <div class="avatar">{{ item.role === 'user' ? '你' : '旅' }}</div>
+              <div class="avatar">{{ item.role === 'user' ? '我' : '系统' }}</div>
               <div class="bubble">
                 <div class="bubble-title">{{ item.title }}</div>
                 <p v-if="item.text">{{ item.text }}</p>
@@ -50,7 +79,7 @@
                     type="warning"
                     :closable="false"
                     show-icon
-                    title="请选择当前起点，任务会从你选中的地点继续规划。"
+                    title="请选择开始位置候选，确认后系统会继续按时间预算规划路线。"
                   />
                   <button
                     v-for="candidate in item.locationCandidates"
@@ -60,20 +89,22 @@
                     @click="handleSelectOrigin(candidate)"
                   >
                     <div class="candidate-name">{{ candidate.name }}</div>
-                    <div class="candidate-meta">{{ candidate.region || task.region }}{{ candidate.district ? ` · ${candidate.district}` : '' }}</div>
-                    <div class="candidate-meta">{{ candidate.address || candidate.category || '候选起点' }}</div>
+                    <div class="candidate-meta">
+                      {{ candidate.region || task.region }}{{ candidate.district ? ` · ${candidate.district}` : '' }}
+                    </div>
+                    <div class="candidate-meta">{{ candidate.address || candidate.category || '开始位置候选' }}</div>
                   </button>
                 </div>
                 <div v-if="item.eventType === 'USER_SELECTION_CONFIRMED' && item.selectedOrigin" class="origin-confirmed">
-                  已选择起点：{{ item.selectedOrigin.name }}
+                  已选择开始位置：{{ item.selectedOrigin.name }}
                 </div>
               </div>
             </article>
 
             <article v-if="llmTokenBuffer" class="message message-system">
-              <div class="avatar">旅</div>
+              <div class="avatar">系统</div>
               <div class="bubble streaming">
-                <div class="bubble-title">生成中的思路</div>
+                <div class="bubble-title">规划生成中</div>
                 <p>{{ llmTokenBuffer }}</p>
               </div>
             </article>
@@ -88,7 +119,15 @@
               </div>
               <div class="sidebar-item">
                 <span>已用 Token</span>
-                <strong>{{ task.totalTokensUsed ?? 0 }}</strong>
+                <strong>{{ formatQuotaValue(task.totalTokensUsed ?? 0) }}</strong>
+              </div>
+              <div class="sidebar-item">
+                <span>已用时间预算</span>
+                <strong>{{ task.usedTimeBudgetMin ?? 0 }} 分钟</strong>
+              </div>
+              <div class="sidebar-item">
+                <span>剩余时间预算</span>
+                <strong>{{ task.remainingTimeBudgetMin ?? 0 }} 分钟</strong>
               </div>
               <div class="sidebar-item">
                 <span>创建时间</span>
@@ -119,14 +158,14 @@
               class="sidebar-alert"
               type="warning"
               :closable="false"
-              title="任务因配额耗尽暂停。恢复后会从上次进度继续。"
+              :title="pausedAlertTitle"
             />
             <el-alert
               v-if="displayStatus === 'awaiting_user_input'"
               class="sidebar-alert"
               type="info"
               :closable="false"
-              title="系统正在等待你确认起点。"
+              title="系统正在等待你确认开始位置。"
             />
             <el-alert
               v-if="task.errorMessage"
@@ -149,11 +188,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { cancelTask, confirmOriginSelection, getProgress, getTask, resumeTask } from '@/api/tasks'
 import { getPlanByTask } from '@/api/plans'
+import { useAuthStore } from '@/stores/auth'
 import { useTaskStream } from '@/composables/useTaskStream'
 import TaskStatusBadge from '@/components/TaskStatusBadge.vue'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 const uuid = route.params.uuid
 
 const task = ref(null)
@@ -163,7 +204,7 @@ const loading = ref(true)
 const submittingCandidateId = ref('')
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled'])
-const isTerminal = (s) => TERMINAL.has(s)
+const isTerminal = (status) => TERMINAL.has(status)
 
 const {
   events: streamEvents,
@@ -197,6 +238,13 @@ const progressBarStatus = computed(() => {
   return ''
 })
 
+const pausedAlertTitle = computed(() => {
+  if (task.value?.pauseReason === 'amap_rate_limited') {
+    return '地图接口限流，任务已暂时暂停，可稍后恢复。'
+  }
+  return '任务因配额耗尽暂停。恢复后会从当前进度继续。'
+})
+
 let pollTimer = null
 
 onMounted(async () => {
@@ -227,9 +275,9 @@ async function fetchAll() {
       getTask(uuid),
       getProgress(uuid, 100)
     ])
+    auth.refreshQuota().catch(() => null)
     task.value = taskRes.data
     pollEvents.value = progRes.data?.events || []
-
     if (task.value?.status === 'completed') {
       await fetchPlanId()
     }
@@ -248,12 +296,13 @@ function schedulePoll() {
         getTask(uuid),
         getProgress(uuid, 100)
       ])
+      auth.refreshQuota().catch(() => null)
       task.value = taskRes.data
       if (!streamEvents.value.length) {
         pollEvents.value = progRes.data?.events || []
       }
     } catch {
-      // keep the conversation surface stable even if polling hiccups once
+      // ignore single poll failures
     }
   }, 8000)
 }
@@ -291,7 +340,7 @@ async function handleSelectOrigin(candidate) {
       selectedLng: candidate.longitude
     })
     task.value = res.data
-    ElMessage.success(`已选择 ${candidate.name} 作为起点`)
+    ElMessage.success(`已选择 ${candidate.name} 作为开始位置`)
     connect()
     await fetchAll()
   } catch (err) {
@@ -304,7 +353,7 @@ async function handleSelectOrigin(candidate) {
 async function fetchPlanId() {
   try {
     const planRes = await getPlanByTask(uuid)
-    planId.value = planRes.data?.id
+    planId.value = planRes.data?.plan?.id || planRes.data?.id
   } catch {
     // ignore
   }
@@ -326,14 +375,19 @@ function normalizeEvent(ev) {
 function toMessage(ev) {
   const mapping = {
     STATE_CHANGE: { title: '状态更新', text: stateText(ev.status) || ev.text || '任务状态已更新' },
-    STEP_DONE: { title: `步骤 ${Number(ev.stepIndex ?? 0) + 1} 已完成`, text: ev.attractionName ? `已确定景点：${ev.attractionName}` : ev.text },
-    TOOL_RESULT: { title: '工具结果', text: ev.text || '已获取地理位置、天气或路程信息' },
-    RETRY: { title: '重试中', text: ev.text || '系统正在重试当前步骤' },
-    PAUSED: { title: '任务暂停', text: '当前任务因配额限制暂停，稍后可继续。' },
-    USER_SELECTION_REQUIRED: { title: '请选择起点', text: `关键词“${ev.currentLocationQuery || task.value?.currentLocationQuery || ''}”已生成候选地点。` },
-    USER_SELECTION_CONFIRMED: { title: '起点已确认', text: ev.selectedOrigin?.name ? `已使用 ${ev.selectedOrigin.name} 作为起点，继续规划中。` : '起点已确认。' },
-    COMPLETED: { title: '规划完成', text: '路线已生成，可以查看最终结果。' },
-    ERROR: { title: '任务失败', text: ev.message || ev.text || '任务执行失败。' }
+    STEP_DONE: {
+      title: `步骤 ${Number(ev.stepIndex ?? 0) + 1} 已完成`,
+      text: ev.attractionName
+        ? `已确定景点：${ev.attractionName}${ev.plannedStartTime ? `，预计 ${formatTime(ev.plannedStartTime)} 开始` : ''}`
+        : ev.text
+    },
+    TOOL_RESULT: { title: '工具结果', text: ev.text || '已补充地理位置、天气或路程信息' },
+    RETRY: { title: '自动重试', text: ev.message || ev.text || '地图服务调用过于频繁，系统正在自动重试。' },
+    PAUSED: { title: '任务暂停', text: pausedText(ev) },
+    USER_SELECTION_REQUIRED: { title: '请选择开始位置', text: `关键词“${ev.startLocationQuery || task.value?.startLocationQuery || ''}”已生成候选地点。` },
+    USER_SELECTION_CONFIRMED: { title: '开始位置已确认', text: ev.selectedOrigin?.name ? `已使用 ${ev.selectedOrigin.name} 作为开始位置，继续规划中。` : '开始位置已确认。' },
+    COMPLETED: { title: '规划完成', text: '路线已生成，可查看最终结果。' },
+    ERROR: { title: '任务失败', text: userFacingErrorText(ev) }
   }
   const picked = mapping[ev.eventType] || { title: ev.eventType, text: ev.text }
   return {
@@ -344,12 +398,27 @@ function toMessage(ev) {
   }
 }
 
+function pausedText(ev) {
+  if (ev.reason === 'amap_rate_limited' || task.value?.pauseReason === 'amap_rate_limited') {
+    return ev.message || ev.text || '地图接口限流，任务已暂时暂停，可稍后恢复。'
+  }
+  return ev.message || ev.text || '当前任务因配额限制暂停，稍后可继续。'
+}
+
+function userFacingErrorText(ev) {
+  const raw = ev.message || ev.text || ''
+  if (raw.includes('CUQPS_HAS_EXCEEDED_THE_LIMIT') || ev.code === 'TOOL_AMAP_RATE_LIMIT') {
+    return '地图服务调用过于频繁，请稍后再试。'
+  }
+  return raw || '任务执行失败。'
+}
+
 function stateText(status) {
   const mapping = {
     pending: '任务已创建，等待开始',
     planning: '系统正在生成路线',
     tool_calling: '系统正在补充地图和天气信息',
-    awaiting_user_input: '系统正在等待你选择起点',
+    awaiting_user_input: '系统正在等待你选择开始位置',
     paused: '任务已暂停',
     resuming: '任务已恢复，继续执行中',
     completed: '任务已完成',
@@ -371,6 +440,15 @@ function safeParse(text) {
 function formatTime(ts) {
   if (!ts) return '-'
   return new Date(ts).toLocaleString('zh-CN')
+}
+
+function formatFullDayWindow(taskValue) {
+  if (!taskValue?.fullDayStartTime || !taskValue?.fullDayEndTime) return '07:00-21:00'
+  return `${taskValue.fullDayStartTime.slice(0, 5)}-${taskValue.fullDayEndTime.slice(0, 5)}`
+}
+
+function formatQuotaValue(value) {
+  return new Intl.NumberFormat('zh-CN').format(Number(value || 0))
 }
 </script>
 
@@ -421,18 +499,42 @@ function formatTime(ts) {
 
 .summary-sub {
   margin-top: 8px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.84);
 }
 
 .summary-right {
-  min-width: 260px;
+  min-width: 280px;
 }
 
-.summary-count {
+.summary-count,
+.summary-budget {
   margin-top: 10px;
   text-align: right;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.85);
+}
+
+.window-panel {
+  margin-bottom: 20px;
+}
+
+.window-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.window-list {
+  display: grid;
+  gap: 10px;
+}
+
+.window-chip {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f4f8fb;
+  color: #355070;
 }
 
 .chat-shell {
@@ -561,6 +663,7 @@ function formatTime(ts) {
   align-items: center;
   margin-bottom: 14px;
   color: #486581;
+  gap: 12px;
 }
 
 .sidebar-actions {

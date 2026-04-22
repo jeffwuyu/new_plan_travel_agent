@@ -17,4 +17,8 @@ public interface LlmCallLogMapper {
     int sumTokensByUserAndPeriod(@Param("userId") Long userId,
                                  @Param("startDate") String startDate,
                                  @Param("endDate") String endDate);
+
+    /** Latest successful token usage for a task call, used as streaming usage fallback. */
+    Integer findLatestSuccessfulTotalTokens(@Param("taskId") Long taskId,
+                                            @Param("idempotencyKey") String idempotencyKey);
 }

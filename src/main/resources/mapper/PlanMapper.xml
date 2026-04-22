@@ -1,58 +1,87 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 中文注释：MyBatis 映射文件，负责 Plan 相关 SQL 与字段映射定义。 -->
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.travelagent.mapper.PlanMapper">
 
     <resultMap id="planResultMap" type="Plan">
-        <id     property="id"        column="id"/>
-        <result property="taskId"    column="task_id"/>
-        <result property="userId"    column="user_id"/>
-        <result property="title"     column="title"/>
-        <result property="region"    column="region"/>
-        <result property="summary"   column="summary"/>
+        <id property="id" column="id"/>
+        <result property="taskId" column="task_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="title" column="title"/>
+        <result property="region" column="region"/>
+        <result property="summary" column="summary"/>
         <result property="totalDays" column="total_days"/>
+        <result property="startLocationQuery" column="start_location_query"/>
+        <result property="endLocationQuery" column="end_location_query"/>
+        <result property="tripStartTime" column="trip_start_time"/>
+        <result property="tripEndTime" column="trip_end_time"/>
+        <result property="fullDayStartTime" column="full_day_start_time"/>
+        <result property="fullDayEndTime" column="full_day_end_time"/>
+        <result property="destinationBufferMin" column="destination_buffer_min"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
     <resultMap id="stepResultMap" type="PlanStep">
-        <id     property="id"                   column="id"/>
-        <result property="planId"               column="plan_id"/>
-        <result property="stepOrder"            column="step_order"/>
-        <result property="dayNumber"            column="day_number"/>
-        <result property="attractionName"       column="attraction_name"/>
-        <result property="latitude"             column="latitude"/>
-        <result property="longitude"            column="longitude"/>
+        <id property="id" column="id"/>
+        <result property="planId" column="plan_id"/>
+        <result property="stepOrder" column="step_order"/>
+        <result property="dayNumber" column="day_number"/>
+        <result property="attractionName" column="attraction_name"/>
+        <result property="latitude" column="latitude"/>
+        <result property="longitude" column="longitude"/>
         <result property="estimatedDurationMin" column="estimated_duration_min"/>
-        <result property="trafficTimeFromPrev"  column="traffic_time_from_prev"/>
-        <result property="weatherNote"          column="weather_note"/>
-        <result property="llmDescription"       column="llm_description"/>
-        <result property="createdAt"            column="created_at"/>
+        <result property="trafficTimeFromPrev" column="traffic_time_from_prev"/>
+        <result property="weatherNote" column="weather_note"/>
+        <result property="llmDescription" column="llm_description"/>
+        <result property="plannedStartTime" column="planned_start_time"/>
+        <result property="plannedEndTime" column="planned_end_time"/>
+        <result property="travelTimeToDestinationMin" column="travel_time_to_destination_min"/>
+        <result property="createdAt" column="created_at"/>
     </resultMap>
 
     <insert id="insertPlan" parameterType="Plan" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO plans (task_id, user_id, title, region, summary, total_days, created_at)
-        VALUES (#{taskId}, #{userId}, #{title}, #{region}, #{summary}, #{totalDays}, NOW())
+        INSERT INTO plans (
+            task_id, user_id, title, region, summary, total_days,
+            start_location_query, end_location_query, trip_start_time, trip_end_time,
+            full_day_start_time, full_day_end_time, destination_buffer_min, created_at
+        )
+        VALUES (
+            #{taskId}, #{userId}, #{title}, #{region}, #{summary}, #{totalDays},
+            #{startLocationQuery}, #{endLocationQuery}, #{tripStartTime}, #{tripEndTime},
+            #{fullDayStartTime}, #{fullDayEndTime}, #{destinationBufferMin}, NOW()
+        )
     </insert>
 
     <insert id="insertStep" parameterType="PlanStep" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO plan_steps (plan_id, step_order, day_number, attraction_name,
-                                latitude, longitude, estimated_duration_min,
-                                traffic_time_from_prev, weather_note, llm_description, created_at)
-        VALUES (#{planId}, #{stepOrder}, #{dayNumber}, #{attractionName},
-                #{latitude}, #{longitude}, #{estimatedDurationMin},
-                #{trafficTimeFromPrev}, #{weatherNote}, #{llmDescription}, NOW())
+        INSERT INTO plan_steps (
+            plan_id, step_order, day_number, attraction_name,
+            latitude, longitude, estimated_duration_min,
+            traffic_time_from_prev, weather_note, llm_description,
+            planned_start_time, planned_end_time, travel_time_to_destination_min, created_at
+        )
+        VALUES (
+            #{planId}, #{stepOrder}, #{dayNumber}, #{attractionName},
+            #{latitude}, #{longitude}, #{estimatedDurationMin},
+            #{trafficTimeFromPrev}, #{weatherNote}, #{llmDescription},
+            #{plannedStartTime}, #{plannedEndTime}, #{travelTimeToDestinationMin}, NOW()
+        )
     </insert>
 
     <insert id="insertSteps">
-        INSERT INTO plan_steps (plan_id, step_order, day_number, attraction_name,
-                                latitude, longitude, estimated_duration_min,
-                                traffic_time_from_prev, weather_note, llm_description, created_at)
+        INSERT INTO plan_steps (
+            plan_id, step_order, day_number, attraction_name,
+            latitude, longitude, estimated_duration_min,
+            traffic_time_from_prev, weather_note, llm_description,
+            planned_start_time, planned_end_time, travel_time_to_destination_min, created_at
+        )
         VALUES
         <foreach collection="steps" item="s" separator=",">
-            (#{s.planId}, #{s.stepOrder}, #{s.dayNumber}, #{s.attractionName},
-             #{s.latitude}, #{s.longitude}, #{s.estimatedDurationMin},
-             #{s.trafficTimeFromPrev}, #{s.weatherNote}, #{s.llmDescription}, NOW())
+            (
+                #{s.planId}, #{s.stepOrder}, #{s.dayNumber}, #{s.attractionName},
+                #{s.latitude}, #{s.longitude}, #{s.estimatedDurationMin},
+                #{s.trafficTimeFromPrev}, #{s.weatherNote}, #{s.llmDescription},
+                #{s.plannedStartTime}, #{s.plannedEndTime}, #{s.travelTimeToDestinationMin}, NOW()
+            )
         </foreach>
     </insert>
 

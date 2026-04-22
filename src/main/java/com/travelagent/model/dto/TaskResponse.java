@@ -1,11 +1,13 @@
 package com.travelagent.model.dto;
 
+import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.model.entity.Task;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,7 +19,12 @@ public class TaskResponse {
     private String status;
     private String region;
     private String userIntent;
-    private String currentLocationQuery;
+    private String startLocationQuery;
+    private String endLocationQuery;
+    private LocalDateTime tripStartTime;
+    private LocalDateTime tripEndTime;
+    private LocalTime fullDayStartTime;
+    private LocalTime fullDayEndTime;
     private Integer totalTokensUsed;
     private String errorMessage;
     private String schemaVersion;
@@ -28,8 +35,14 @@ public class TaskResponse {
     private Integer totalSteps;
     private Boolean awaitingUserInput = false;
     private String pendingInputType;
+    private String pauseReason;
+    private Integer usedTimeBudgetMin;
+    private Integer remainingTimeBudgetMin;
+    private Integer projectedReturnToDestinationMin;
+    private List<DailyTimeWindow> dailyTimeWindows = new ArrayList<>();
     private List<LocationCandidateItem> locationCandidates = new ArrayList<>();
-    private SelectedOrigin selectedOrigin;
+    private ResolvedLocation selectedOrigin;
+    private ResolvedLocation selectedDestination;
 
     public static TaskResponse from(Task task) {
         TaskResponse r = new TaskResponse();
@@ -50,15 +63,30 @@ public class TaskResponse {
         TaskResponse r = from(task);
         if (checkpoint != null) {
             r.userIntent = checkpoint.getUserIntent();
-            r.currentLocationQuery = checkpoint.getCurrentLocationQuery();
+            r.startLocationQuery = checkpoint.getStartLocationQuery();
+            r.endLocationQuery = checkpoint.getEndLocationQuery();
+            r.tripStartTime = checkpoint.getTripStartTime();
+            r.tripEndTime = checkpoint.getTripEndTime();
+            if (checkpoint.getPlanningConfig() != null) {
+                r.fullDayStartTime = checkpoint.getPlanningConfig().resolveFullDayStartTime();
+                r.fullDayEndTime = checkpoint.getPlanningConfig().resolveFullDayEndTime();
+            }
             r.currentStepIndex = checkpoint.getCurrentStepIndex();
             r.totalSteps = checkpoint.totalPlannedSteps();
             r.pendingInputType = checkpoint.getPendingInputType();
             r.awaitingUserInput = "origin_selection".equals(checkpoint.getPendingInputType());
+            r.pauseReason = checkpoint.getPauseReason();
+            r.usedTimeBudgetMin = checkpoint.getUsedTimeBudgetMin();
+            r.remainingTimeBudgetMin = checkpoint.getRemainingTimeBudgetMin();
+            r.projectedReturnToDestinationMin = checkpoint.getProjectedReturnToDestinationMin();
+            r.dailyTimeWindows = checkpoint.getDailyTimeWindows() == null
+                    ? new ArrayList<>()
+                    : checkpoint.getDailyTimeWindows();
             r.locationCandidates = checkpoint.getLocationCandidates() == null
                     ? new ArrayList<>()
                     : checkpoint.getLocationCandidates();
             r.selectedOrigin = checkpoint.getSelectedOrigin();
+            r.selectedDestination = checkpoint.getSelectedDestination();
         }
         return r;
     }

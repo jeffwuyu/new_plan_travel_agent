@@ -60,14 +60,27 @@ public class UserController {
         var config = quotaService.getQuotaConfig(userLevel);
         long dailyUsed   = quotaService.getDailyUsage(userId);
         long monthlyUsed = quotaService.getMonthlyUsage(userId);
+        long dailyLimit = config != null && config.getDailyTokenLimit() != null ? config.getDailyTokenLimit() : 0L;
+        long monthlyLimit = config != null && config.getMonthlyTokenLimit() != null ? config.getMonthlyTokenLimit() : 0L;
 
         Map<String, Object> data = new HashMap<>();
         data.put("dailyUsed",      dailyUsed);
-        data.put("dailyLimit",     config != null ? config.getDailyTokenLimit()   : 0);
+        data.put("dailyLimit",     dailyLimit);
+        data.put("dailyRemaining", remaining(dailyLimit, dailyUsed));
         data.put("monthlyUsed",    monthlyUsed);
-        data.put("monthlyLimit",   config != null ? config.getMonthlyTokenLimit() : 0);
+        data.put("monthlyLimit",   monthlyLimit);
+        data.put("monthlyRemaining", remaining(monthlyLimit, monthlyUsed));
+        data.put("userLevel", userLevel);
+        data.put("userLevelLabel", UserLevel.fromCode(userLevel).getLabel());
         data.put("maxConcurrentTasks", config != null ? config.getMaxConcurrentTasks() : 0);
         data.put("maxPlanSteps",   config != null ? config.getMaxPlanSteps() : 0);
         return Result.success(data);
+    }
+
+    private long remaining(long limit, long used) {
+        if (limit <= 0) {
+            return 0;
+        }
+        return Math.max(limit - used, 0);
     }
 }

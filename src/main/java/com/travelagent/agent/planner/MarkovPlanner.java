@@ -1,12 +1,14 @@
 package com.travelagent.agent.planner;
 
-import com.travelagent.advisor.AdvisorContextKeys;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.travelagent.advisor.AdvisorContextKeys;
 import com.travelagent.agent.context.CompletedStep;
+import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.tools.WeatherTool;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.client.dashscope.LlmCallResult;
+import com.travelagent.mapper.LlmCallLogMapper;
 import com.travelagent.model.dto.NearbyPoiRecommendationRequest;
 import com.travelagent.model.dto.NearbyPoiRecommendationResponse;
 import com.travelagent.model.dto.RoutePoint;
@@ -21,61 +23,27 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
-/**
- * Markov-chain-inspired planner that selects the next attraction at each step.
- *
- * <p>The "Markov" property: each attraction choice depends only on the current position
- * (coordinates of the last selected attraction) and the <em>visited set</em> — not the
- * full planning history. This is encoded in the system prompt and enforced by listing
- * already-visited attractions so the LLM does not repeat them.
- *
- * <p>Core responsibility: given a {@link TaskCheckpoint} at step N, determine the
- * attraction for step N+1 by calling the LLM and parsing its JSON response.
- *
- * <p>This class owns:
- * <ul>
- *   <li>System-prompt construction (visited-set injection, preference keywords, trip parameters)</li>
- *   <li>Per-step user-message construction (day/order within day, proximity constraint)</li>
- *   <li>LLM call via {@link DashscopeLlmClient} (streaming, with SSE token forwarding)</li>
- *   <li>History management delegation to {@link HistoryManager}</li>
- *   <li>LLM response parsing (JSON → attractionName with fallback)</li>
- * </ul>
- */
 @Component
 public class MarkovPlanner {
 
     private static final Logger log = LoggerFactory.getLogger(MarkovPlanner.class);
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     @Autowired private DashscopeLlmClient llmClient;
     @Autowired private HistoryManager historyManager;
     @Autowired private SseNotificationService sseNotificationService;
     @Autowired private JsonUtil jsonUtil;
+    @Autowired private LlmCallLogMapper llmCallLogMapper;
     @Autowired(required = false) private RagService ragService;
     @Autowired(required = false) private NearbyPoiRecommendationService nearbyPoiRecommendationService;
 
-    // -----------------------------------------------------------------------
-    // Public API
-    // -----------------------------------------------------------------------
-
-    /**
-     * Plans the next attraction for the current step index.
-     *
-     * <p>Side effects on {@code cp}:
-     * <ul>
-     *   <li>History may be compressed (if token threshold exceeded)</li>
-     *   <li>The user/assistant exchange for this step is appended to history</li>
-     * </ul>
-     *
-     * @param task    the task entity — used for audit log IDs in LLM client
-     * @param cp      current checkpoint (mutated: history updated)
-     * @param taskUuid task UUID for SSE routing
-     * @return the chosen attraction name (never null, falls back to raw LLM text)
-     */
     public PlanningResult planNextAttraction(Task task, TaskCheckpoint cp, String taskUuid) {
         int stepIndex = cp.getCurrentStepIndex();
         PlanningResult recommendationDriven = tryRecommendationDrivenSelection(cp);
@@ -87,7 +55,6 @@ public class MarkovPlanner {
         String userMessage = buildStepPrompt(cp);
         String llmIdempotencyKey = taskUuid + "-step" + stepIndex + "-llm";
 
-        // Compress + sliding-window trim before the call
         List<Map<String, Object>> trimmedHistory = historyManager.prepareForLlm(cp);
 
         List<String> ragChunks = List.of();
@@ -108,11 +75,11 @@ public class MarkovPlanner {
                 buildAdvisorContext(cp, ragChunks)
         );
 
-        // Append raw exchange to full history (before trimming — for future compression)
         historyManager.appendExchange(cp, userMessage, llmResult.content());
 
         String attractionName = parseLlmAttractionName(llmResult.content(), stepIndex);
-        return new PlanningResult(attractionName, llmResult.totalTokens());
+        int resolvedTokens = resolvePlanningTokens(task.getId(), llmIdempotencyKey, llmResult.totalTokens());
+        return new PlanningResult(attractionName, resolvedTokens);
     }
 
     private PlanningResult tryRecommendationDrivenSelection(TaskCheckpoint cp) {
@@ -130,34 +97,9 @@ public class MarkovPlanner {
         return new PlanningResult(response.getRecommendations().get(0).getName(), 0);
     }
 
-    // -----------------------------------------------------------------------
-    // Final summary generation
-    // -----------------------------------------------------------------------
-
-    /**
-     * Calls the LLM once after all steps complete to generate a structured plan summary.
-     *
-     * <p>Returns a {@link FinalSummaryResult} with:
-     * <ul>
-     *   <li>A short plan {@code title} (e.g. "西安 3 日历史文化游")</li>
-     *   <li>A {@code summary} paragraph describing the overall trip</li>
-     *   <li>Per-step {@code llmDescription} and {@code estimatedDurationMin}</li>
-     * </ul>
-     *
-     * <p>Uses non-streaming {@code call()} so no SSE tokens are emitted for this
-     * behind-the-scenes wrap-up call.
-     *
-     * <p>Never throws — on any LLM or parse error the method returns a safe default
-     * so {@code persistPlan()} can still complete successfully.
-     *
-     * @param task     task entity (for audit log IDs)
-     * @param cp       completed checkpoint
-     * @param taskUuid task UUID (used as idempotency key suffix)
-     * @return parsed summary; falls back to safe defaults on failure
-     */
     public FinalSummaryResult generateFinalSummary(Task task, TaskCheckpoint cp, String taskUuid) {
         String systemPrompt = buildFinalSummarySystemPrompt(cp);
-        String userMessage  = buildFinalSummaryUserMessage(cp);
+        String userMessage = buildFinalSummaryUserMessage(cp);
         String idempotencyKey = taskUuid + "-final-summary";
         try {
             String llmResponse = llmClient.call(
@@ -171,12 +113,11 @@ public class MarkovPlanner {
     }
 
     private String buildFinalSummarySystemPrompt(TaskCheckpoint cp) {
-        // Collect preference keywords from planning config
         String preferenceKeywords = "";
         if (cp.getPlanningConfig() != null
                 && cp.getPlanningConfig().getPreferenceKeywords() != null
                 && !cp.getPlanningConfig().getPreferenceKeywords().isEmpty()) {
-            preferenceKeywords = String.join("、", cp.getPlanningConfig().getPreferenceKeywords());
+            preferenceKeywords = String.join(", ", cp.getPlanningConfig().getPreferenceKeywords());
         }
         String travelMode = cp.getPlanningConfig() != null
                 ? cp.getPlanningConfig().getTravelMode() : "";
@@ -192,31 +133,35 @@ public class MarkovPlanner {
     private String buildFinalSummaryUserMessage(TaskCheckpoint cp) {
         StringBuilder sb = new StringBuilder(PromptTemplates.FINAL_SUMMARY_USER_PREFIX);
         for (CompletedStep s : cp.getCompletedSteps()) {
-            sb.append(String.format("  步骤%d（第%d天）：%s",
+            sb.append(String.format("  Step %d (day %d): %s",
                     s.getStepIndex(), s.getDayNumber(), s.getAttractionName()));
+            if (s.getPlannedStartTime() != null && s.getPlannedEndTime() != null) {
+                sb.append(String.format(" [%s-%s]",
+                        s.getPlannedStartTime().format(TIME_FORMATTER),
+                        s.getPlannedEndTime().format(TIME_FORMATTER)));
+            }
             if (s.getToolCallResults() != null) {
                 Map<?, ?> weather = (Map<?, ?>) s.getToolCallResults().get(WeatherTool.NAME);
                 if (weather != null) {
-                    sb.append(String.format("，天气：%s %s°C",
+                    sb.append(String.format(", weather: %s %sC",
                             weather.get("weather"), weather.get("temperature")));
                 }
             }
             sb.append("\n");
         }
-        // Also include trip parameters so LLM can tailor descriptions
+        if (cp.getSelectedDestination() != null && cp.getSelectedDestination().getName() != null) {
+            sb.append("\nTrip ends near: ").append(cp.getSelectedDestination().getName());
+        }
         if (cp.getPlanningConfig() != null) {
-            sb.append("\n出行方式：").append(nullToEmpty(cp.getPlanningConfig().getTravelMode()));
-            if (cp.getPlanningConfig().getPreferenceKeywords() != null
-                    && !cp.getPlanningConfig().getPreferenceKeywords().isEmpty()) {
-                sb.append("\n用户偏好：")
-                  .append(String.join("、", cp.getPlanningConfig().getPreferenceKeywords()));
-            }
+            sb.append("\nTravel mode: ").append(nullToEmpty(cp.getPlanningConfig().getTravelMode()));
         }
         sb.append(PromptTemplates.FINAL_SUMMARY_USER_SUFFIX);
         return sb.toString();
     }
 
-    private String nullToEmpty(String s) { return s == null ? "" : s; }
+    private String nullToEmpty(String s) {
+        return s == null ? "" : s;
+    }
 
     NearbyPoiRecommendationRequest buildRecommendationRequest(TaskCheckpoint cp) {
         if (cp == null || cp.getPlanningConfig() == null) {
@@ -227,6 +172,7 @@ public class MarkovPlanner {
         request.setTravelMode(cp.getPlanningConfig().getTravelMode());
         request.setPreferredTags(cp.getPlanningConfig().getPreferenceKeywords());
         request.setTopK(5);
+        request.setCurrentTime(resolveCurrentTime(cp));
         request.setQueryType(cp.getCompletedSteps() == null || cp.getCompletedSteps().isEmpty()
                 ? "nearby" : "itinerary_fill");
 
@@ -250,10 +196,6 @@ public class MarkovPlanner {
         return request;
     }
 
-    /**
-     * Parses the LLM's JSON response for the final summary.
-     * Strips markdown fences, extracts fields, applies per-field defaults on missing/invalid data.
-     */
     @SuppressWarnings("unchecked")
     FinalSummaryResult parseFinalSummary(String llmResponse, TaskCheckpoint cp) {
         if (llmResponse == null || llmResponse.isBlank()) {
@@ -263,8 +205,8 @@ public class MarkovPlanner {
             String cleaned = LlmResponseSanitizer.sanitize(llmResponse);
             Map<String, Object> parsed = jsonUtil.fromJson(cleaned, new TypeReference<>() {});
 
-            String title   = stringOrDefault(parsed.get("title"),
-                    cp.getRegion() + " " + cp.getPlanningConfig().getTotalDays() + "日游");
+            String title = stringOrDefault(parsed.get("title"),
+                    cp.getRegion() + " " + cp.getPlanningConfig().getTotalDays() + " Day Trip");
             String summary = stringOrDefault(parsed.get("summary"), cp.getUserIntent());
 
             List<FinalSummaryResult.StepSummary> stepSummaries = new ArrayList<>();
@@ -273,10 +215,11 @@ public class MarkovPlanner {
                 for (Object item : rawList) {
                     if (item instanceof Map<?, ?> stepMap) {
                         int stepOrder = toInt(stepMap.get("stepOrder"), stepSummaries.size());
-                        int duration  = toInt(stepMap.get("estimatedDurationMin"), 90);
-                        // Sanity clamp: 45-360 min (widened lower bound, tightened upper bound per P2-2-3)
-                        if (duration < 45 || duration > 360) duration = 90;
-                        String desc   = stringOrDefault(stepMap.get("llmDescription"), "");
+                        int duration = toInt(stepMap.get("estimatedDurationMin"), 90);
+                        if (duration < 45 || duration > 360) {
+                            duration = 90;
+                        }
+                        String desc = stringOrDefault(stepMap.get("llmDescription"), "");
                         stepSummaries.add(new FinalSummaryResult.StepSummary(stepOrder, duration, desc));
                     }
                 }
@@ -288,114 +231,157 @@ public class MarkovPlanner {
         }
     }
 
-    /** Safe default when LLM call or parse fails — mirrors the old hardcoded behaviour. */
     private FinalSummaryResult buildDefaultSummary(TaskCheckpoint cp) {
         String title = cp.getRegion() + " "
                 + cp.getPlanningConfig().getTotalDays() + "-Day Trip";
         List<FinalSummaryResult.StepSummary> steps = new ArrayList<>();
         for (CompletedStep s : cp.getCompletedSteps()) {
-            steps.add(new FinalSummaryResult.StepSummary(s.getStepIndex(), 90, null));
+            steps.add(new FinalSummaryResult.StepSummary(
+                    s.getStepIndex(),
+                    s.getEstimatedVisitDurationMin() == null ? 90 : s.getEstimatedVisitDurationMin(),
+                    null
+            ));
         }
         return new FinalSummaryResult(title, cp.getUserIntent(), steps);
     }
 
     private String stringOrDefault(Object value, String defaultVal) {
-        if (value == null) return defaultVal;
+        if (value == null) {
+            return defaultVal;
+        }
         String s = value.toString().trim();
         return s.isBlank() ? defaultVal : s;
     }
 
     private int toInt(Object value, int defaultVal) {
-        if (value == null) return defaultVal;
-        try { return ((Number) value).intValue(); }
-        catch (Exception e) { return defaultVal; }
+        if (value == null) {
+            return defaultVal;
+        }
+        try {
+            return ((Number) value).intValue();
+        } catch (Exception e) {
+            return defaultVal;
+        }
     }
 
-    // -----------------------------------------------------------------------
-    // Prompt builders (package-visible for testing)
-    // -----------------------------------------------------------------------
-
-    /**
-     * Builds the system prompt injected at the start of every LLM request.
-     *
-     * <p>Injects:
-     * <ul>
-     *   <li>Region and trip parameters (days × attractions per day)</li>
-     *   <li>User preference keywords</li>
-     *   <li>Visited set (already-planned attractions — must not be repeated)</li>
-     *   <li>Distance constraint (30 km same-day radius)</li>
-     *   <li>Response schema (JSON only)</li>
-     * </ul>
-     */
     String buildSystemPrompt(TaskCheckpoint cp) {
         StringBuilder sb = new StringBuilder();
         sb.append("You are a professional travel planner. Help the user plan an itinerary for ")
                 .append(cp.getRegion()).append(".\n");
         sb.append("User intent: ").append(cp.getUserIntent()).append("\n");
+        sb.append("Trip window: ")
+                .append(cp.getTripStartTime() != null ? cp.getTripStartTime().format(DATE_TIME_FORMATTER) : "")
+                .append(" -> ")
+                .append(cp.getTripEndTime() != null ? cp.getTripEndTime().format(DATE_TIME_FORMATTER) : "")
+                .append("\n");
+        if (cp.getPlanningConfig() != null) {
+            sb.append("Travel mode: ").append(cp.getPlanningConfig().getTravelMode()).append("\n");
+            sb.append("Full-day default window: ")
+                    .append(cp.getPlanningConfig().resolveFullDayStartTime())
+                    .append("-")
+                    .append(cp.getPlanningConfig().resolveFullDayEndTime())
+                    .append("\n");
+            sb.append("Remaining planning budget: ")
+                    .append(cp.getRemainingTimeBudgetMin())
+                    .append(" minutes.\n");
+            sb.append("Reserve at least ")
+                    .append(cp.getPlanningConfig().getDestinationBufferMin())
+                    .append(" minutes buffer before trip end.\n");
+        }
+        if (cp.getSelectedDestination() != null && cp.getSelectedDestination().getName() != null) {
+            sb.append("Soft destination constraint: keep the final attraction near ")
+                    .append(cp.getSelectedDestination().getName())
+                    .append(" and account for travel time to reach it.\n");
+        }
         sb.append("Recommend the next attraction only.");
         return sb.toString();
     }
 
-    /**
-     * Builds the per-step user message asking for the next attraction.
-     *
-     * <p>Encodes:
-     * <ul>
-     *   <li>Which slot within the day (e.g. "attraction 2 for day 1")</li>
-     *   <li>Overall progress (step N of M)</li>
-     *   <li>Travel mode</li>
-     *   <li>Starting coordinates (previous attraction's position, if available)</li>
-     * </ul>
-     */
     String buildStepPrompt(TaskCheckpoint cp) {
         int stepIndex = cp.getCurrentStepIndex();
-        int attractionsPerDay = cp.getPlanningConfig().getAttractionsPerDay();
-        int dayNumber = (stepIndex / attractionsPerDay) + 1;
-        int orderInDay = (stepIndex % attractionsPerDay) + 1;
         int totalSteps = cp.totalPlannedSteps();
-        String region = cp.getRegion();
+        int dayNumber = resolveDayNumber(cp);
+        long orderInDay = cp.getCompletedSteps() == null ? 1L
+                : cp.getCompletedSteps().stream().filter(step -> step.getDayNumber() == dayNumber).count() + 1;
+        DailyTimeWindow dayWindow = cp.getDailyWindow(dayNumber);
         String travelMode = nullToEmpty(cp.getPlanningConfig().getTravelMode());
-
-        boolean isFirstOfDay = (orderInDay == 1);
-        boolean isFirstStep  = stepIndex == 0;
-
-        if (isFirstStep) {
-            if (cp.getSelectedOrigin() != null && cp.getSelectedOrigin().getName() != null) {
-                return String.format(
-                        "请为第%d天推荐第%d个（总第%d/%d个）景点。\n目的地：%s，出行方式：%s。\n当前起点：%s（纬度=%.6f，经度=%.6f）。\n请优先选择从该起点出发交通顺畅、适合作为第一站的核心景点。",
-                        dayNumber,
-                        orderInDay,
-                        stepIndex + 1,
-                        totalSteps,
-                        region,
-                        travelMode,
-                        cp.getSelectedOrigin().getName(),
-                        cp.getSelectedOrigin().getLatitude() == null ? 0D : cp.getSelectedOrigin().getLatitude(),
-                        cp.getSelectedOrigin().getLongitude() == null ? 0D : cp.getSelectedOrigin().getLongitude()
-                );
-            }
-            return String.format(PromptTemplates.STEP_DAY1_START,
-                    orderInDay, dayNumber, stepIndex + 1, totalSteps, region, travelMode);
+        StringBuilder sb = new StringBuilder();
+        sb.append("Recommend attraction ")
+                .append(orderInDay)
+                .append(" for day ")
+                .append(dayNumber)
+                .append(" (overall ")
+                .append(stepIndex + 1)
+                .append("/")
+                .append(totalSteps)
+                .append(").\n");
+        sb.append("Region: ").append(cp.getRegion())
+                .append(", travel mode: ").append(travelMode).append(".\n");
+        if (dayWindow != null) {
+            sb.append("Today's time window: ")
+                    .append(dayWindow.getStartTime().format(DATE_TIME_FORMATTER))
+                    .append(" -> ")
+                    .append(dayWindow.getEndTime().format(DATE_TIME_FORMATTER))
+                    .append(".\n");
         }
-
-        if (isFirstOfDay) {
-            // First attraction of a new day (but not the very first step)
-            String prevDayLastAttraction = "";
-            if (!cp.getCompletedSteps().isEmpty()) {
-                prevDayLastAttraction = cp.getCompletedSteps()
-                        .get(cp.getCompletedSteps().size() - 1).getAttractionName();
-            }
-            return String.format(PromptTemplates.STEP_DAY_START,
-                    orderInDay, dayNumber, stepIndex + 1, totalSteps,
-                    region, travelMode, prevDayLastAttraction);
+        sb.append("Remaining total planning budget: ")
+                .append(cp.getRemainingTimeBudgetMin())
+                .append(" minutes.\n");
+        if (cp.getSelectedOrigin() != null && cp.getCompletedSteps().isEmpty()) {
+            sb.append("Start from ")
+                    .append(cp.getSelectedOrigin().getName())
+                    .append(" (")
+                    .append(cp.getSelectedOrigin().getLatitude())
+                    .append(", ")
+                    .append(cp.getSelectedOrigin().getLongitude())
+                    .append(").\n");
+        } else if (cp.getCompletedSteps() != null && !cp.getCompletedSteps().isEmpty()) {
+            CompletedStep last = cp.getCompletedSteps().get(cp.getCompletedSteps().size() - 1);
+            sb.append("Current route position: ")
+                    .append(last.getAttractionName())
+                    .append(" (")
+                    .append(last.getLat())
+                    .append(", ")
+                    .append(last.getLng())
+                    .append(").\n");
         }
+        if (cp.getSelectedDestination() != null && cp.getSelectedDestination().getName() != null) {
+            sb.append("Trip should eventually end near ")
+                    .append(cp.getSelectedDestination().getName())
+                    .append(".");
+            if (cp.getProjectedReturnToDestinationMin() != null && cp.getProjectedReturnToDestinationMin() > 0) {
+                sb.append(" Current estimated transfer to destination: ")
+                        .append(cp.getProjectedReturnToDestinationMin())
+                        .append(" minutes.");
+            }
+            sb.append("\n");
+        }
+        sb.append("Prefer attractions that fit the remaining time instead of forcing only three scenes.");
+        return sb.toString();
+    }
 
-        // Within-day follow-on: 15 km radius for geographic clustering
-        var last = cp.getCompletedSteps().get(cp.getCompletedSteps().size() - 1);
-        return String.format(PromptTemplates.STEP_WITHIN_DAY,
-                orderInDay, dayNumber, stepIndex + 1, totalSteps,
-                region, travelMode,
-                last.getAttractionName(), last.getLat(), last.getLng());
+    private int resolveDayNumber(TaskCheckpoint cp) {
+        int remaining = cp.getUsedTimeBudgetMin() == null ? 0 : cp.getUsedTimeBudgetMin();
+        if (cp.getDailyTimeWindows() == null || cp.getDailyTimeWindows().isEmpty()) {
+            return 1;
+        }
+        for (DailyTimeWindow window : cp.getDailyTimeWindows()) {
+            int minutes = window.availableMinutes();
+            if (remaining < minutes) {
+                return window.getDayNumber();
+            }
+            remaining -= minutes;
+        }
+        return cp.getDailyTimeWindows().get(cp.getDailyTimeWindows().size() - 1).getDayNumber();
+    }
+
+    private String resolveCurrentTime(TaskCheckpoint cp) {
+        DailyTimeWindow window = cp.getDailyWindow(resolveDayNumber(cp));
+        if (window == null || window.getStartTime() == null) {
+            return null;
+        }
+        int offsetWithinTrip = cp.getUsedTimeBudgetMin() == null ? 0 : cp.getUsedTimeBudgetMin();
+        return window.getStartTime().plusMinutes(offsetWithinTrip).format(TIME_FORMATTER);
     }
 
     private Map<String, Object> buildAdvisorContext(TaskCheckpoint cp, List<String> ragChunks) {
@@ -406,6 +392,8 @@ public class MarkovPlanner {
         context.put(AdvisorContextKeys.COMPLETED_STEPS,
                 cp.getCompletedSteps() != null ? cp.getCompletedSteps() : List.<CompletedStep>of());
         context.put(AdvisorContextKeys.SAME_DAY_RADIUS_KM, 30);
+        context.put("remainingTimeBudgetMin", cp.getRemainingTimeBudgetMin());
+        context.put("destinationName", cp.getSelectedDestination() != null ? cp.getSelectedDestination().getName() : null);
         if (ragChunks != null && !ragChunks.isEmpty()) {
             context.put(AdvisorContextKeys.RAG_CHUNKS, ragChunks);
         }
@@ -416,16 +404,23 @@ public class MarkovPlanner {
         return context;
     }
 
-    /**
-     * Parses the LLM's JSON response to extract the attraction name.
-     *
-     * <p>Handles:
-     * <ul>
-     *   <li>Clean JSON: {@code {"attractionName":"…"}}</li>
-     *   <li>Markdown-fenced JSON (code blocks)</li>
-     *   <li>Fallback: uses the first 50 characters of the raw response</li>
-     * </ul>
-     */
+    private int resolvePlanningTokens(Long taskId, String idempotencyKey, int directTokens) {
+        if (directTokens > 0) {
+            return directTokens;
+        }
+        if (taskId == null || idempotencyKey == null || idempotencyKey.isBlank()) {
+            return 0;
+        }
+        try {
+            Integer fallbackTokens = llmCallLogMapper.findLatestSuccessfulTotalTokens(taskId, idempotencyKey);
+            return fallbackTokens != null && fallbackTokens > 0 ? fallbackTokens : 0;
+        } catch (Exception e) {
+            log.warn("[MarkovPlanner] Failed to resolve token usage from audit log for taskId={}, key={}: {}",
+                    taskId, idempotencyKey, e.getMessage());
+            return 0;
+        }
+    }
+
     String parseLlmAttractionName(String llmResponse, int stepIndex) {
         if (llmResponse == null || llmResponse.isBlank()) {
             log.warn("[MarkovPlanner] Received blank LLM response at step={}", stepIndex);
@@ -441,7 +436,6 @@ public class MarkovPlanner {
         } catch (Exception e) {
             log.warn("[MarkovPlanner] JSON parse failed at step={}: {}", stepIndex, e.getMessage());
         }
-        // Last-resort fallback
         return llmResponse.length() > 50 ? llmResponse.substring(0, 50).trim() : llmResponse.trim();
     }
 }
