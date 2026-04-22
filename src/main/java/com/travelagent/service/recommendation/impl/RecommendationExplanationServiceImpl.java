@@ -18,7 +18,7 @@ public class RecommendationExplanationServiceImpl implements RecommendationExpla
                                           RecommendedPoiItem item) {
         List<String> explanations = new ArrayList<>();
         if (item.getFeatures() != null && item.getFeatures().getDistanceKm() != null) {
-            explanations.add(String.format("距离当前点约 %.1fkm", item.getFeatures().getDistanceKm()));
+            explanations.add(String.format("距离当前位置约 %.1fkm", item.getFeatures().getDistanceKm()));
         }
         if (item.getFeatures() != null && item.getFeatures().getTravelTimeMin() != null) {
             explanations.add(String.format("%s 约 %d 分钟可达",
@@ -32,11 +32,18 @@ public class RecommendationExplanationServiceImpl implements RecommendationExpla
         if (item.getFeatures() != null && item.getFeatures().getRouteDeltaKm() != null) {
             explanations.add(String.format("加入当前路线的额外绕路约 %.1fkm", item.getFeatures().getRouteDeltaKm()));
         }
+        if (item.getFeatures() != null && item.getFeatures().getWeatherScore() != null) {
+            if (item.getFeatures().getWeatherScore() >= 0.7d) {
+                explanations.add("对当前天气更友好，舒适度更高");
+            } else if (item.getFeatures().getWeatherScore() <= 0.35d) {
+                explanations.add("受当前天气影响较大，建议谨慎选择");
+            }
+        }
         if (item.getFeatures() != null && Boolean.TRUE.equals(item.getFeatures().getCurrentlyOpen())) {
             explanations.add("当前时段可访问");
         }
         if (explanations.isEmpty()) {
-            explanations.add("综合距离、风格和路线连贯性后优先推荐");
+            explanations.add("综合距离、风格、路线连续性与天气约束后优先推荐");
         }
         return explanations;
     }

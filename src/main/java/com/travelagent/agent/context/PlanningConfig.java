@@ -33,16 +33,22 @@ public class PlanningConfig {
     private int destinationBufferMin = 30;
     private int minContinueBudgetMin = 90;
 
+    public PlanningConfig(int totalDays, List<String> preferenceKeywords, String travelMode) {
+        this.totalDays = totalDays;
+        this.preferenceKeywords = preferenceKeywords;
+        this.travelMode = travelMode;
+    }
+
     public PlanningConfig(int totalDays, int attractionsPerDay, List<String> preferenceKeywords, String travelMode) {
         this.totalDays = totalDays;
         this.attractionsPerDay = attractionsPerDay;
-        this.dynamicTargetSteps = Math.max(1, totalDays * attractionsPerDay);
+        this.dynamicTargetSteps = Math.max(1, totalDays * Math.max(1, attractionsPerDay));
         this.preferenceKeywords = preferenceKeywords;
         this.travelMode = travelMode;
     }
 
     public int totalSteps() {
-        return dynamicTargetSteps > 0 ? dynamicTargetSteps : totalDays * attractionsPerDay;
+        return Math.max(1, dynamicTargetSteps);
     }
 
     public LocalTime resolveFullDayStartTime() {

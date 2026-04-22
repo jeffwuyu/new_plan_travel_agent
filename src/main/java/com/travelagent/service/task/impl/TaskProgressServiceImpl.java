@@ -71,11 +71,15 @@ public class TaskProgressServiceImpl implements TaskProgressService {
             resp.setCurrentStepIndex(checkpoint.getCurrentStepIndex());
             resp.setTotalSteps(checkpoint.totalPlannedSteps());
             resp.setPendingInputType(checkpoint.getPendingInputType());
+            resp.setSelectionStage(checkpoint.getSelectionStage());
+            resp.setSelectedBranchType(checkpoint.getSelectedBranchType());
             resp.setAwaitingUserInput(checkpoint.getPendingInputType() != null && !checkpoint.getPendingInputType().isBlank());
             resp.setPauseReason(checkpoint.getPauseReason());
             resp.setLocationCandidates(checkpoint.getLocationCandidates());
+            resp.setSelectionOptions(checkpoint.getSelectionOptions());
             resp.setRecommendationCandidates(checkpoint.getRecommendationCandidates());
             resp.setCurrentContext(checkpoint.getCurrentContext() == null ? Map.of() : checkpoint.getCurrentContext());
+            resp.setWeatherContext(checkpoint.getWeatherContext() == null ? Map.of() : checkpoint.getWeatherContext());
             resp.setSelectedOrigin(checkpoint.getSelectedOrigin());
             resp.setSelectedDestination(checkpoint.getSelectedDestination());
         } else {

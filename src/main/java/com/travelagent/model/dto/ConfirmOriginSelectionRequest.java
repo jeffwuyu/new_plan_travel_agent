@@ -7,6 +7,8 @@ import lombok.Data;
 public class ConfirmOriginSelectionRequest {
 
     private String pendingInputType;
+    private String selectionStage;
+    private String selectedBranchType;
 
     @NotBlank(message = "selected candidate id is required")
     private String selectedCandidateId;

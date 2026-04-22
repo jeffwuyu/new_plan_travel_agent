@@ -7,6 +7,7 @@ import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.RetryState;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.planner.MarkovPlanner;
+import com.travelagent.agent.planner.PlanNextAttractionRequest;
 import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
@@ -144,7 +145,8 @@ class AgentServiceImplTest {
         when(taskMapper.findByUuid("uuid")).thenReturn(task);
         mockStandardTransitions(TaskStatus.PENDING);
         mockUserLevel(1L, 1);
-        when(markovPlanner.planNextAttraction(any(), any(), anyString()))
+        when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("manual"));
+        when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
                 .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
         when(amapClient.getTravelDuration(any(Double.class), any(Double.class), any(Double.class), any(Double.class), anyString()))
                 .thenReturn(Map.of("durationMin", 25));
@@ -176,7 +178,8 @@ class AgentServiceImplTest {
         when(taskMapper.findByUuid("uuid")).thenReturn(task);
         mockStandardTransitions(TaskStatus.RESUMING);
         mockUserLevel(1L, 1);
-        when(markovPlanner.planNextAttraction(any(), any(), anyString()))
+        when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("manual"));
+        when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
                 .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
         when(amapClient.getTravelDuration(any(Double.class), any(Double.class), any(Double.class), any(Double.class), anyString()))
                 .thenReturn(Map.of("durationMin", 20));
@@ -203,7 +206,8 @@ class AgentServiceImplTest {
         mockStandardTransitions(TaskStatus.PENDING);
         mockStandardTransitions(TaskStatus.RESUMING);
         mockUserLevel(1L, 1);
-        when(markovPlanner.planNextAttraction(any(), any(), anyString()))
+        when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("manual"));
+        when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
                 .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
         when(planMapper.insertPlan(any())).thenAnswer(invocation -> {
             Plan plan = invocation.getArgument(0);
@@ -251,8 +255,16 @@ class AgentServiceImplTest {
         when(stateMachine.transition(TaskStatus.PENDING, AgentEvent.START_PLANNING)).thenReturn(TaskStatus.PLANNING);
         when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.USER_INPUT_REQUIRED)).thenReturn(TaskStatus.AWAITING_USER_INPUT);
         mockUserLevel(1L, 1);
-        when(markovPlanner.planNextAttraction(any(), any(), anyString()))
-                .thenReturn(PlanningResult.forCandidates(List.of(candidate)));
+        when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("nearby_poi"));
+        when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
+                .thenReturn(PlanningResult.forCandidates(
+                        List.of(candidate),
+                        0,
+                        "poi_candidate_selection",
+                        "poi_candidate_selection",
+                        "nearby_poi",
+                        Map.of(),
+                        Map.of()));
 
         agentService.executeTask("uuid");
 
@@ -335,6 +347,19 @@ class AgentServiceImplTest {
             checkpoint.setLocationCandidates(List.of(candidate));
         }
         return checkpoint;
+    }
+
+    private PlanNextAttractionRequest buildPlanningRequest(String selectedBranchType) {
+        PlanNextAttractionRequest request = new PlanNextAttractionRequest();
+        request.setRegion("Xi'an");
+        request.setCurrentPositionName("Bell Tower");
+        request.setCurrentLat(34.26);
+        request.setCurrentLng(108.95);
+        request.setCurrentAdcode("610100");
+        request.setTravelMode("driving");
+        request.setRemainingTimeBudgetMin(360);
+        request.setSelectedBranchType(selectedBranchType);
+        return request;
     }
 
     private void mockUserLevel(Long userId, int level) {

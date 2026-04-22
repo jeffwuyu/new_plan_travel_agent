@@ -18,17 +18,15 @@
             <div class="summary-sub">时间范围：{{ formatTime(task.tripStartTime) }} - {{ formatTime(task.tripEndTime) }}</div>
           </div>
           <div class="summary-right">
-            <el-progress :percentage="progressPercent" :status="progressBarStatus" />
-            <div class="summary-count">{{ task.currentStepIndex ?? 0 }} / {{ task.totalSteps ?? 0 }}</div>
             <div class="summary-budget">剩余时间预算：{{ task.remainingTimeBudgetMin ?? 0 }} 分钟</div>
           </div>
         </section>
 
         <section class="window-panel">
           <el-card shadow="never">
-            <template #header>时间窗配置</template>
+            <template #header>时间窗口</template>
             <div class="window-item">
-              <span>完整天默认时间</span>
+              <span>全天默认窗口</span>
               <strong>{{ formatFullDayWindow(task) }}</strong>
             </div>
             <div class="window-item">
@@ -36,7 +34,7 @@
               <strong>至少 30 分钟</strong>
             </div>
             <div class="window-item">
-              <span>当前预计回到终点耗时</span>
+              <span>当前预估回终点耗时</span>
               <strong>{{ task.projectedReturnToDestinationMin ?? 0 }} 分钟</strong>
             </div>
             <div v-if="task.dailyTimeWindows?.length" class="window-list">
@@ -58,7 +56,7 @@
                 <p>终点：{{ task.endLocationQuery }}</p>
                 <p>开始时间：{{ formatTime(task.tripStartTime) }}</p>
                 <p>结束时间：{{ formatTime(task.tripEndTime) }}</p>
-                <p>意图：{{ task.userIntent }}</p>
+                <p>用户意图：{{ task.userIntent }}</p>
               </div>
             </article>
 
@@ -76,15 +74,29 @@
                 <div v-if="item.eventType === 'USER_SELECTION_REQUIRED'" class="candidate-list">
                   <el-alert
                     :title="selectionAlertTitle(item)"
-                    :type="item.pendingInputType === 'attraction_selection' ? 'info' : 'warning'"
+                    :type="item.pendingInputType === 'origin_selection' ? 'warning' : 'info'"
                     :closable="false"
                     show-icon
                   />
 
-                  <div v-if="item.pendingInputType === 'attraction_selection' && item.currentContext" class="context-panel">
+                  <div v-if="item.weatherContext && Object.keys(item.weatherContext).length" class="weather-panel">
+                    <div class="candidate-section-title">天气感知</div>
+                    <div class="weather-summary">{{ item.weatherContext.summary || '暂无天气摘要' }}</div>
+                    <div v-if="item.weatherContext.constraintHints?.length" class="candidate-tags">
+                      <span
+                        v-for="(hint, hintIndex) in item.weatherContext.constraintHints"
+                        :key="`${item.createdAt}-weather-${hintIndex}`"
+                        class="candidate-tag"
+                      >
+                        {{ hint }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div v-if="item.currentContext && Object.keys(item.currentContext).length" class="context-panel">
                     <div class="context-grid">
                       <div class="context-item">
-                        <span>当前所在</span>
+                        <span>当前位置</span>
                         <strong>{{ item.currentContext.currentPositionName || '-' }}</strong>
                       </div>
                       <div class="context-item">
@@ -102,54 +114,74 @@
                     </div>
                   </div>
 
-                  <button
-                    v-for="candidate in item.recommendationCandidates"
-                    :key="candidate.candidateId"
-                    class="candidate-card"
-                    :disabled="submittingCandidateId === candidate.candidateId"
-                    @click="handleSelectCandidate(item.pendingInputType, candidate)"
-                  >
-                    <div class="candidate-card-header">
-                      <div>
-                        <div class="candidate-name">{{ candidate.name }}</div>
-                        <div class="candidate-meta">
-                          {{ candidate.region || task.region }}{{ candidate.district ? ` / ${candidate.district}` : '' }}
+                  <div v-if="item.pendingInputType === 'selection_branch'" class="candidate-stack">
+                    <button
+                      v-for="option in item.selectionOptions"
+                      :key="option.optionId"
+                      class="candidate-card branch-card"
+                      :disabled="submittingCandidateId === option.optionId"
+                      @click="handleSelectOption(item.pendingInputType, option)"
+                    >
+                      <div class="candidate-card-header">
+                        <div class="candidate-name">{{ option.label }}</div>
+                      </div>
+                      <div class="candidate-meta">{{ option.description }}</div>
+                    </button>
+                  </div>
+
+                  <div v-else-if="item.recommendationCandidates?.length" class="candidate-stack">
+                    <button
+                      v-for="candidate in item.recommendationCandidates"
+                      :key="candidate.candidateId"
+                      class="candidate-card"
+                      :disabled="submittingCandidateId === candidate.candidateId"
+                      @click="handleSelectOption(item.pendingInputType, candidate)"
+                    >
+                      <div class="candidate-card-header">
+                        <div>
+                          <div class="candidate-name">{{ candidate.name }}</div>
+                          <div class="candidate-meta">
+                            {{ candidate.region || task.region }}{{ candidate.district ? ` / ${candidate.district}` : '' }}
+                          </div>
+                        </div>
+                        <div v-if="candidate.score != null" class="candidate-score">
+                          匹配度 {{ formatScore(candidate.score) }}
                         </div>
                       </div>
-                      <div v-if="candidate.score != null" class="candidate-score">
-                        匹配度 {{ formatScore(candidate.score) }}
+
+                      <div class="candidate-meta">{{ candidate.category || candidate.candidateType || '候选项' }}</div>
+                      <div v-if="candidate.address" class="candidate-meta">{{ candidate.address }}</div>
+                      <div v-if="candidate.routeSummary" class="candidate-route">推荐路线：{{ candidate.routeSummary }}</div>
+                      <div v-if="candidate.routeStops?.length" class="candidate-route">路线顺序：{{ candidate.routeStops.join(' -> ') }}</div>
+                      <div v-if="candidate.visitDurationMin != null" class="candidate-duration">预计游玩时长：约 {{ candidate.visitDurationMin }} 分钟</div>
+                      <div v-if="candidate.estimatedTotalDurationMin != null" class="candidate-duration">预计总耗时：约 {{ candidate.estimatedTotalDurationMin }} 分钟</div>
+                      <div v-if="candidate.weatherSuitability" class="candidate-route">天气适配：{{ candidate.weatherSuitability }}</div>
+
+                      <div v-if="candidate.highlights?.length" class="candidate-section">
+                        <div class="candidate-section-title">推荐亮点</div>
+                        <div class="candidate-tags">
+                          <span
+                            v-for="(highlight, highlightIndex) in candidate.highlights"
+                            :key="`${candidate.candidateId}-h-${highlightIndex}`"
+                            class="candidate-tag"
+                          >
+                            {{ highlight }}
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div class="candidate-meta">{{ candidate.category || '景点候选' }}</div>
-                    <div v-if="candidate.address" class="candidate-meta">{{ candidate.address }}</div>
-
-                    <div v-if="candidate.routeSummary" class="candidate-route">
-                      推荐路线：{{ candidate.routeSummary }}
-                    </div>
-
-                    <div v-if="candidate.visitDurationMin != null" class="candidate-duration">
-                      预计游玩时长：约 {{ candidate.visitDurationMin }} 分钟
-                    </div>
-
-                    <div v-if="candidate.highlights?.length" class="candidate-section">
-                      <div class="candidate-section-title">推荐玩点</div>
-                      <div class="candidate-tags">
-                        <span v-for="(highlight, highlightIndex) in candidate.highlights" :key="`${candidate.candidateId}-h-${highlightIndex}`" class="candidate-tag">
-                          {{ highlight }}
-                        </span>
+                      <div v-if="candidate.explanations?.length" class="candidate-section">
+                        <div class="candidate-section-title">推荐理由</div>
+                        <ul class="candidate-reasons">
+                          <li v-for="(reason, reasonIndex) in candidate.explanations" :key="`${candidate.candidateId}-r-${reasonIndex}`">
+                            {{ reason }}
+                          </li>
+                        </ul>
                       </div>
-                    </div>
+                    </button>
+                  </div>
 
-                    <div v-if="candidate.explanations?.length" class="candidate-section">
-                      <div class="candidate-section-title">推荐理由</div>
-                      <ul class="candidate-reasons">
-                        <li v-for="(reason, reasonIndex) in candidate.explanations" :key="`${candidate.candidateId}-r-${reasonIndex}`">
-                          {{ reason }}
-                        </li>
-                      </ul>
-                    </div>
-                  </button>
+                  <el-empty v-else description="暂无可用候选，请稍后重试或切换另一种方式。" />
                 </div>
 
                 <div v-if="item.eventType === 'USER_SELECTION_CONFIRMED'" class="origin-confirmed">
@@ -249,7 +281,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { cancelTask, confirmOriginSelection, getProgress, getTask, resumeTask } from '@/api/tasks'
+import { cancelTask, confirmTaskSelection, getProgress, getTask, resumeTask } from '@/api/tasks'
 import { getPlanByTask } from '@/api/plans'
 import { useAuthStore } from '@/stores/auth'
 import { useTaskStream } from '@/composables/useTaskStream'
@@ -293,25 +325,13 @@ const mergedEvents = computed(() => {
 })
 
 const displayMessages = computed(() => mergedEvents.value.map(toMessage))
+
 const awaitingInputTitle = computed(() => {
   const pendingType = task.value?.pendingInputType
-  if (pendingType === 'attraction_selection') {
-    return '系统正在等待你确认下一站景点候选。'
-  }
+  if (pendingType === 'selection_branch') return '系统正在等待你选择“附近 POI 推荐”或“路线规划”。'
+  if (pendingType === 'route_candidate_selection') return '系统正在等待你确认一条路线候选。'
+  if (pendingType === 'poi_candidate_selection' || pendingType === 'attraction_selection') return '系统正在等待你确认下一站景点候选。'
   return '系统正在等待你确认起点位置。'
-})
-
-const progressPercent = computed(() => {
-  const total = task.value?.totalSteps || 0
-  const current = task.value?.currentStepIndex || 0
-  if (!total) return 0
-  return Math.min(100, Math.round((current / total) * 100))
-})
-
-const progressBarStatus = computed(() => {
-  if (displayStatus.value === 'completed') return 'success'
-  if (displayStatus.value === 'failed') return 'exception'
-  return ''
 })
 
 const pausedAlertTitle = computed(() => {
@@ -412,22 +432,22 @@ async function handleResume() {
   }
 }
 
-async function handleSelectCandidate(pendingInputType, candidate) {
-  submittingCandidateId.value = candidate.candidateId
+async function handleSelectOption(pendingInputType, option) {
+  const optionId = option.candidateId || option.optionId
+  const optionName = option.name || option.label
+  submittingCandidateId.value = optionId
   try {
-    const res = await confirmOriginSelection(uuid, {
+    const res = await confirmTaskSelection(uuid, {
       pendingInputType,
-      selectedCandidateId: candidate.candidateId,
-      selectedCandidateName: candidate.name,
-      selectedLat: candidate.latitude,
-      selectedLng: candidate.longitude
+      selectionStage: task.value?.selectionStage || '',
+      selectedBranchType: option.branchType || '',
+      selectedCandidateId: optionId,
+      selectedCandidateName: optionName,
+      selectedLat: option.latitude,
+      selectedLng: option.longitude
     })
     task.value = res.data
-    ElMessage.success(
-      pendingInputType === 'attraction_selection'
-        ? `已选择 ${candidate.name} 作为下一站景点`
-        : `已选择 ${candidate.name} 作为起点`
-    )
+    ElMessage.success(selectionSuccessText(pendingInputType, optionName))
     connect()
     await fetchAll()
   } catch (err) {
@@ -435,6 +455,15 @@ async function handleSelectCandidate(pendingInputType, candidate) {
   } finally {
     submittingCandidateId.value = ''
   }
+}
+
+function selectionSuccessText(pendingInputType, optionName) {
+  if (pendingInputType === 'selection_branch') return `已选择 ${optionName}`
+  if (pendingInputType === 'route_candidate_selection') return `已选择路线：${optionName}`
+  if (pendingInputType === 'poi_candidate_selection' || pendingInputType === 'attraction_selection') {
+    return `已选择 ${optionName} 作为下一站景点`
+  }
+  return `已选择 ${optionName} 作为起点`
 }
 
 async function fetchPlanId() {
@@ -448,21 +477,18 @@ async function fetchPlanId() {
 
 function normalizeEvent(ev) {
   const details = safeParse(ev.detailsJson)
-  const pendingInputType = ev.pendingInputType || details.pendingInputType || ''
-  const recommendationCandidates = ev.recommendationCandidates
-    || details.recommendationCandidates
-    || details.locationCandidates
-    || ev.locationCandidates
-    || []
-
   return {
     ...ev,
     ...details,
     createdAt: ev.createdAt || new Date().toISOString(),
-    pendingInputType,
-    recommendationCandidates,
+    pendingInputType: ev.pendingInputType || details.pendingInputType || '',
+    selectionStage: ev.selectionStage || details.selectionStage || '',
+    selectedBranchType: ev.selectedBranchType || details.selectedBranchType || '',
+    selectionOptions: ev.selectionOptions || details.selectionOptions || [],
+    recommendationCandidates: ev.recommendationCandidates || details.recommendationCandidates || details.locationCandidates || ev.locationCandidates || [],
     locationCandidates: ev.locationCandidates || details.locationCandidates || [],
     currentContext: ev.currentContext || details.currentContext || {},
+    weatherContext: ev.weatherContext || details.weatherContext || {},
     selectedOrigin: ev.selectedOrigin || details.selectedOrigin || null,
     selectedCandidate: ev.selectedCandidate || details.selectedCandidate || null,
     text: ev.message || details.message || '',
@@ -476,17 +502,15 @@ function toMessage(ev) {
     STEP_DONE: {
       title: `步骤 ${Number(ev.stepIndex ?? 0) + 1} 已完成`,
       text: ev.attractionName
-        ? `已确定景点：${ev.attractionName}${ev.plannedStartTime ? `，预计 ${formatTime(ev.plannedStartTime)} 开始` : ''}`
+        ? `已确认景点：${ev.attractionName}${ev.plannedStartTime ? `，预计 ${formatTime(ev.plannedStartTime)} 开始` : ''}`
         : ev.text
     },
     TOOL_RESULT: { title: '工具结果', text: ev.text || '已补充地理位置、天气或路程信息。' },
     RETRY: { title: '自动重试', text: ev.message || ev.text || '地图服务调用过于频繁，系统正在自动重试。' },
     PAUSED: { title: '任务暂停', text: pausedText(ev) },
     USER_SELECTION_REQUIRED: {
-      title: ev.pendingInputType === 'attraction_selection' ? '请选择下一站景点' : '请选择起点位置',
-      text: ev.pendingInputType === 'attraction_selection'
-        ? '系统已为当前步骤生成 top-k 景点候选，请确认后继续规划。'
-        : `关键词“${ev.startLocationQuery || task.value?.startLocationQuery || ''}”已生成候选地点。`
+      title: selectionRequiredTitle(ev),
+      text: selectionRequiredText(ev)
     },
     USER_SELECTION_CONFIRMED: {
       title: '选择已确认',
@@ -504,17 +528,45 @@ function toMessage(ev) {
   }
 }
 
+function selectionRequiredTitle(ev) {
+  if (ev.pendingInputType === 'selection_branch') return '请选择地点选择方式'
+  if (ev.pendingInputType === 'route_candidate_selection') return '请选择路线候选'
+  if (ev.pendingInputType === 'poi_candidate_selection' || ev.pendingInputType === 'attraction_selection') return '请选择下一站景点'
+  return '请选择起点位置'
+}
+
+function selectionRequiredText(ev) {
+  if (ev.pendingInputType === 'selection_branch') {
+    return '系统已结合当前天气生成约束，请先选择“附近 POI 推荐”或“路线规划”。'
+  }
+  if (ev.pendingInputType === 'route_candidate_selection') {
+    return '系统已生成多条路线候选，请确认一条后继续。'
+  }
+  if (ev.pendingInputType === 'poi_candidate_selection' || ev.pendingInputType === 'attraction_selection') {
+    return '系统已为当前步骤生成候选景点，请确认后继续规划。'
+  }
+  return `关键字“${ev.startLocationQuery || task.value?.startLocationQuery || ''}”已生成候选地点。`
+}
+
 function selectionAlertTitle(item) {
-  if (item.pendingInputType === 'attraction_selection') {
+  if (item.pendingInputType === 'selection_branch') {
+    return '请先选择本轮地点选择方式，系统会根据你的选择继续生成候选。'
+  }
+  if (item.pendingInputType === 'route_candidate_selection') {
+    return '请选择一条路线候选，确认后系统会按该路线的下一目标继续执行。'
+  }
+  if (item.pendingInputType === 'poi_candidate_selection' || item.pendingInputType === 'attraction_selection') {
     return '请选择下一站景点，确认后系统会继续规划后续路线。'
   }
   return '请选择起点候选，确认后系统会继续按时间预算规划路线。'
 }
 
 function selectionConfirmedText(item) {
-  const selectedName = item.selectedCandidate?.name || item.selectedOrigin?.name
+  const selectedName = item.selectedCandidate?.name || item.selectedOrigin?.name || item.selectedBranchType
   if (!selectedName) return '已确认候选，系统继续规划中。'
-  if (item.pendingInputType === 'attraction_selection') {
+  if (item.pendingInputType === 'selection_branch') return `已选择 ${selectedName}，系统正在继续生成候选。`
+  if (item.pendingInputType === 'route_candidate_selection') return `已选择路线 ${selectedName}，系统正在继续规划中。`
+  if (item.pendingInputType === 'poi_candidate_selection' || item.pendingInputType === 'attraction_selection') {
     return `已选择 ${selectedName} 作为下一站景点，系统继续规划中。`
   }
   return `已选择 ${selectedName} 作为起点，系统继续规划中。`
@@ -632,7 +684,6 @@ function formatScore(value) {
   min-width: 280px;
 }
 
-.summary-count,
 .summary-budget {
   margin-top: 10px;
   text-align: right;
@@ -694,55 +745,51 @@ function formatScore(value) {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 13px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
   font-weight: 700;
-  background: #0d3b66;
-  color: #fff;
-}
-
-.message-user .avatar {
-  background: #f4a261;
+  flex-shrink: 0;
 }
 
 .bubble {
-  max-width: 78%;
+  flex: 1;
   padding: 16px 18px;
   border-radius: 18px;
-  background: #f4f8fb;
-  color: #243b53;
-  box-shadow: inset 0 0 0 1px #e1ebf3;
-}
-
-.message-user .bubble {
-  background: #fff2df;
-  box-shadow: inset 0 0 0 1px #ffd8a8;
+  background: #fff;
+  border: 1px solid #dce7f1;
+  box-shadow: 0 10px 28px rgba(31, 58, 95, 0.06);
 }
 
 .bubble-title {
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 700;
-}
-
-.bubble p {
-  margin: 0;
-  line-height: 1.65;
-  white-space: pre-wrap;
-}
-
-.streaming {
-  background: #eef8ff;
+  color: #274c77;
 }
 
 .candidate-list {
-  margin-top: 12px;
+  margin-top: 14px;
+  display: grid;
+  gap: 14px;
 }
 
+.candidate-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.weather-panel,
 .context-panel {
-  margin-top: 12px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: #eef8ff;
+  background: #f5f9fc;
+  border: 1px solid #dce7f1;
+}
+
+.weather-summary {
+  margin-top: 6px;
+  color: #355070;
 }
 
 .context-grid {
@@ -752,71 +799,73 @@ function formatScore(value) {
 }
 
 .context-item {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 4px;
   font-size: 13px;
-  color: #355070;
+  color: #526277;
 }
 
 .candidate-card {
   width: 100%;
-  margin-top: 12px;
   padding: 16px;
-  border: 1px solid #d5e2ee;
+  border: 1px solid #dce7f1;
   border-radius: 16px;
   background: #fff;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .candidate-card:hover {
   transform: translateY(-1px);
-  border-color: #1f6aa5;
-  box-shadow: 0 12px 24px rgba(13, 59, 102, 0.08);
+  border-color: #8ecae6;
+  box-shadow: 0 12px 28px rgba(31, 58, 95, 0.08);
 }
 
 .candidate-card:disabled {
-  cursor: wait;
-  opacity: 0.75;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.branch-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f4fbff 100%);
 }
 
 .candidate-card-header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
 }
 
 .candidate-name {
   font-size: 16px;
   font-weight: 700;
-}
-
-.candidate-score {
-  white-space: nowrap;
-  font-size: 13px;
-  color: #1f6aa5;
-  font-weight: 600;
+  color: #1f2937;
 }
 
 .candidate-meta,
 .candidate-route,
 .candidate-duration {
-  margin-top: 6px;
+  margin-top: 8px;
+  color: #526277;
   font-size: 13px;
-  color: #52667a;
+}
+
+.candidate-score {
+  white-space: nowrap;
+  color: #0f766e;
+  font-weight: 700;
 }
 
 .candidate-section {
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .candidate-section-title {
+  margin-bottom: 8px;
+  color: #274c77;
   font-size: 13px;
   font-weight: 700;
-  color: #243b53;
-  margin-bottom: 6px;
 }
 
 .candidate-tags {
@@ -828,50 +877,48 @@ function formatScore(value) {
 .candidate-tag {
   padding: 4px 8px;
   border-radius: 999px;
-  background: #eef8ff;
-  color: #355070;
+  background: #e8f4ff;
+  color: #24537a;
   font-size: 12px;
 }
 
 .candidate-reasons {
   margin: 0;
   padding-left: 18px;
-  color: #355070;
-}
-
-.candidate-reasons li + li {
-  margin-top: 4px;
+  color: #46566b;
 }
 
 .origin-confirmed {
-  margin-top: 8px;
+  margin-top: 10px;
+  color: #0f766e;
   font-weight: 600;
-  color: #0d3b66;
+}
+
+.streaming {
+  border-style: dashed;
 }
 
 .sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
 }
 
 .sidebar-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 14px;
-  color: #486581;
-  gap: 12px;
+  gap: 16px;
+  margin-bottom: 12px;
 }
 
 .sidebar-actions {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 10px;
+  margin-top: 16px;
 }
 
 .sidebar-alert {
-  border-radius: 16px;
+  margin-top: 4px;
 }
 
 @media (max-width: 960px) {
@@ -883,14 +930,16 @@ function formatScore(value) {
     flex-direction: column;
   }
 
-  .bubble {
-    max-width: 100%;
+  .summary-right {
+    min-width: 0;
   }
 
-  .context-grid,
-  .candidate-card-header {
+  .summary-budget {
+    text-align: left;
+  }
+
+  .context-grid {
     grid-template-columns: 1fr;
-    display: grid;
   }
 }
 </style>

@@ -11,7 +11,10 @@ import java.util.List;
 public class LocationCandidateItem {
 
     private String candidateId;
+    private String candidateType;
+    private String branchType;
     private String name;
+    private String targetAttractionName;
     private String region;
     private String district;
     private String category;
@@ -23,6 +26,9 @@ public class LocationCandidateItem {
     private Double score;
     private String routeSummary;
     private Integer visitDurationMin;
+    private Integer estimatedTotalDurationMin;
+    private String weatherSuitability;
     private List<String> explanations = new ArrayList<>();
     private List<String> highlights = new ArrayList<>();
+    private List<String> routeStops = new ArrayList<>();
 }

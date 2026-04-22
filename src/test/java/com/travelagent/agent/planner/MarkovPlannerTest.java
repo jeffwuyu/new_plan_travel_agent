@@ -112,6 +112,7 @@ class MarkovPlannerTest {
     void planNextAttraction_prefersRecommendationEngine() {
         TaskCheckpoint cp = buildCheckpoint(1, 1, "Hangzhou", List.of(step("West Lake", 30.25, 120.14)), List.of("lake"));
         cp.setCurrentStepIndex(1);
+        cp.setSelectedBranchType("nearby_poi");
 
         NearbyPoiRecommendationResponse response = new NearbyPoiRecommendationResponse();
         RecommendedPoiItem item = new RecommendedPoiItem();
@@ -138,7 +139,6 @@ class MarkovPlannerTest {
         task.setId(1L);
         task.setUserId(10L);
 
-        when(nearbyPoiRecommendationService.recommend(any())).thenReturn(new NearbyPoiRecommendationResponse());
         when(historyManager.prepareForLlm(cp)).thenReturn(List.of());
         when(llmClient.defaultPlanningAdvisors()).thenReturn(List.of("travelPlanning", "jsonSchema", "ragContext"));
         when(llmClient.callStreaming(any(), any(), anyString(), anyString(),
@@ -161,7 +161,6 @@ class MarkovPlannerTest {
         task.setId(5L);
         task.setUserId(99L);
 
-        when(nearbyPoiRecommendationService.recommend(any())).thenReturn(new NearbyPoiRecommendationResponse());
         when(historyManager.prepareForLlm(cp)).thenReturn(List.of());
         when(llmClient.defaultPlanningAdvisors()).thenReturn(List.of("travelPlanning"));
         when(llmClient.callStreaming(any(), any(), anyString(), anyString(),
@@ -183,7 +182,6 @@ class MarkovPlannerTest {
         task.setId(2L);
         task.setUserId(20L);
 
-        when(nearbyPoiRecommendationService.recommend(any())).thenReturn(new NearbyPoiRecommendationResponse());
         when(historyManager.prepareForLlm(cp)).thenReturn(List.of());
         when(llmClient.defaultPlanningAdvisors()).thenReturn(List.of("travelPlanning", "jsonSchema", "ragContext"));
         when(llmClient.callStreaming(any(), any(), anyString(), anyString(),
@@ -261,6 +259,7 @@ class MarkovPlannerTest {
         cp.setCompletedSteps(new ArrayList<>(steps));
         cp.setLlmConversationHistory(new ArrayList<>());
         cp.setCurrentStepIndex(steps.size());
+        cp.setSelectedBranchType("manual");
         return cp;
     }
 

@@ -22,10 +22,14 @@ public class TaskExecutionProgressResponse {
     private int totalEventCount;
     private Boolean awaitingUserInput = false;
     private String pendingInputType;
+    private String selectionStage;
+    private String selectedBranchType;
     private String pauseReason;
     private List<LocationCandidateItem> locationCandidates = new ArrayList<>();
+    private List<SelectionOptionItem> selectionOptions = new ArrayList<>();
     private List<LocationCandidateItem> recommendationCandidates = new ArrayList<>();
     private Map<String, Object> currentContext = new LinkedHashMap<>();
+    private Map<String, Object> weatherContext = new LinkedHashMap<>();
     private ResolvedLocation selectedOrigin;
     private ResolvedLocation selectedDestination;
 }

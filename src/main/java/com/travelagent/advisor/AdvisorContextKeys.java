@@ -12,6 +12,7 @@ public final class AdvisorContextKeys {
     public static final String RAG_CHUNKS = "ragChunks";
     public static final String RESPONSE_SCHEMA = "responseSchema";
     public static final String SAME_DAY_RADIUS_KM = "sameDayRadiusKm";
+    public static final String CURRENT_DAY_NUMBER = "currentDayNumber";
 
     private AdvisorContextKeys() {
     }

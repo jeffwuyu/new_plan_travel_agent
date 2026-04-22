@@ -37,14 +37,18 @@ public class TaskResponse {
     private Integer totalSteps;
     private Boolean awaitingUserInput = false;
     private String pendingInputType;
+    private String selectionStage;
+    private String selectedBranchType;
     private String pauseReason;
     private Integer usedTimeBudgetMin;
     private Integer remainingTimeBudgetMin;
     private Integer projectedReturnToDestinationMin;
     private List<DailyTimeWindow> dailyTimeWindows = new ArrayList<>();
     private List<LocationCandidateItem> locationCandidates = new ArrayList<>();
+    private List<SelectionOptionItem> selectionOptions = new ArrayList<>();
     private List<LocationCandidateItem> recommendationCandidates = new ArrayList<>();
     private Map<String, Object> currentContext = new LinkedHashMap<>();
+    private Map<String, Object> weatherContext = new LinkedHashMap<>();
     private ResolvedLocation selectedOrigin;
     private ResolvedLocation selectedDestination;
 
@@ -78,6 +82,8 @@ public class TaskResponse {
             r.currentStepIndex = checkpoint.getCurrentStepIndex();
             r.totalSteps = checkpoint.totalPlannedSteps();
             r.pendingInputType = checkpoint.getPendingInputType();
+            r.selectionStage = checkpoint.getSelectionStage();
+            r.selectedBranchType = checkpoint.getSelectedBranchType();
             r.awaitingUserInput = checkpoint.getPendingInputType() != null && !checkpoint.getPendingInputType().isBlank();
             r.pauseReason = checkpoint.getPauseReason();
             r.usedTimeBudgetMin = checkpoint.getUsedTimeBudgetMin();
@@ -89,12 +95,18 @@ public class TaskResponse {
             r.locationCandidates = checkpoint.getLocationCandidates() == null
                     ? new ArrayList<>()
                     : checkpoint.getLocationCandidates();
+            r.selectionOptions = checkpoint.getSelectionOptions() == null
+                    ? new ArrayList<>()
+                    : checkpoint.getSelectionOptions();
             r.recommendationCandidates = checkpoint.getRecommendationCandidates() == null
                     ? new ArrayList<>()
                     : checkpoint.getRecommendationCandidates();
             r.currentContext = checkpoint.getCurrentContext() == null
                     ? new LinkedHashMap<>()
                     : checkpoint.getCurrentContext();
+            r.weatherContext = checkpoint.getWeatherContext() == null
+                    ? new LinkedHashMap<>()
+                    : checkpoint.getWeatherContext();
             r.selectedOrigin = checkpoint.getSelectedOrigin();
             r.selectedDestination = checkpoint.getSelectedDestination();
         }

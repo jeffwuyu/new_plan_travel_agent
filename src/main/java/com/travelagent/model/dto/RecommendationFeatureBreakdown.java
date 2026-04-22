@@ -23,5 +23,9 @@ public class RecommendationFeatureBreakdown {
 
     private Double constraintScore;
 
+    private Double weatherScore;
+
+    private Boolean weatherFriendly;
+
     private Boolean currentlyOpen;
 }

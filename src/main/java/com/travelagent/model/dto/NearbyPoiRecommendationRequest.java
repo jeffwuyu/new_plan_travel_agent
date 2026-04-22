@@ -41,6 +41,20 @@ public class NearbyPoiRecommendationRequest {
 
     private String dayOfWeek;
 
+    private String weatherCondition;
+
+    private Integer temperature;
+
+    private Boolean indoorPreferred;
+
+    private Boolean shortWalkPreferred;
+
+    private Boolean avoidRain;
+
+    private Boolean avoidWind;
+
+    private String weatherSummary;
+
     /**
      * nearby | similar_style | itinerary_fill
      */

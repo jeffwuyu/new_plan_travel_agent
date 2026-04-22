@@ -14,6 +14,7 @@ import com.travelagent.model.dto.ConfirmOriginSelectionRequest;
 import com.travelagent.model.dto.CreateTaskRequest;
 import com.travelagent.model.dto.LocationCandidateItem;
 import com.travelagent.model.dto.ResolvedLocation;
+import com.travelagent.model.dto.SelectionOptionItem;
 import com.travelagent.model.dto.TaskResponse;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.entity.UserQuotaConfig;
@@ -152,32 +153,57 @@ public class TaskServiceImpl implements TaskService {
             throw new BusinessException(400, "task checkpoint is missing");
         }
         String pendingInputType = resolvePendingInputType(checkpoint, request);
-        List<LocationCandidateItem> pendingCandidates = resolvePendingCandidates(checkpoint, pendingInputType);
-        if (pendingCandidates.isEmpty()) {
-            throw new BusinessException(400, "no pending candidates available");
-        }
-
-        LocationCandidateItem candidate = pendingCandidates.stream()
-                .filter(item -> item.getCandidateId().equals(request.getSelectedCandidateId()))
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(400, "selected candidate does not belong to this task"));
+        LocationCandidateItem candidate = null;
 
         if ("origin_selection".equals(pendingInputType)) {
+            List<LocationCandidateItem> pendingCandidates = resolvePendingCandidates(checkpoint, pendingInputType);
+            if (pendingCandidates.isEmpty()) {
+                throw new BusinessException(400, "no pending candidates available");
+            }
+            candidate = pendingCandidates.stream()
+                    .filter(item -> item.getCandidateId().equals(request.getSelectedCandidateId()))
+                    .findFirst()
+                    .orElseThrow(() -> new BusinessException(400, "selected candidate does not belong to this task"));
             if (checkpoint.isOriginConfirmed()) {
                 throw new BusinessException(400, "origin has already been selected");
             }
             checkpoint.setSelectedOrigin(toResolvedLocation(candidate, request));
             checkpoint.setOriginConfirmed(true);
             checkpoint.setLocationCandidates(List.of());
-        } else if ("attraction_selection".equals(pendingInputType)) {
+        } else if ("selection_branch".equals(pendingInputType)) {
+            SelectionOptionItem option = resolvePendingSelectionOption(checkpoint, request.getSelectedCandidateId());
+            checkpoint.setSelectedBranchType(option.getBranchType());
+            Map<String, Object> mergedContext = checkpoint.getCurrentContext() == null
+                    ? new LinkedHashMap<>()
+                    : new LinkedHashMap<>(checkpoint.getCurrentContext());
+            mergedContext.put("selectedBranchType", option.getBranchType());
+            checkpoint.setCurrentContext(mergedContext);
+        } else if ("attraction_selection".equals(pendingInputType)
+                || "poi_candidate_selection".equals(pendingInputType)
+                || "route_candidate_selection".equals(pendingInputType)) {
+            List<LocationCandidateItem> pendingCandidates = resolvePendingCandidates(checkpoint, pendingInputType);
+            if (pendingCandidates.isEmpty()) {
+                throw new BusinessException(400, "no pending candidates available");
+            }
+            candidate = pendingCandidates.stream()
+                    .filter(item -> item.getCandidateId().equals(request.getSelectedCandidateId()))
+                    .findFirst()
+                    .orElseThrow(() -> new BusinessException(400, "selected candidate does not belong to this task"));
             checkpoint.setSelectedAttractionCandidate(mergeSelectedCandidate(candidate, request));
         } else {
             throw new BusinessException(400, "unsupported pending input type: " + pendingInputType);
         }
 
         checkpoint.setPendingInputType(null);
+        checkpoint.setSelectionStage(null);
+        checkpoint.setSelectionOptions(List.of());
         checkpoint.setRecommendationCandidates(List.of());
-        checkpoint.setCurrentContext(new LinkedHashMap<>());
+        if (!"selection_branch".equals(pendingInputType)) {
+            checkpoint.setCurrentContext(new LinkedHashMap<>());
+        }
+        if ("origin_selection".equals(pendingInputType)) {
+            checkpoint.setWeatherContext(new LinkedHashMap<>());
+        }
         checkpoint.setCurrentState(TaskStatus.RESUMING.getCode());
         checkpoint.setPauseReason(null);
         checkpoint.setResumableAt(null);
@@ -191,14 +217,15 @@ public class TaskServiceImpl implements TaskService {
         Map<String, Object> payload = Map.of(
                 "taskUuid", taskUuid,
                 "pendingInputType", pendingInputType,
-                "selectedCandidate", mergeSelectedCandidate(candidate, request),
+                "selectedCandidate", candidate == null ? null : mergeSelectedCandidate(candidate, request),
+                "selectedBranchType", checkpoint.getSelectedBranchType(),
                 "selectedOrigin", checkpoint.getSelectedOrigin()
         );
         sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_CONFIRMED, payload);
         sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE, Map.of(
                 "status", next.getCode(),
                 "taskUuid", taskUuid,
-                "pendingInputType", checkpoint.getPendingInputType()
+                "pendingInputType", pendingInputType != null ? pendingInputType : ""
         ));
 
         Task updated = taskMapper.findByUuid(taskUuid);
@@ -229,9 +256,8 @@ public class TaskServiceImpl implements TaskService {
         PlanningConfig config = buildPlanningConfig(req, totalDays);
         List<DailyTimeWindow> dailyWindows = buildDailyWindows(config);
         int totalAvailableMinutes = totalAvailableMinutes(dailyWindows);
-        int dynamicTargetSteps = computeDynamicTargetSteps(totalAvailableMinutes, config, totalDays);
+        int dynamicTargetSteps = computeDynamicTargetSteps(totalAvailableMinutes, config);
         config.setDynamicTargetSteps(dynamicTargetSteps);
-        config.setAttractionsPerDay(Math.max(1, (int) Math.ceil((double) dynamicTargetSteps / totalDays)));
 
         TaskCheckpoint cp = new TaskCheckpoint();
         cp.setSchemaVersion("1.0");
@@ -253,6 +279,11 @@ public class TaskServiceImpl implements TaskService {
         cp.setRemainingTimeBudgetMin(Math.max(0, totalAvailableMinutes - config.getDestinationBufferMin()));
         cp.setLocationCandidates(originCandidateService.generateCandidates(req.getRegion(), req.getStartLocationQuery()));
         cp.setRecommendationCandidates(new ArrayList<>(cp.getLocationCandidates()));
+        cp.setSelectionOptions(new ArrayList<>());
+        cp.setSelectionStage("origin_selection");
+        cp.setSelectedBranchType(null);
+        cp.setCurrentContext(new LinkedHashMap<>());
+        cp.setWeatherContext(new LinkedHashMap<>());
         cp.setSelectedDestination(resolveDestination(req.getRegion(), req.getEndLocationQuery()));
         cp.setOriginConfirmed(false);
         cp.setPauseReason(null);
@@ -270,7 +301,6 @@ public class TaskServiceImpl implements TaskService {
         config.setEndTime(req.getEndTime());
         config.setFullDayStartTime(req.getFullDayStartTime());
         config.setFullDayEndTime(req.getFullDayEndTime());
-        config.setAttractionsPerDay(Math.max(1, req.getAttractionsPerDay()));
         return config;
     }
 
@@ -313,11 +343,9 @@ public class TaskServiceImpl implements TaskService {
         return windows.stream().mapToInt(DailyTimeWindow::availableMinutes).sum();
     }
 
-    private int computeDynamicTargetSteps(int totalAvailableMinutes, PlanningConfig config, int totalDays) {
+    private int computeDynamicTargetSteps(int totalAvailableMinutes, PlanningConfig config) {
         int effectiveMinutes = Math.max(0, totalAvailableMinutes - config.getDestinationBufferMin());
-        int estimatedSteps = Math.max(1, effectiveMinutes / ESTIMATED_MINUTES_PER_STOP);
-        int perDayUpperBound = Math.max(1, Math.max(config.getAttractionsPerDay(), estimatedSteps / Math.max(1, totalDays)));
-        return Math.max(1, Math.min(estimatedSteps, totalDays * Math.max(2, perDayUpperBound + 2)));
+        return Math.max(1, effectiveMinutes / ESTIMATED_MINUTES_PER_STOP);
     }
 
     private ResolvedLocation resolveDestination(String region, String endLocationQuery) {
@@ -377,10 +405,25 @@ public class TaskServiceImpl implements TaskService {
         if ("origin_selection".equals(pendingInputType)) {
             return checkpoint.getLocationCandidates() == null ? List.of() : checkpoint.getLocationCandidates();
         }
-        if ("attraction_selection".equals(pendingInputType)) {
+        if ("attraction_selection".equals(pendingInputType)
+                || "poi_candidate_selection".equals(pendingInputType)
+                || "route_candidate_selection".equals(pendingInputType)) {
             return checkpoint.getRecommendationCandidates() == null ? List.of() : checkpoint.getRecommendationCandidates();
         }
         return List.of();
+    }
+
+    private SelectionOptionItem resolvePendingSelectionOption(TaskCheckpoint checkpoint, String selectedOptionId) {
+        List<SelectionOptionItem> options = checkpoint.getSelectionOptions() == null
+                ? List.of()
+                : checkpoint.getSelectionOptions();
+        if (options.isEmpty()) {
+            throw new BusinessException(400, "no pending selection options available");
+        }
+        return options.stream()
+                .filter(option -> option.getOptionId().equals(selectedOptionId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(400, "selected option does not belong to this task"));
     }
 
     private ResolvedLocation toResolvedLocation(LocationCandidateItem candidate, ConfirmOriginSelectionRequest request) {
@@ -405,7 +448,10 @@ public class TaskServiceImpl implements TaskService {
     private LocationCandidateItem mergeSelectedCandidate(LocationCandidateItem candidate, ConfirmOriginSelectionRequest request) {
         LocationCandidateItem selected = new LocationCandidateItem();
         selected.setCandidateId(candidate.getCandidateId());
+        selected.setCandidateType(candidate.getCandidateType());
+        selected.setBranchType(candidate.getBranchType());
         selected.setName(request.getSelectedCandidateName());
+        selected.setTargetAttractionName(candidate.getTargetAttractionName());
         selected.setRegion(candidate.getRegion());
         selected.setDistrict(candidate.getDistrict());
         selected.setCategory(candidate.getCategory());
@@ -417,8 +463,11 @@ public class TaskServiceImpl implements TaskService {
         selected.setScore(candidate.getScore());
         selected.setRouteSummary(candidate.getRouteSummary());
         selected.setVisitDurationMin(candidate.getVisitDurationMin());
+        selected.setEstimatedTotalDurationMin(candidate.getEstimatedTotalDurationMin());
+        selected.setWeatherSuitability(candidate.getWeatherSuitability());
         selected.setExplanations(candidate.getExplanations() == null ? List.of() : candidate.getExplanations());
         selected.setHighlights(candidate.getHighlights() == null ? List.of() : candidate.getHighlights());
+        selected.setRouteStops(candidate.getRouteStops() == null ? List.of() : candidate.getRouteStops());
         return selected;
     }
 }

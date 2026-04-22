@@ -46,7 +46,8 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
                     + weights[1] * safe(features.getTimeScore())
                     + weights[2] * safe(features.getStyleScore())
                     + weights[3] * safe(features.getRouteScore())
-                    + weights[4] * safe(features.getConstraintScore());
+                    + weights[4] * safe(features.getConstraintScore())
+                    + 0.15d * safe(features.getWeatherScore());
 
             RecommendedPoiItem item = new RecommendedPoiItem();
             item.setPoiId(candidate.getAmapPoiId() != null ? candidate.getAmapPoiId() : String.valueOf(candidate.getId()));
@@ -103,6 +104,9 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
         boolean currentlyOpen = isCurrentlyOpen(request, candidate);
         features.setCurrentlyOpen(currentlyOpen);
         features.setConstraintScore(round(computeConstraintScore(request, candidate, currentlyOpen)));
+        double weatherScore = computeWeatherScore(request, candidate);
+        features.setWeatherScore(round(weatherScore));
+        features.setWeatherFriendly(weatherScore >= 0.6d);
 
         return features;
     }
@@ -264,6 +268,41 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
         return Math.max(0.0d, Math.min(1.0d, score));
     }
 
+    private double computeWeatherScore(NearbyPoiRecommendationRequest request, Attraction candidate) {
+        List<String> tags = parseStringList(candidate.getTagsJson());
+        String category = candidate.getCategory() == null ? "" : candidate.getCategory().toLowerCase(Locale.ROOT);
+        boolean indoorLike = category.contains("museum")
+                || category.contains("mall")
+                || category.contains("art")
+                || containsAny(tags, "室内", "博物馆", "美术馆", "商场", "展馆");
+        boolean outdoorLike = category.contains("park")
+                || category.contains("mountain")
+                || containsAny(tags, "户外", "公园", "徒步", "山", "湖");
+
+        double score = 0.5d;
+        if (Boolean.TRUE.equals(request.getIndoorPreferred())) {
+            score += indoorLike ? 0.35d : -0.20d;
+        }
+        if (Boolean.TRUE.equals(request.getAvoidRain())) {
+            score += indoorLike ? 0.15d : (outdoorLike ? -0.25d : -0.05d);
+        }
+        if (Boolean.TRUE.equals(request.getShortWalkPreferred()) && request.getCurrentLat() != null && request.getCurrentLng() != null
+                && candidate.getLatitude() != null && candidate.getLongitude() != null) {
+            double distanceKm = haversineKm(
+                    request.getCurrentLat(), request.getCurrentLng(),
+                    candidate.getLatitude().doubleValue(), candidate.getLongitude().doubleValue());
+            if (distanceKm <= 2.0d) {
+                score += 0.15d;
+            } else if (distanceKm >= 5.0d) {
+                score -= 0.10d;
+            }
+        }
+        if (Boolean.TRUE.equals(request.getAvoidWind()) && outdoorLike) {
+            score -= 0.15d;
+        }
+        return Math.max(0.0d, Math.min(1.0d, score));
+    }
+
     private String buildRouteSummary(NearbyPoiRecommendationRequest request, RecommendationFeatureBreakdown features) {
         List<String> segments = new ArrayList<>();
         if (features.getTravelTimeMin() != null) {
@@ -322,6 +361,23 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
         if (!target.contains(trimmed)) {
             target.add(trimmed);
         }
+    }
+
+    private boolean containsAny(List<String> values, String... targets) {
+        if (values == null || values.isEmpty() || targets == null || targets.length == 0) {
+            return false;
+        }
+        Set<String> normalized = new HashSet<>();
+        values.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(value -> value.toLowerCase(Locale.ROOT))
+                .forEach(normalized::add);
+        for (String target : targets) {
+            if (target != null && normalized.contains(target.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private List<String> parseStringList(String json) {

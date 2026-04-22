@@ -1,7 +1,5 @@
 package com.travelagent.model.dto;
 
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -39,10 +37,6 @@ public class CreateTaskRequest {
     private LocalTime fullDayStartTime;
 
     private LocalTime fullDayEndTime;
-
-    @Min(value = 1, message = "attractions per day must be at least 1")
-    @Max(value = 12, message = "attractions per day must be at most 12")
-    private int attractionsPerDay = 3;
 
     private List<String> preferenceKeywords;
 

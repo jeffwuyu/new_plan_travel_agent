@@ -64,6 +64,14 @@ public class TaskController {
         return Result.success(taskService.confirmOriginSelection(taskUuid, userId, request));
     }
 
+    @PostMapping("/{taskUuid}/selection")
+    public Result<TaskResponse> confirmTaskSelection(@PathVariable String taskUuid,
+                                                     @Valid @RequestBody ConfirmOriginSelectionRequest request,
+                                                     HttpServletRequest httpRequest) {
+        Long userId = JwtAuthInterceptor.getUserId(httpRequest);
+        return Result.success(taskService.confirmOriginSelection(taskUuid, userId, request));
+    }
+
     @GetMapping("/{taskUuid}/progress")
     public Result<TaskExecutionProgressResponse> getTaskProgress(@PathVariable String taskUuid,
                                                                  @RequestParam(defaultValue = "20") int limit,

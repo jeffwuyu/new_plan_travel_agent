@@ -103,8 +103,10 @@ public class AmapClient {
         if (cached != null) return cached;
 
         String url = geocodeUrl + "?key=" + apiKey
-                + "&address=" + encode(attractionName)
-                + "&city=" + encode(region);
+                + "&address=" + encode(attractionName);
+        if (region != null && !region.isBlank()) {
+            url += "&city=" + encode(region);
+        }
 
         String body = executeGet(url, "geocode");
         Map<String, Object> result = parseGeocodeResponse(body);
@@ -458,6 +460,7 @@ public class AmapClient {
 
     /** URL-encode a Chinese string for query parameters. */
     private String encode(String value) {
+        if (value == null) return "";
         try {
             return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
         } catch (Exception e) {

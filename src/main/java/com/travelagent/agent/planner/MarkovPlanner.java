@@ -6,6 +6,7 @@ import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.tools.WeatherTool;
+import com.travelagent.client.amap.AmapClient;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.client.dashscope.LlmCallResult;
 import com.travelagent.mapper.LlmCallLogMapper;
@@ -13,6 +14,7 @@ import com.travelagent.model.dto.NearbyPoiRecommendationRequest;
 import com.travelagent.model.dto.NearbyPoiRecommendationResponse;
 import com.travelagent.model.dto.LocationCandidateItem;
 import com.travelagent.model.dto.RoutePoint;
+import com.travelagent.model.dto.SelectionOptionItem;
 import com.travelagent.model.entity.Task;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
@@ -28,6 +30,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Component
@@ -44,12 +47,38 @@ public class MarkovPlanner {
     @Autowired private LlmCallLogMapper llmCallLogMapper;
     @Autowired(required = false) private RagService ragService;
     @Autowired(required = false) private NearbyPoiRecommendationService nearbyPoiRecommendationService;
+    @Autowired(required = false) private AmapClient amapClient;
 
     public PlanningResult planNextAttraction(Task task, TaskCheckpoint cp, String taskUuid) {
+        return planNextAttraction(task, cp, buildPlanRequest(cp), taskUuid);
+    }
+
+    public PlanningResult planNextAttraction(Task task, TaskCheckpoint cp,
+                                             PlanNextAttractionRequest request,
+                                             String taskUuid) {
         int stepIndex = cp.getCurrentStepIndex();
-        PlanningResult recommendationDriven = tryRecommendationDrivenSelection(cp);
-        if (recommendationDriven != null) {
-            return recommendationDriven;
+        Map<String, Object> weatherContext = resolveWeatherContext(cp, request);
+
+        if (request.getSelectedBranchType() == null || request.getSelectedBranchType().isBlank()) {
+            return PlanningResult.forBranchSelection(
+                    buildBranchSelectionOptions(weatherContext),
+                    buildSelectionContext(cp, request, weatherContext, null),
+                    weatherContext
+            );
+        }
+
+        if ("nearby_poi".equals(request.getSelectedBranchType())) {
+            PlanningResult recommendationDriven = tryRecommendationDrivenSelection(cp, request, weatherContext);
+            if (recommendationDriven != null) {
+                return recommendationDriven;
+            }
+        }
+
+        if ("route_plan".equals(request.getSelectedBranchType())) {
+            PlanningResult routePlanning = tryRoutePlanningSelection(task, cp, request, taskUuid, weatherContext);
+            if (routePlanning != null) {
+                return routePlanning;
+            }
         }
 
         String systemPrompt = buildSystemPrompt(cp);
@@ -83,11 +112,49 @@ public class MarkovPlanner {
         return PlanningResult.forAttraction(attractionName, resolvedTokens);
     }
 
-    private PlanningResult tryRecommendationDrivenSelection(TaskCheckpoint cp) {
+    public PlanNextAttractionRequest buildPlanRequest(TaskCheckpoint cp) {
+        PlanNextAttractionRequest request = new PlanNextAttractionRequest();
+        if (cp == null || cp.getPlanningConfig() == null) {
+            return request;
+        }
+        request.setRegion(cp.getRegion());
+        request.setTravelMode(cp.getPlanningConfig().getTravelMode());
+        request.setRemainingTimeBudgetMin(cp.getRemainingTimeBudgetMin());
+        request.setCurrentTime(resolveCurrentTime(cp));
+        request.setSelectedBranchType(cp.getSelectedBranchType());
+        request.setVisitedPoiNames(cp.getCompletedSteps() == null
+                ? List.of()
+                : cp.getCompletedSteps().stream().map(CompletedStep::getAttractionName).toList());
+        request.setWeatherContext(cp.getWeatherContext() == null ? new LinkedHashMap<>() : new LinkedHashMap<>(cp.getWeatherContext()));
+
+        if (cp.getCompletedSteps() != null && !cp.getCompletedSteps().isEmpty()) {
+            CompletedStep last = cp.getCompletedSteps().get(cp.getCompletedSteps().size() - 1);
+            request.setCurrentPositionName(last.getAttractionName());
+            request.setCurrentLat(last.getLat());
+            request.setCurrentLng(last.getLng());
+            Map<String, Object> geocode = extractToolResult(last, "geocode");
+            if (geocode != null) {
+                request.setCurrentAdcode(firstNonBlank(
+                        stringValue(geocode.get("adcode")),
+                        stringValue(geocode.get("citycode"))
+                ));
+            }
+        } else if (cp.getSelectedOrigin() != null) {
+            request.setCurrentPositionName(cp.getSelectedOrigin().getName());
+            request.setCurrentLat(cp.getSelectedOrigin().getLatitude());
+            request.setCurrentLng(cp.getSelectedOrigin().getLongitude());
+            request.setCurrentAdcode(cp.getSelectedOrigin().getAdcode());
+        }
+        return request;
+    }
+
+    private PlanningResult tryRecommendationDrivenSelection(TaskCheckpoint cp,
+                                                            PlanNextAttractionRequest planningRequest,
+                                                            Map<String, Object> weatherContext) {
         if (nearbyPoiRecommendationService == null) {
             return null;
         }
-        NearbyPoiRecommendationRequest request = buildRecommendationRequest(cp);
+        NearbyPoiRecommendationRequest request = buildRecommendationRequest(cp, planningRequest, weatherContext);
         if (request == null) {
             return null;
         }
@@ -110,12 +177,58 @@ public class MarkovPlanner {
                     candidate.setScore(item.getScore());
                     candidate.setRouteSummary(item.getRouteSummary());
                     candidate.setVisitDurationMin(item.getVisitDurationMin());
+                    candidate.setCandidateType("poi_candidate");
+                    candidate.setBranchType("nearby_poi");
+                    candidate.setTargetAttractionName(item.getName());
+                    candidate.setEstimatedTotalDurationMin(item.getVisitDurationMin());
+                    candidate.setWeatherSuitability(resolveWeatherSuitability(item.getFeatures(), weatherContext));
                     candidate.setExplanations(item.getExplanations() == null ? List.of() : item.getExplanations());
                     candidate.setHighlights(item.getHighlights() == null ? List.of() : item.getHighlights());
                     return candidate;
                 })
                 .toList();
-        return PlanningResult.forCandidates(candidates);
+        Map<String, Object> currentContext = buildSelectionContext(cp, planningRequest, weatherContext, "nearby_poi");
+        currentContext.put("emptyCandidateMessage", "暂无符合当前天气和时间预算的附近 POI，可尝试切换路线规划。");
+        return PlanningResult.forCandidates(candidates, 0,
+                "poi_candidate_selection", "poi_candidate_selection", "nearby_poi",
+                currentContext, weatherContext);
+    }
+
+    private PlanningResult tryRoutePlanningSelection(Task task,
+                                                     TaskCheckpoint cp,
+                                                     PlanNextAttractionRequest request,
+                                                     String taskUuid,
+                                                     Map<String, Object> weatherContext) {
+        List<String> ragChunks = List.of();
+        if (ragService != null) {
+            try {
+                ragChunks = ragService.queryChunks(cp.getUserIntent(), cp.getRegion(), 5);
+            } catch (Exception e) {
+                log.warn("[MarkovPlanner] Route planning RAG query failed: {}", e.getMessage());
+            }
+        }
+
+        String idempotencyKey = taskUuid + "-step" + cp.getCurrentStepIndex() + "-route-llm";
+        LlmCallResult llmResult = llmClient.callStreaming(
+                task.getId(), task.getUserId(), "route_planning",
+                buildRouteCandidateSystemPrompt(cp, request, weatherContext),
+                historyManager.prepareForLlm(cp),
+                buildRouteCandidateUserPrompt(cp, request, weatherContext),
+                idempotencyKey,
+                token -> sseNotificationService.sendEvent(taskUuid, SseEvent.LLM_STREAM, Map.of("token", token)),
+                llmClient.defaultPlanningAdvisors(),
+                buildAdvisorContext(cp, ragChunks)
+        );
+        List<LocationCandidateItem> routeCandidates = parseRouteCandidates(llmResult.content(), weatherContext);
+        if (routeCandidates.isEmpty()) {
+            return null;
+        }
+        historyManager.appendExchange(cp, "route_plan", llmResult.content());
+        int resolvedTokens = resolvePlanningTokens(task.getId(), idempotencyKey, llmResult.totalTokens());
+        return PlanningResult.forCandidates(routeCandidates, resolvedTokens,
+                "route_candidate_selection", "route_candidate_selection", "route_plan",
+                buildSelectionContext(cp, request, weatherContext, "route_plan"),
+                weatherContext);
     }
 
     public FinalSummaryResult generateFinalSummary(Task task, TaskCheckpoint cp, String taskUuid) {
@@ -184,7 +297,9 @@ public class MarkovPlanner {
         return s == null ? "" : s;
     }
 
-    NearbyPoiRecommendationRequest buildRecommendationRequest(TaskCheckpoint cp) {
+    NearbyPoiRecommendationRequest buildRecommendationRequest(TaskCheckpoint cp,
+                                                              PlanNextAttractionRequest planningRequest,
+                                                              Map<String, Object> weatherContext) {
         if (cp == null || cp.getPlanningConfig() == null) {
             return null;
         }
@@ -196,12 +311,20 @@ public class MarkovPlanner {
         request.setCurrentTime(resolveCurrentTime(cp));
         request.setQueryType(cp.getCompletedSteps() == null || cp.getCompletedSteps().isEmpty()
                 ? "nearby" : "itinerary_fill");
+        request.setWeatherCondition(stringValue(weatherContext.get("weather")));
+        request.setTemperature(parseInteger(weatherContext.get("temperature")));
+        request.setIndoorPreferred(booleanValue(weatherContext.get("indoorPreferred")));
+        request.setShortWalkPreferred(booleanValue(weatherContext.get("shortWalkPreferred")));
+        request.setAvoidRain(booleanValue(weatherContext.get("avoidRain")));
+        request.setAvoidWind(booleanValue(weatherContext.get("avoidWind")));
+        request.setWeatherSummary(stringValue(weatherContext.get("summary")));
 
+        if (planningRequest != null && planningRequest.getCurrentPositionName() != null) {
+            request.setCurrentPoiName(planningRequest.getCurrentPositionName());
+            request.setCurrentLat(planningRequest.getCurrentLat());
+            request.setCurrentLng(planningRequest.getCurrentLng());
+        }
         if (cp.getCompletedSteps() != null && !cp.getCompletedSteps().isEmpty()) {
-            CompletedStep last = cp.getCompletedSteps().get(cp.getCompletedSteps().size() - 1);
-            request.setCurrentPoiName(last.getAttractionName());
-            request.setCurrentLat(last.getLat());
-            request.setCurrentLng(last.getLng());
             request.setSelectedPoiNames(cp.getCompletedSteps().stream()
                     .map(CompletedStep::getAttractionName)
                     .toList());
@@ -209,10 +332,6 @@ public class MarkovPlanner {
                     .filter(step -> step.getLat() != null && step.getLng() != null)
                     .map(step -> new RoutePoint(step.getLat(), step.getLng(), step.getAttractionName()))
                     .toList());
-        } else if (cp.getSelectedOrigin() != null) {
-            request.setCurrentPoiName(cp.getSelectedOrigin().getName());
-            request.setCurrentLat(cp.getSelectedOrigin().getLatitude());
-            request.setCurrentLng(cp.getSelectedOrigin().getLongitude());
         }
         return request;
     }
@@ -413,6 +532,7 @@ public class MarkovPlanner {
         context.put(AdvisorContextKeys.COMPLETED_STEPS,
                 cp.getCompletedSteps() != null ? cp.getCompletedSteps() : List.<CompletedStep>of());
         context.put(AdvisorContextKeys.SAME_DAY_RADIUS_KM, 30);
+        context.put(AdvisorContextKeys.CURRENT_DAY_NUMBER, resolveDayNumber(cp));
         context.put("remainingTimeBudgetMin", cp.getRemainingTimeBudgetMin());
         context.put("destinationName", cp.getSelectedDestination() != null ? cp.getSelectedDestination().getName() : null);
         if (ragChunks != null && !ragChunks.isEmpty()) {
@@ -452,6 +572,237 @@ public class MarkovPlanner {
             }
         }
         return null;
+    }
+
+    private List<SelectionOptionItem> buildBranchSelectionOptions(Map<String, Object> weatherContext) {
+        SelectionOptionItem nearby = new SelectionOptionItem();
+        nearby.setOptionId("nearby_poi");
+        nearby.setBranchType("nearby_poi");
+        nearby.setLabel("附近 POI 推荐");
+        nearby.setDescription(booleanValue(weatherContext.get("shortWalkPreferred"))
+                ? "按当前天气优先推荐更近、更省步行的景点。"
+                : "基于当前位置、偏好和天气筛选附近可去景点。");
+
+        SelectionOptionItem route = new SelectionOptionItem();
+        route.setOptionId("route_plan");
+        route.setBranchType("route_plan");
+        route.setLabel("路线规划");
+        route.setDescription("结合 LLM 和 RAG 生成多条顺路路线候选，再选择下一站。");
+
+        return List.of(nearby, route);
+    }
+
+    private Map<String, Object> buildSelectionContext(TaskCheckpoint cp,
+                                                      PlanNextAttractionRequest request,
+                                                      Map<String, Object> weatherContext,
+                                                      String branchType) {
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("currentPositionName", request.getCurrentPositionName());
+        context.put("currentLat", request.getCurrentLat());
+        context.put("currentLng", request.getCurrentLng());
+        context.put("visitedPoiNames", request.getVisitedPoiNames());
+        context.put("remainingTimeBudgetMin", cp.getRemainingTimeBudgetMin());
+        context.put("travelMode", request.getTravelMode());
+        context.put("dayNumber", resolveDayNumber(cp));
+        context.put("destinationName", cp.getSelectedDestination() != null ? cp.getSelectedDestination().getName() : null);
+        context.put("selectedBranchType", branchType);
+        context.put("weatherSummary", weatherContext.getOrDefault("summary", ""));
+        context.put("weatherConstraints", weatherContext.getOrDefault("constraintHints", List.of()));
+        return context;
+    }
+
+    private Map<String, Object> resolveWeatherContext(TaskCheckpoint cp, PlanNextAttractionRequest request) {
+        if (request.getWeatherContext() != null && !request.getWeatherContext().isEmpty()) {
+            return request.getWeatherContext();
+        }
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("source", "unknown");
+        String adcode = request.getCurrentAdcode();
+        if ((adcode == null || adcode.isBlank()) && cp.getSelectedOrigin() != null) {
+            adcode = cp.getSelectedOrigin().getAdcode();
+        }
+        if (adcode == null || adcode.isBlank() || amapClient == null) {
+            context.put("summary", "暂未获取到天气，默认按常规条件推荐。");
+            context.put("constraintHints", List.of());
+            return context;
+        }
+        try {
+            Map<String, Object> weather = amapClient.getWeather(adcode);
+            context.putAll(weather);
+            context.put("source", "amap");
+            context.putAll(buildWeatherConstraintSummary(weather));
+        } catch (Exception e) {
+            context.put("summary", "天气获取失败，默认按常规条件推荐。");
+            context.put("constraintHints", List.of());
+        }
+        return context;
+    }
+
+    private Map<String, Object> buildWeatherConstraintSummary(Map<String, Object> weather) {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        List<String> hints = new ArrayList<>();
+        String weatherText = stringValue(weather.get("weather")).toLowerCase(Locale.ROOT);
+        Integer temperature = parseInteger(weather.get("temperature"));
+        boolean avoidRain = weatherText.contains("雨") || weatherText.contains("snow") || weatherText.contains("storm");
+        boolean indoorPreferred = avoidRain;
+        boolean shortWalkPreferred = avoidRain;
+        if (temperature != null && temperature >= 32) {
+            indoorPreferred = true;
+            shortWalkPreferred = true;
+            hints.add("高温，优先室内/更舒适的景点");
+        }
+        if (avoidRain) {
+            hints.add("降水天气，优先室内/避雨路线");
+        }
+        int windPower = parseInteger(weather.get("windPower")) == null ? 0 : parseInteger(weather.get("windPower"));
+        boolean avoidWind = windPower >= 6;
+        if (avoidWind) {
+            hints.add("风力较大，减少长距离步行和空旷点位");
+            shortWalkPreferred = true;
+        }
+        if (hints.isEmpty()) {
+            hints.add("天气平稳，可正常安排户外景点");
+        }
+        summary.put("summary", String.format("%s%s%s",
+                stringValue(weather.get("weather")).isBlank() ? "未知天气" : stringValue(weather.get("weather")),
+                temperature == null ? "" : " " + temperature + "C",
+                hints.isEmpty() ? "" : "，" + String.join("；", hints)));
+        summary.put("constraintHints", hints);
+        summary.put("indoorPreferred", indoorPreferred);
+        summary.put("shortWalkPreferred", shortWalkPreferred);
+        summary.put("avoidRain", avoidRain);
+        summary.put("avoidWind", avoidWind);
+        return summary;
+    }
+
+    private String buildRouteCandidateSystemPrompt(TaskCheckpoint cp,
+                                                   PlanNextAttractionRequest request,
+                                                   Map<String, Object> weatherContext) {
+        return """
+                You are a travel route planner. Return strict JSON only.
+                Generate 3 route candidates for the next leg of the trip.
+                Each route must fit the remaining budget and weather constraints.
+                JSON schema:
+                {
+                  "routes": [
+                    {
+                      "routeId": "route-1",
+                      "title": "string",
+                      "targetAttractionName": "string",
+                      "stops": ["string"],
+                      "reason": "string",
+                      "estimatedTotalDurationMin": 120,
+                      "weatherSuitability": "string"
+                    }
+                  ]
+                }
+                """;
+    }
+
+    private String buildRouteCandidateUserPrompt(TaskCheckpoint cp,
+                                                 PlanNextAttractionRequest request,
+                                                 Map<String, Object> weatherContext) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Region: ").append(cp.getRegion()).append("\n");
+        sb.append("Current position: ").append(firstNonBlank(request.getCurrentPositionName(), "unknown")).append("\n");
+        sb.append("Travel mode: ").append(firstNonBlank(request.getTravelMode(), "driving")).append("\n");
+        sb.append("Remaining budget: ").append(cp.getRemainingTimeBudgetMin()).append(" minutes\n");
+        sb.append("Visited POIs: ").append(request.getVisitedPoiNames()).append("\n");
+        sb.append("Destination constraint: ")
+                .append(cp.getSelectedDestination() != null ? cp.getSelectedDestination().getName() : "none")
+                .append("\n");
+        sb.append("Weather summary: ").append(weatherContext.getOrDefault("summary", "none")).append("\n");
+        sb.append("Weather constraints: ").append(weatherContext.getOrDefault("constraintHints", List.of())).append("\n");
+        sb.append("User intent: ").append(cp.getUserIntent()).append("\n");
+        sb.append("Return route candidates only.");
+        return sb.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<LocationCandidateItem> parseRouteCandidates(String llmResponse, Map<String, Object> weatherContext) {
+        if (llmResponse == null || llmResponse.isBlank()) {
+            return List.of();
+        }
+        try {
+            String cleaned = LlmResponseSanitizer.sanitize(llmResponse);
+            Map<String, Object> parsed = jsonUtil.fromJson(cleaned, new TypeReference<>() {});
+            Object routesObj = parsed.get("routes");
+            if (!(routesObj instanceof List<?> rawRoutes)) {
+                return List.of();
+            }
+            List<LocationCandidateItem> candidates = new ArrayList<>();
+            int index = 0;
+            for (Object routeObj : rawRoutes) {
+                if (!(routeObj instanceof Map<?, ?> route)) {
+                    continue;
+                }
+                LocationCandidateItem candidate = new LocationCandidateItem();
+                candidate.setCandidateId(firstNonBlank(stringValue(route.get("routeId")), "route-" + (++index)));
+                candidate.setCandidateType("route_candidate");
+                candidate.setBranchType("route_plan");
+                candidate.setName(firstNonBlank(stringValue(route.get("title")), stringValue(route.get("targetAttractionName"))));
+                candidate.setTargetAttractionName(firstNonBlank(stringValue(route.get("targetAttractionName")), candidate.getName()));
+                candidate.setEstimatedTotalDurationMin(parseInteger(route.get("estimatedTotalDurationMin")));
+                candidate.setWeatherSuitability(firstNonBlank(stringValue(route.get("weatherSuitability")),
+                        stringValue(weatherContext.get("summary"))));
+                candidate.setRouteStops(toStringList(route.get("stops")));
+                candidate.setRouteSummary(String.join(" -> ", candidate.getRouteStops()));
+                candidate.setHighlights(List.of("路线规划候选", "结合顺路关系和天气约束生成"));
+                candidate.setExplanations(List.of(firstNonBlank(stringValue(route.get("reason")), "综合天气、顺路关系与时间预算生成")));
+                candidates.add(candidate);
+            }
+            return candidates;
+        } catch (Exception e) {
+            log.warn("[MarkovPlanner] Failed to parse route candidates: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> extractToolResult(CompletedStep step, String key) {
+        if (step == null || step.getToolCallResults() == null) {
+            return null;
+        }
+        Object value = step.getToolCallResults().get(key);
+        return value instanceof Map<?, ?> map ? (Map<String, Object>) map : null;
+    }
+
+    private String resolveWeatherSuitability(com.travelagent.model.dto.RecommendationFeatureBreakdown features,
+                                             Map<String, Object> weatherContext) {
+        if (features != null && Boolean.TRUE.equals(features.getWeatherFriendly())) {
+            return "天气适配较好";
+        }
+        return firstNonBlank(stringValue(weatherContext.get("summary")), "常规适配");
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
+    }
+
+    private Integer parseInteger(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            String text = String.valueOf(value).replaceAll("[^0-9-]", "");
+            if (text.isBlank()) {
+                return null;
+            }
+            return Integer.parseInt(text);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private boolean booleanValue(Object value) {
+        return Boolean.TRUE.equals(value) || "true".equalsIgnoreCase(String.valueOf(value));
+    }
+
+    private List<String> toStringList(Object value) {
+        if (!(value instanceof List<?> raw)) {
+            return List.of();
+        }
+        return raw.stream().map(String::valueOf).filter(v -> !v.isBlank()).toList();
     }
 
     String parseLlmAttractionName(String llmResponse, int stepIndex) {

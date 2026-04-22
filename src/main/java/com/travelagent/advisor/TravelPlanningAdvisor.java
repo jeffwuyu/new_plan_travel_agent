@@ -68,8 +68,6 @@ public class TravelPlanningAdvisor implements BaseAdvisor {
         if (planningConfig != null) {
             sb.append("- Trip parameters: totalDays=")
                     .append(planningConfig.getTotalDays())
-                    .append(", attractionsPerDay=")
-                    .append(planningConfig.getAttractionsPerDay())
                     .append(", travelMode=")
                     .append(nullToEmpty(planningConfig.getTravelMode()))
                     .append("\n");
@@ -93,13 +91,12 @@ public class TravelPlanningAdvisor implements BaseAdvisor {
                 sb.append("- 已规划景点（不得重复推荐）：").append(visited).append("\n");
             }
 
-            // Day-break context: detect if we're at the start of a new day
-            if (planningConfig != null) {
-                int apd = planningConfig.getAttractionsPerDay();
-                int completedCount = completedSteps.size();
-                boolean isFirstOfNewDay = (completedCount % apd == 0) && completedCount > 0;
+            // Day-break context: detect if the current step is the first of a new day
+            Integer currentDayNumber = asInteger(context.get(AdvisorContextKeys.CURRENT_DAY_NUMBER));
+            if (currentDayNumber != null) {
+                boolean isFirstOfNewDay = completedSteps.stream()
+                        .noneMatch(s -> s.getDayNumber() == currentDayNumber);
                 if (isFirstOfNewDay) {
-                    // Encourage geographic separation from previous day
                     CompletedStep prevDayLast = completedSteps.get(completedSteps.size() - 1);
                     sb.append("- 这是新一天的第一个景点，请在地理上与「")
                       .append(prevDayLast.getAttractionName())
