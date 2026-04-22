@@ -1,5 +1,6 @@
 package com.travelagent.agent.tools;
 
+import com.travelagent.agent.mcp.McpToolExecutionService;
 import com.travelagent.client.amap.AmapClient;
 import com.travelagent.config.CacheConfig;
 import com.travelagent.mapper.AttractionMapper;
@@ -33,6 +34,7 @@ class GeocodeToolTest {
     @Mock private AmapClient amapClient;
     @Mock private AttractionMapper attractionMapper;
     @Mock private MultiLevelCacheService cacheService;
+    @Mock private McpToolExecutionService mcpToolExecutionService;
 
     @InjectMocks
     private GeocodeTool geocodeTool;
@@ -122,5 +124,36 @@ class GeocodeToolTest {
         Map<String, Object> args = Map.of("name", "兵马俑", "region", "西安市");
         // Should not throw
         assertThatNoException().isThrownBy(() -> geocodeTool.execute(args, IDEMPOTENCY_KEY));
+    }
+    @Test
+    @DisplayName("Cache miss with MCP enabled: uses MCP result before REST fallback")
+    @SuppressWarnings("unchecked")
+    void execute_cacheMiss_prefersMcp() {
+        when(cacheService.get(any(), any(), any(), any(Supplier.class))).thenReturn(null);
+        when(mcpToolExecutionService.isEnabled()).thenReturn(true);
+        when(mcpToolExecutionService.execute(eq("geocode"), any()))
+                .thenReturn(Map.of("lat", 30.274084, "lng", 120.15507, "adcode", "330106"));
+
+        Map<String, Object> result = geocodeTool.execute(Map.of("name", "西湖", "region", "杭州"), IDEMPOTENCY_KEY);
+
+        assertThat(result.get("adcode")).isEqualTo("330106");
+        verifyNoInteractions(amapClient);
+    }
+
+    @Test
+    @DisplayName("MCP failure falls back to REST geocode")
+    @SuppressWarnings("unchecked")
+    void execute_mcpFailure_fallsBackToRest() {
+        when(cacheService.get(any(), any(), any(), any(Supplier.class))).thenReturn(null);
+        when(mcpToolExecutionService.isEnabled()).thenReturn(true);
+        when(mcpToolExecutionService.execute(eq("geocode"), any()))
+                .thenThrow(new RuntimeException("mcp unavailable"));
+        when(amapClient.geocode("西湖", "杭州"))
+                .thenReturn(Map.of("lat", 30.274084, "lng", 120.15507, "adcode", "330106"));
+
+        Map<String, Object> result = geocodeTool.execute(Map.of("name", "西湖", "region", "杭州"), IDEMPOTENCY_KEY);
+
+        assertThat(result.get("mcpFallback")).isEqualTo(true);
+        verify(amapClient).geocode("西湖", "杭州");
     }
 }

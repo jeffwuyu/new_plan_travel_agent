@@ -1,5 +1,6 @@
 package com.travelagent.agent.tools;
 
+import com.travelagent.agent.mcp.McpToolExecutionService;
 import com.travelagent.aop.IdempotentTool;
 import com.travelagent.client.amap.AmapClient;
 import org.slf4j.Logger;
@@ -7,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -38,6 +40,9 @@ public class TrafficTimeTool implements AgentTool {
     @Autowired
     private AmapClient amapClient;
 
+    @Autowired
+    private McpToolExecutionService mcpToolExecutionService;
+
     @Override
     public String getName() {
         return NAME;
@@ -54,6 +59,18 @@ public class TrafficTimeTool implements AgentTool {
         log.debug("[TrafficTimeTool] Driving duration from ({},{}) to ({},{})",
                 originLng, originLat, destLng, destLat);
 
+        if (mcpToolExecutionService.isEnabled()) {
+            try {
+                return mcpToolExecutionService.execute(NAME, arguments);
+            } catch (Exception e) {
+                log.warn("[TrafficTimeTool] MCP traffic tool failed, falling back to REST: {}", e.getMessage());
+                Map<String, Object> fallback =
+                        new HashMap<>(amapClient.getDrivingDuration(originLng, originLat, destLng, destLat));
+                fallback.put("mcpFallback", true);
+                fallback.put("mcpProvider", "amap-rest");
+                return fallback;
+            }
+        }
         return amapClient.getDrivingDuration(originLng, originLat, destLng, destLat);
     }
 }

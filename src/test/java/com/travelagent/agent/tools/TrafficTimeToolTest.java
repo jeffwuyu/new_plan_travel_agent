@@ -1,5 +1,6 @@
 package com.travelagent.agent.tools;
 
+import com.travelagent.agent.mcp.McpToolExecutionService;
 import com.travelagent.client.amap.AmapClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import static org.mockito.Mockito.*;
 class TrafficTimeToolTest {
 
     @Mock private AmapClient amapClient;
+    @Mock private McpToolExecutionService mcpToolExecutionService;
 
     @InjectMocks
     private TrafficTimeTool trafficTimeTool;
@@ -87,5 +89,42 @@ class TrafficTimeToolTest {
         );
 
         assertThatNoException().isThrownBy(() -> trafficTimeTool.execute(args, IDEMPOTENCY_KEY));
+    }
+    @Test
+    @DisplayName("execute: prefers MCP when enabled")
+    void execute_prefersMcp() {
+        when(mcpToolExecutionService.isEnabled()).thenReturn(true);
+        when(mcpToolExecutionService.execute(eq("traffic_time"), any()))
+                .thenReturn(Map.of("durationMin", 18, "distanceMeters", 4500));
+
+        Map<String, Object> result = trafficTimeTool.execute(Map.of(
+                "originLng", 120.1,
+                "originLat", 30.1,
+                "destLng", 120.2,
+                "destLat", 30.2
+        ), IDEMPOTENCY_KEY);
+
+        assertThat(result.get("durationMin")).isEqualTo(18);
+        verifyNoInteractions(amapClient);
+    }
+
+    @Test
+    @DisplayName("execute: MCP failure falls back to AmapClient")
+    void execute_mcpFailure_fallsBack() {
+        when(mcpToolExecutionService.isEnabled()).thenReturn(true);
+        when(mcpToolExecutionService.execute(eq("traffic_time"), any()))
+                .thenThrow(new RuntimeException("mcp unavailable"));
+        when(amapClient.getDrivingDuration(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(Map.of("durationMin", 25));
+
+        Map<String, Object> result = trafficTimeTool.execute(Map.of(
+                "originLng", 120.1,
+                "originLat", 30.1,
+                "destLng", 120.2,
+                "destLat", 30.2
+        ), IDEMPOTENCY_KEY);
+
+        assertThat(result.get("mcpFallback")).isEqualTo(true);
+        verify(amapClient).getDrivingDuration(anyDouble(), anyDouble(), anyDouble(), anyDouble());
     }
 }

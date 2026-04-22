@@ -171,6 +171,22 @@ agent:
   planner:
     max-steps: 30
     same-day-radius-km: 30
+  mcp:
+    enabled: false
+    protocol-version: 2025-03-26
+    startup-timeout-ms: 10000
+    request-timeout-ms: 10000
+    server:
+      command: npx
+      args:
+        - -y
+        - @amap/amap-maps-mcp-server
+      env:
+        AMAP_MAPS_API_KEY: ${secret.api-amap-key}
+    tool-mapping:
+      geocode: maps_geo
+      weather: maps_weather
+      traffic_time: maps_direction_driving
 
 # ==================== Rate Limit ====================
 ratelimit:

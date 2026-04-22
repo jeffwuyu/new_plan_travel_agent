@@ -1,5 +1,6 @@
 package com.travelagent.agent.tools;
 
+import com.travelagent.agent.mcp.McpToolExecutionService;
 import com.travelagent.aop.IdempotentTool;
 import com.travelagent.client.amap.AmapClient;
 import com.travelagent.config.CacheConfig;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -48,6 +50,9 @@ public class GeocodeTool implements AgentTool {
     @Autowired
     private MultiLevelCacheService cacheService;
 
+    @Autowired
+    private McpToolExecutionService mcpToolExecutionService;
+
     @Override
     public String getName() {
         return NAME;
@@ -80,9 +85,9 @@ public class GeocodeTool implements AgentTool {
             );
         }
 
-        // Full miss — call Amap
-        log.debug("[GeocodeTool] Cache miss, calling Amap for name={}", name);
-        Map<String, Object> result = amapClient.geocode(name, region);
+        // Full miss -> prefer MCP and then fall back to the existing REST client.
+        log.debug("[GeocodeTool] Cache miss, resolving via MCP/Amap for name={}", name);
+        Map<String, Object> result = callProvider(arguments, name, region);
 
         // Persist to attractions table (L3)
         Attraction newAttr = new Attraction();
@@ -104,5 +109,21 @@ public class GeocodeTool implements AgentTool {
         cacheService.put(CacheConfig.ATTRACTION_BASIC, name + ":" + region, newAttr, java.time.Duration.ofHours(1));
 
         return result;
+    }
+
+    private Map<String, Object> callProvider(Map<String, Object> arguments, String name, String region) {
+        if (mcpToolExecutionService.isEnabled()) {
+            try {
+                return mcpToolExecutionService.execute(NAME, arguments);
+            } catch (Exception e) {
+                log.warn("[GeocodeTool] MCP geocode failed for name={} region={}, falling back to REST: {}",
+                        name, region, e.getMessage());
+                Map<String, Object> fallback = new HashMap<>(amapClient.geocode(name, region));
+                fallback.put("mcpFallback", true);
+                fallback.put("mcpProvider", "amap-rest");
+                return fallback;
+            }
+        }
+        return amapClient.geocode(name, region);
     }
 }
