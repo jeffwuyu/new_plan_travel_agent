@@ -60,7 +60,7 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity
             .status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(Result.serverError("绯荤粺閿欒锛岃绋嶅悗閲嶈瘯"));
+            .body(Result.serverError("系统异常，请稍后重试"));
     }
 
     private boolean isSchemaIssue(Exception ex, Throwable rootCause) {
