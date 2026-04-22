@@ -214,13 +214,7 @@ public class TaskServiceImpl implements TaskService {
         taskMapper.updateStatus(task.getId(), next.getCode());
         taskMapper.updateCheckpoint(task);
 
-        Map<String, Object> payload = Map.of(
-                "taskUuid", taskUuid,
-                "pendingInputType", pendingInputType,
-                "selectedCandidate", candidate == null ? null : mergeSelectedCandidate(candidate, request),
-                "selectedBranchType", checkpoint.getSelectedBranchType(),
-                "selectedOrigin", checkpoint.getSelectedOrigin()
-        );
+        Map<String, Object> payload = buildSelectionConfirmedPayload(taskUuid, pendingInputType, checkpoint, candidate, request);
         sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_CONFIRMED, payload);
         sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE, Map.of(
                 "status", next.getCode(),
@@ -469,5 +463,25 @@ public class TaskServiceImpl implements TaskService {
         selected.setHighlights(candidate.getHighlights() == null ? List.of() : candidate.getHighlights());
         selected.setRouteStops(candidate.getRouteStops() == null ? List.of() : candidate.getRouteStops());
         return selected;
+    }
+
+    private Map<String, Object> buildSelectionConfirmedPayload(String taskUuid,
+                                                               String pendingInputType,
+                                                               TaskCheckpoint checkpoint,
+                                                               LocationCandidateItem candidate,
+                                                               ConfirmOriginSelectionRequest request) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("taskUuid", taskUuid);
+        payload.put("pendingInputType", pendingInputType);
+        if (candidate != null && !"origin_selection".equals(pendingInputType)) {
+            payload.put("selectedCandidate", mergeSelectedCandidate(candidate, request));
+        }
+        if (checkpoint.getSelectedBranchType() != null) {
+            payload.put("selectedBranchType", checkpoint.getSelectedBranchType());
+        }
+        if (checkpoint.getSelectedOrigin() != null) {
+            payload.put("selectedOrigin", checkpoint.getSelectedOrigin());
+        }
+        return payload;
     }
 }
