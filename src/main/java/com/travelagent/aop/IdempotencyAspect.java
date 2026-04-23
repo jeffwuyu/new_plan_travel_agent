@@ -68,7 +68,8 @@ public class IdempotencyAspect {
         try {
             String cached = redisUtil.getString(resultRedisKey);
             if (cached != null) {
-                log.debug("[IdempotencyAspect] Cache HIT for key={}, returning stored result", idempotencyKey);
+                log.info("[IdempotencyAspect] Cache HIT method={} key={} redisKey={}",
+                        pjp.getSignature().getName(), idempotencyKey, resultRedisKey);
                 return jsonUtil.fromJson(cached, new TypeReference<Map<String, Object>>() {});
             }
         } catch (Exception e) {
@@ -83,7 +84,8 @@ public class IdempotencyAspect {
         try {
             if (result != null) {
                 redisUtil.setString(resultRedisKey, jsonUtil.toJson(result), TTL_24H);
-                log.debug("[IdempotencyAspect] Stored result for key={}", idempotencyKey);
+                log.debug("[IdempotencyAspect] Stored result method={} key={} redisKey={}",
+                        pjp.getSignature().getName(), idempotencyKey, resultRedisKey);
             }
         } catch (Exception e) {
             log.warn("[IdempotencyAspect] Failed to store result for key={}: {}", resultRedisKey, e.getMessage());

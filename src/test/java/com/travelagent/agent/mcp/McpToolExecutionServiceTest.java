@@ -78,13 +78,13 @@ class McpToolExecutionServiceTest {
     }
 
     @Test
-    @DisplayName("traffic result is normalized from route payload")
-    void execute_traffic_normalizesRoutePayload() {
+    @DisplayName("traffic result uses dynamic MCP tool mapping")
+    void execute_traffic_usesTravelModeSpecificTool() {
         AgentMcpProperties properties = new AgentMcpProperties();
         properties.setEnabled(true);
         McpToolExecutionService service = new McpToolExecutionService(properties, toolInvoker);
 
-        when(toolInvoker.callTool("maps_direction_driving",
+        when(toolInvoker.callTool("maps_direction_walking",
                 Map.of("origin", "120.1,30.1", "destination", "120.2,30.2")))
                 .thenReturn(new McpToolCallResult(false,
                         Map.of(
@@ -102,11 +102,46 @@ class McpToolExecutionServiceTest {
                 "originLng", 120.1,
                 "originLat", 30.1,
                 "destLng", 120.2,
-                "destLat", 30.2
+                "destLat", 30.2,
+                "travelMode", "walking"
         ));
 
         assertThat(result.get("durationMin")).isEqualTo(10);
         assertThat(result.get("distanceMeters")).isEqualTo(5200);
-        assertThat(result.get("routeMode")).isEqualTo("driving");
+        assertThat(result.get("routeMode")).isEqualTo("walking");
+    }
+
+    @Test
+    @DisplayName("traffic result recognizes transit tool mapping")
+    void execute_traffic_recognizesTransitTool() {
+        AgentMcpProperties properties = new AgentMcpProperties();
+        properties.setEnabled(true);
+        McpToolExecutionService service = new McpToolExecutionService(properties, toolInvoker);
+
+        when(toolInvoker.callTool("maps_direction_transit",
+                Map.of("origin", "120.1,30.1", "destination", "120.2,30.2")))
+                .thenReturn(new McpToolCallResult(false,
+                        Map.of(
+                                "route", Map.of(
+                                        "transits", List.of(Map.of(
+                                                "duration", "1200",
+                                                "distance", "6600"
+                                        ))
+                                )
+                        ),
+                        List.of(),
+                        Map.of()));
+
+        Map<String, Object> result = service.execute("traffic_time", Map.of(
+                "originLng", 120.1,
+                "originLat", 30.1,
+                "destLng", 120.2,
+                "destLat", 30.2,
+                "travelMode", "transit"
+        ));
+
+        assertThat(result.get("durationMin")).isEqualTo(20);
+        assertThat(result.get("distanceMeters")).isEqualTo(6600);
+        assertThat(result.get("routeMode")).isEqualTo("transit");
     }
 }

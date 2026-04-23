@@ -44,9 +44,12 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -252,7 +255,8 @@ public class AgentServiceImpl implements AgentService {
                             "originLng", prevStep.getLng(),
                             "originLat", prevStep.getLat(),
                             "destLng", geocodeResult.get("lng"),
-                            "destLat", geocodeResult.get("lat")
+                            "destLat", geocodeResult.get("lat"),
+                            "travelMode", checkpoint.getPlanningConfig().getTravelMode()
                     ), taskUuid, stepIndex);
                 } else if (checkpoint.getSelectedOrigin() != null
                         && checkpoint.getSelectedOrigin().getLatitude() != null
@@ -261,7 +265,8 @@ public class AgentServiceImpl implements AgentService {
                             "originLng", checkpoint.getSelectedOrigin().getLongitude(),
                             "originLat", checkpoint.getSelectedOrigin().getLatitude(),
                             "destLng", geocodeResult.get("lng"),
-                            "destLat", geocodeResult.get("lat")
+                            "destLat", geocodeResult.get("lat"),
+                            "travelMode", checkpoint.getPlanningConfig().getTravelMode()
                     ), taskUuid, stepIndex);
                 }
             } catch (QuotaExhaustedException e) {
@@ -531,7 +536,9 @@ public class AgentServiceImpl implements AgentService {
     private Map<String, Object> runToolWithCheckpoint(Task task, TaskCheckpoint checkpoint,
                                                       String toolName, Map<String, Object> arguments,
                                                       String taskUuid, int stepIndex) {
-        String idempotencyKey = taskUuid + "-step" + stepIndex + "-" + toolName;
+        String idempotencyKey = buildToolIdempotencyKey(taskUuid, stepIndex, toolName, arguments);
+        log.debug("[AgentService] tool={} step={} idempotencyKey={} arguments={}",
+                toolName, stepIndex, idempotencyKey, arguments);
         checkpoint.setPendingToolCall(new PendingToolCall(toolName, arguments, idempotencyKey));
         saveCheckpoint(task, checkpoint);
         taskProgressService.recordEvent(taskUuid, EVT_TOOL_START, null, stepIndex, null, "Calling tool: " + toolName, arguments);
@@ -549,6 +556,48 @@ public class AgentServiceImpl implements AgentService {
         } finally {
             taskMetricsService.recordToolCall(toolSuccess);
         }
+    }
+
+    private String buildToolIdempotencyKey(String taskUuid, int stepIndex, String toolName, Map<String, Object> arguments) {
+        String argsFingerprint = hashArguments(arguments);
+        return taskUuid + "-step" + stepIndex + "-" + toolName + "-" + argsFingerprint;
+    }
+
+    private String hashArguments(Map<String, Object> arguments) {
+        try {
+            String normalizedJson = jsonUtil.toJson(normalizeForFingerprint(arguments == null ? Map.of() : arguments));
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest(normalizedJson.getBytes(StandardCharsets.UTF_8));
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < Math.min(bytes.length, 8); i++) {
+                builder.append(String.format("%02x", bytes[i]));
+            }
+            return builder.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to build tool idempotency fingerprint", e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object normalizeForFingerprint(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            map.entrySet().stream()
+                    .sorted(Comparator.comparing(entry -> String.valueOf(entry.getKey())))
+                    .forEach(entry -> normalized.put(
+                            String.valueOf(entry.getKey()),
+                            normalizeForFingerprint(entry.getValue())
+                    ));
+            return normalized;
+        }
+        if (value instanceof List<?> list) {
+            List<Object> normalized = new ArrayList<>(list.size());
+            for (Object item : list) {
+                normalized.add(normalizeForFingerprint(item));
+            }
+            return normalized;
+        }
+        return value;
     }
 
     private void replayPendingToolCall(Task task, TaskCheckpoint checkpoint, String taskUuid) {

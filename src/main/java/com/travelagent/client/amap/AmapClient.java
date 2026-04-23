@@ -17,30 +17,13 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
-import java.util.Locale;
-import java.util.List;
-import java.util.Map;
 import java.util.Deque;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-
-/**
- * Client for the Amap (高德地图) REST API v3.
- *
- * <p>All three methods cache their responses in Redis for 1 hour using
- * {@code StringRedisTemplate} (JSON strings) to avoid Jackson type-info issues.
- *
- * <p>Endpoints used:
- * <ul>
- *   <li>Geocoding: {@code /v3/geocode/geo} — converts attraction name → coordinates + adcode</li>
- *   <li>Weather:   {@code /v3/weather/weatherInfo} — current weather by city adcode</li>
- *   <li>Driving:   {@code /v3/direction/driving} — driving duration between two coordinates</li>
- * </ul>
- */
-
-/**
- * 中文注释：客户端类，负责对接 Amap Client 对应的外部服务能力。
- */
 
 @Service
 public class AmapClient {
@@ -74,6 +57,15 @@ public class AmapClient {
     @Value("${amap.walking-direction-url}")
     private String walkingDirectionUrl;
 
+    @Value("${amap.bicycling-direction-url:https://restapi.amap.com/v4/direction/bicycling}")
+    private String bicyclingDirectionUrl;
+
+    @Value("${amap.transit-direction-url:https://restapi.amap.com/v3/direction/transit/integrated}")
+    private String transitDirectionUrl;
+
+    @Value("${amap.distance-url:https://restapi.amap.com/v3/distance}")
+    private String distanceUrl;
+
     @Value("${amap.nearby-search-url}")
     private String nearbySearchUrl;
 
@@ -86,97 +78,90 @@ public class AmapClient {
     @Autowired
     private JsonUtil jsonUtil;
 
-    // -----------------------------------------------------------------------
-    // Public API
-    // -----------------------------------------------------------------------
-
-    /**
-     * Geocode an attraction name in a given region.
-     *
-     * @param attractionName Chinese name of the attraction (e.g. "兵马俑")
-     * @param region         City or region for disambiguation (e.g. "西安市")
-     * @return Map with keys: {@code lat} (Double), {@code lng} (Double), {@code adcode} (String)
-     */
     public Map<String, Object> geocode(String attractionName, String region) {
         String cacheKey = "amap:geocode:" + attractionName + ":" + region;
         Map<String, Object> cached = getCached(cacheKey);
-        if (cached != null) return cached;
+        if (cached != null) {
+            return cached;
+        }
 
-        String url = geocodeUrl + "?key=" + apiKey
-                + "&address=" + encode(attractionName);
+        String url = geocodeUrl + "?key=" + apiKey + "&address=" + encode(attractionName);
         if (region != null && !region.isBlank()) {
             url += "&city=" + encode(region);
         }
 
         String body = executeGet(url, "geocode");
         Map<String, Object> result = parseGeocodeResponse(body);
-
         putCached(cacheKey, result);
         return result;
     }
 
-    /**
-     * Fetch current weather for a city by its Amap adcode.
-     *
-     * @param adcode Amap city administrative code (e.g. "610100" for Xi'an)
-     * @return Map with keys: {@code weather}, {@code temperature}, {@code windDirection},
-     *         {@code windPower}, {@code humidity}
-     */
     public Map<String, Object> getWeather(String adcode) {
         String cacheKey = "amap:weather:" + adcode;
         Map<String, Object> cached = getCached(cacheKey);
-        if (cached != null) return cached;
+        if (cached != null) {
+            return cached;
+        }
 
-        String url = weatherUrl + "?key=" + apiKey
-                + "&city=" + adcode
-                + "&extensions=base";
-
+        String url = weatherUrl + "?key=" + apiKey + "&city=" + adcode + "&extensions=base";
         String body = executeGet(url, "weather");
         Map<String, Object> result = parseWeatherResponse(body);
-
         putCached(cacheKey, result);
         return result;
     }
 
-    /**
-     * Get driving duration between two coordinates.
-     *
-     * <p>Uses Amap Driving API v3. The response field {@code route.paths[0].duration}
-     * is in <b>seconds</b> and is converted to minutes before returning.
-     *
-     * @return Map with key: {@code durationMin} (Integer)
-     */
     public Map<String, Object> getDrivingDuration(double originLng, double originLat,
-                                                   double destLng, double destLat) {
+                                                  double destLng, double destLat) {
         return getTravelDuration(originLng, originLat, destLng, destLat, "driving");
     }
 
     public Map<String, Object> getTravelDuration(double originLng, double originLat,
                                                  double destLng, double destLat,
                                                  String travelMode) {
-        String normalizedMode = travelMode == null ? "driving" : travelMode.trim().toLowerCase();
-        String cacheKey = String.format("amap:traffic:%s:%.6f,%.6f:%.6f,%.6f",
-                normalizedMode, originLng, originLat, destLng, destLat);
-        Map<String, Object> cached = getCached(cacheKey);
-        if (cached != null) return cached;
-
         String origin = originLng + "," + originLat;
         String destination = destLng + "," + destLat;
-        String url;
-        if ("walking".equals(normalizedMode)) {
-            url = walkingDirectionUrl + "?key=" + apiKey
-                    + "&origin=" + origin
-                    + "&destination=" + destination;
-        } else {
-            url = directionUrl + "?key=" + apiKey
-                    + "&origin=" + origin
-                    + "&destination=" + destination
-                    + "&strategy=0";
+
+        for (String routeMode : resolveTravelModeSequence(travelMode)) {
+            String cacheKey = String.format("amap:traffic:%s:%.6f,%.6f:%.6f,%.6f",
+                    routeMode, originLng, originLat, destLng, destLat);
+            Map<String, Object> cached = getCached(cacheKey);
+            if (cached != null) {
+                return ensureRouteMode(cached, routeMode);
+            }
+
+            try {
+                String body = executeGet(buildDirectionUrl(routeMode, origin, destination), "direction");
+                Map<String, Object> result = parseDirectionResponse(body, routeMode);
+                putCached(cacheKey, result);
+                return result;
+            } catch (RuntimeException e) {
+                if (!shouldFallbackToNextMode(routeMode, travelMode)) {
+                    throw e;
+                }
+                log.warn("[AmapClient] direction mode={} failed, fallback to next mode: {}",
+                        routeMode, e.getMessage());
+            }
         }
 
-        String body = executeGet(url, "direction");
-        Map<String, Object> result = parseDirectionResponse(body);
+        throw new AgentException(AgentErrorCode.TOOL_AMAP_ERROR,
+                "No available Amap direction mode for travelMode=" + normalizeTravelMode(travelMode));
+    }
 
+    public Map<String, Object> getDistance(double originLng, double originLat,
+                                           double destLng, double destLat) {
+        String cacheKey = String.format("amap:distance:%.6f,%.6f:%.6f,%.6f",
+                originLng, originLat, destLng, destLat);
+        Map<String, Object> cached = getCached(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
+        String url = distanceUrl + "?key=" + apiKey
+                + "&origins=" + originLng + "," + originLat
+                + "&destination=" + destLng + "," + destLat
+                + "&type=0";
+        String body = executeGet(url, "distance");
+        Map<String, Object> result = parseDistanceResponse(body);
         putCached(cacheKey, result);
         return result;
     }
@@ -226,10 +211,6 @@ public class AmapClient {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Private: HTTP execution
-    // -----------------------------------------------------------------------
-
     private String executeGet(String url, String apiName) {
         awaitRateLimitPermit(apiName);
         Request request = new Request.Builder().url(url).get().build();
@@ -251,7 +232,7 @@ public class AmapClient {
     }
 
     private AgentException classifyAmapException(Exception e, String url) {
-        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        String msg = e.getMessage() != null ? e.getMessage().toLowerCase(Locale.ROOT) : "";
         if (msg.contains("timeout") || msg.contains("timed out")
                 || e.getCause() instanceof java.net.SocketTimeoutException) {
             return new AgentException(AgentErrorCode.TOOL_AMAP_TIMEOUT,
@@ -309,24 +290,17 @@ public class AmapClient {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Private: JSON parsing
-    // -----------------------------------------------------------------------
-
     @SuppressWarnings("unchecked")
     private Map<String, Object> parseGeocodeResponse(String json) {
         try {
             Map<String, Object> root = jsonUtil.fromJson(json, new TypeReference<Map<String, Object>>() {});
             validateAmapStatus(root, json, "geocode");
 
-            java.util.List<Map<String, Object>> geocodes =
-                    (java.util.List<Map<String, Object>>) root.get("geocodes");
+            List<Map<String, Object>> geocodes = (List<Map<String, Object>>) root.get("geocodes");
             if (geocodes == null || geocodes.isEmpty()) {
                 throw new RuntimeException("Amap geocode: no results in response: " + json);
             }
             Map<String, Object> first = geocodes.get(0);
-
-            // location format: "lng,lat"
             String location = (String) first.get("location");
             if (location == null || !location.contains(",")) {
                 throw new RuntimeException("Amap geocode: missing location in response: " + json);
@@ -350,19 +324,18 @@ public class AmapClient {
             Map<String, Object> root = jsonUtil.fromJson(json, new TypeReference<Map<String, Object>>() {});
             validateAmapStatus(root, json, "weather");
 
-            java.util.List<Map<String, Object>> lives =
-                    (java.util.List<Map<String, Object>>) root.get("lives");
+            List<Map<String, Object>> lives = (List<Map<String, Object>>) root.get("lives");
             if (lives == null || lives.isEmpty()) {
                 throw new RuntimeException("Amap weather: no lives data in response: " + json);
             }
             Map<String, Object> live = lives.get(0);
 
             return Map.of(
-                    "weather",       live.getOrDefault("weather", "未知"),
-                    "temperature",   live.getOrDefault("temperature", ""),
+                    "weather", live.getOrDefault("weather", "未知"),
+                    "temperature", live.getOrDefault("temperature", ""),
                     "windDirection", live.getOrDefault("winddirection", ""),
-                    "windPower",     live.getOrDefault("windpower", ""),
-                    "humidity",      live.getOrDefault("humidity", "")
+                    "windPower", live.getOrDefault("windpower", ""),
+                    "humidity", live.getOrDefault("humidity", "")
             );
         } catch (RuntimeException e) {
             throw e;
@@ -371,33 +344,99 @@ public class AmapClient {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> parseDirectionResponse(String json) {
+    private Map<String, Object> parseDirectionResponse(String json, String routeMode) {
         try {
             Map<String, Object> root = jsonUtil.fromJson(json, new TypeReference<Map<String, Object>>() {});
             validateAmapStatus(root, json, "direction");
-
-            Map<String, Object> route = (Map<String, Object>) root.get("route");
-            if (route == null) {
-                throw new RuntimeException("Amap direction: missing 'route' in response: " + json);
-            }
-            java.util.List<Map<String, Object>> paths =
-                    (java.util.List<Map<String, Object>>) route.get("paths");
-            if (paths == null || paths.isEmpty()) {
-                throw new RuntimeException("Amap direction: no paths in response: " + json);
-            }
-            // duration is in seconds; convert to minutes
-            Object durationObj = paths.get(0).get("duration");
-            int durationMin = 0;
-            if (durationObj != null) {
-                durationMin = (int) Math.ceil(Double.parseDouble(durationObj.toString()) / 60.0);
-            }
-            return Map.of("durationMin", durationMin);
+            return switch (routeMode) {
+                case "transit" -> parseTransitDirectionResponse(root, json);
+                case "bicycling" -> parseBicyclingDirectionResponse(root, json);
+                default -> parseStandardDirectionResponse(root, json, routeMode);
+            };
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse Amap direction response: " + e.getMessage(), e);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseStandardDirectionResponse(Map<String, Object> root,
+                                                               String json,
+                                                               String routeMode) {
+        Map<String, Object> route = (Map<String, Object>) root.get("route");
+        if (route == null) {
+            throw new RuntimeException("Amap direction: missing route in response: " + json);
+        }
+        List<Map<String, Object>> paths = (List<Map<String, Object>>) route.get("paths");
+        if (paths == null || paths.isEmpty()) {
+            throw new RuntimeException("Amap direction: no paths in response: " + json);
+        }
+        Map<String, Object> path = paths.get(0);
+        return buildDirectionResult(path.get("duration"), path.get("distance"), routeMode);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseBicyclingDirectionResponse(Map<String, Object> root, String json) {
+        Map<String, Object> data = (Map<String, Object>) root.get("data");
+        if (data == null) {
+            throw new RuntimeException("Amap bicycling: missing data in response: " + json);
+        }
+        List<Map<String, Object>> paths = (List<Map<String, Object>>) data.get("paths");
+        if (paths == null || paths.isEmpty()) {
+            throw new RuntimeException("Amap bicycling: no paths in response: " + json);
+        }
+        Map<String, Object> path = paths.get(0);
+        return buildDirectionResult(path.get("duration"), path.get("distance"), "bicycling");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseTransitDirectionResponse(Map<String, Object> root, String json) {
+        Map<String, Object> route = (Map<String, Object>) root.get("route");
+        if (route == null) {
+            throw new RuntimeException("Amap transit: missing route in response: " + json);
+        }
+        List<Map<String, Object>> transits = (List<Map<String, Object>>) route.get("transits");
+        if (transits == null || transits.isEmpty()) {
+            throw new RuntimeException("Amap transit: no transits in response: " + json);
+        }
+        Map<String, Object> transit = transits.get(0);
+        return buildDirectionResult(transit.get("duration"), transit.get("distance"), "transit");
+    }
+
+    private Map<String, Object> parseDistanceResponse(String json) {
+        try {
+            Map<String, Object> root = jsonUtil.fromJson(json, new TypeReference<Map<String, Object>>() {});
+            validateAmapStatus(root, json, "distance");
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> results = (List<Map<String, Object>>) root.get("results");
+            if (results == null || results.isEmpty()) {
+                throw new RuntimeException("Amap distance: no results in response: " + json);
+            }
+            Integer distanceMeters = toInteger(results.get(0).get("distance"));
+            if (distanceMeters == null) {
+                throw new RuntimeException("Amap distance: missing distance in response: " + json);
+            }
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("distanceMeters", distanceMeters);
+            result.put("distanceKm", round(distanceMeters / 1000.0d));
+            return result;
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse Amap distance response: " + e.getMessage(), e);
+        }
+    }
+
+    private Map<String, Object> buildDirectionResult(Object duration, Object distance, String routeMode) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("durationMin", toDurationMinutes(duration));
+        Integer distanceMeters = toInteger(distance);
+        if (distanceMeters != null) {
+            result.put("distanceMeters", distanceMeters);
+        }
+        result.put("routeMode", routeMode);
+        return result;
     }
 
     private void validateAmapStatus(Map<String, Object> root, String rawJson, String apiName) {
@@ -433,10 +472,6 @@ public class AmapClient {
         return text.replace(apiKey, "***");
     }
 
-    // -----------------------------------------------------------------------
-    // Private: Redis cache helpers (use StringRedisTemplate via RedisUtil)
-    // -----------------------------------------------------------------------
-
     private Map<String, Object> getCached(String cacheKey) {
         try {
             String json = redisUtil.getString(cacheKey);
@@ -458,9 +493,85 @@ public class AmapClient {
         }
     }
 
-    /** URL-encode a Chinese string for query parameters. */
+    private String buildDirectionUrl(String routeMode, String origin, String destination) {
+        return switch (routeMode) {
+            case "walking" -> walkingDirectionUrl + "?key=" + apiKey
+                    + "&origin=" + origin
+                    + "&destination=" + destination;
+            case "bicycling" -> bicyclingDirectionUrl + "?key=" + apiKey
+                    + "&origin=" + origin
+                    + "&destination=" + destination;
+            case "transit" -> transitDirectionUrl + "?key=" + apiKey
+                    + "&origin=" + origin
+                    + "&destination=" + destination
+                    + "&city=auto"
+                    + "&strategy=0";
+            default -> directionUrl + "?key=" + apiKey
+                    + "&origin=" + origin
+                    + "&destination=" + destination
+                    + "&strategy=0";
+        };
+    }
+
+    private List<String> resolveTravelModeSequence(String travelMode) {
+        String normalized = normalizeTravelMode(travelMode);
+        if ("walking".equals(normalized)) {
+            return List.of("walking");
+        }
+        if ("transit".equals(normalized)) {
+            return List.of("transit", "bicycling", "walking");
+        }
+        return List.of("driving");
+    }
+
+    private String normalizeTravelMode(String travelMode) {
+        String normalized = travelMode == null ? "driving" : travelMode.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "walking", "transit", "bicycling" -> normalized;
+            default -> "driving";
+        };
+    }
+
+    private boolean shouldFallbackToNextMode(String attemptedMode, String requestedMode) {
+        return "transit".equals(normalizeTravelMode(requestedMode))
+                && ("transit".equals(attemptedMode) || "bicycling".equals(attemptedMode));
+    }
+
+    private Map<String, Object> ensureRouteMode(Map<String, Object> cached, String routeMode) {
+        if (cached.get("routeMode") != null) {
+            return cached;
+        }
+        Map<String, Object> adjusted = new LinkedHashMap<>(cached);
+        adjusted.put("routeMode", routeMode);
+        return adjusted;
+    }
+
+    private int toDurationMinutes(Object durationObj) {
+        if (durationObj == null) {
+            return 0;
+        }
+        return (int) Math.ceil(Double.parseDouble(durationObj.toString()) / 60.0d);
+    }
+
+    private Integer toInteger(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return (int) Math.round(Double.parseDouble(value.toString()));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private double round(double value) {
+        return Math.round(value * 1000.0d) / 1000.0d;
+    }
+
     private String encode(String value) {
-        if (value == null) return "";
+        if (value == null) {
+            return "";
+        }
         try {
             return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
         } catch (Exception e) {

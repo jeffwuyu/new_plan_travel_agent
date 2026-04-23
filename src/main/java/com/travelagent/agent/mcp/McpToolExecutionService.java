@@ -39,7 +39,7 @@ public class McpToolExecutionService {
             throw new McpException("MCP is disabled");
         }
 
-        String mcpToolName = properties.getToolMapping().get(internalToolName);
+        String mcpToolName = resolveToolName(internalToolName, arguments);
         if (mcpToolName == null || mcpToolName.isBlank()) {
             throw new McpException("No MCP tool mapping configured for internal tool: " + internalToolName);
         }
@@ -77,12 +77,23 @@ public class McpToolExecutionService {
             return Map.of("city", String.valueOf(arguments.getOrDefault("adcode", "")));
         }
         if (TrafficTimeTool.NAME.equals(internalToolName)) {
-            return Map.of(
+            return new LinkedHashMap<>(Map.of(
                     "origin", arguments.get("originLng") + "," + arguments.get("originLat"),
                     "destination", arguments.get("destLng") + "," + arguments.get("destLat")
-            );
+            ));
         }
         return arguments == null ? Map.of() : arguments;
+    }
+
+    private String resolveToolName(String internalToolName, Map<String, Object> arguments) {
+        if (TrafficTimeTool.NAME.equals(internalToolName)) {
+            String routeMode = normalizeTravelMode(arguments == null ? null : arguments.get("travelMode"));
+            String mapped = properties.getToolMapping().get(internalToolName + "." + routeMode);
+            if (mapped != null && !mapped.isBlank()) {
+                return mapped;
+            }
+        }
+        return properties.getToolMapping().get(internalToolName);
     }
 
     private Map<String, Object> normalizeResult(String internalToolName, String mcpToolName, McpToolCallResult result) {
@@ -302,6 +313,17 @@ public class McpToolExecutionService {
         }
         if (lower.contains("bicycling")) {
             return "bicycling";
+        }
+        return "driving";
+    }
+
+    private String normalizeTravelMode(Object travelMode) {
+        if (travelMode == null) {
+            return "driving";
+        }
+        String normalized = travelMode.toString().trim().toLowerCase(Locale.ROOT);
+        if ("walking".equals(normalized) || "transit".equals(normalized) || "bicycling".equals(normalized)) {
+            return normalized;
         }
         return "driving";
     }

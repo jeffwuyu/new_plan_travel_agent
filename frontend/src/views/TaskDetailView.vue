@@ -197,6 +197,7 @@
                 <p>{{ llmTokenBuffer }}</p>
               </div>
             </article>
+            <div ref="bottomAnchor" />
           </div>
 
           <aside class="sidebar">
@@ -277,7 +278,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
@@ -297,6 +298,7 @@ const pollEvents = ref([])
 const planId = ref(null)
 const loading = ref(true)
 const submittingCandidateId = ref('')
+const bottomAnchor = ref(null)
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled'])
 const isTerminal = (status) => TERMINAL.has(status)
@@ -324,7 +326,14 @@ const mergedEvents = computed(() => {
     .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
 })
 
-const displayMessages = computed(() => mergedEvents.value.map(toMessage))
+const displayMessages = computed(() => {
+  const messages = mergedEvents.value.map(toMessage)
+  let lastStateChangeIdx = -1
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].eventType === 'STATE_CHANGE') { lastStateChangeIdx = i; break }
+  }
+  return messages.filter((m, i) => m.eventType !== 'STATE_CHANGE' || i === lastStateChangeIdx)
+})
 
 const awaitingInputTitle = computed(() => {
   const pendingType = task.value?.pendingInputType
@@ -364,6 +373,11 @@ watch(liveStatus, async (status) => {
     await fetchPlanId()
   }
 })
+
+watch(
+  [displayMessages, llmTokenBuffer],
+  () => nextTick(() => bottomAnchor.value?.scrollIntoView({ behavior: 'smooth' }))
+)
 
 async function fetchAll() {
   try {
@@ -721,7 +735,8 @@ function formatScore(value) {
 }
 
 .messages {
-  min-height: 70vh;
+  height: 65vh;
+  overflow-y: auto;
   padding: 24px;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.85);

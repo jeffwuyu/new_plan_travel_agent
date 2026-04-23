@@ -67,6 +67,9 @@ amap:
   weather-url: https://restapi.amap.com/v3/weather/weatherInfo
   direction-url: https://restapi.amap.com/v3/direction/driving
   walking-direction-url: https://restapi.amap.com/v3/direction/walking
+  bicycling-direction-url: https://restapi.amap.com/v4/direction/bicycling
+  transit-direction-url: https://restapi.amap.com/v3/direction/transit/integrated
+  distance-url: https://restapi.amap.com/v3/distance
   nearby-search-url: https://restapi.amap.com/v3/place/around
   timeout: 10000
 

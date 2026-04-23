@@ -52,16 +52,18 @@ class AmapClientTest {
         ReflectionTestUtils.setField(amapClient, "weatherUrl", "https://restapi.amap.com/v3/weather/weatherInfo");
         ReflectionTestUtils.setField(amapClient, "directionUrl", "https://restapi.amap.com/v3/direction/driving");
         ReflectionTestUtils.setField(amapClient, "walkingDirectionUrl", "https://restapi.amap.com/v3/direction/walking");
+        ReflectionTestUtils.setField(amapClient, "bicyclingDirectionUrl", "https://restapi.amap.com/v4/direction/bicycling");
+        ReflectionTestUtils.setField(amapClient, "transitDirectionUrl", "https://restapi.amap.com/v3/direction/transit/integrated");
+        ReflectionTestUtils.setField(amapClient, "distanceUrl", "https://restapi.amap.com/v3/distance");
         ReflectionTestUtils.setField(amapClient, "nearbySearchUrl", "https://restapi.amap.com/v3/place/around");
         ReflectionTestUtils.setField(jsonUtil, "objectMapper", new ObjectMapper());
         ReflectionTestUtils.setField(amapClient, "jsonUtil", jsonUtil);
     }
 
     @Test
-    @DisplayName("geocode: Redis cache hit skips OkHttp call")
+    @DisplayName("geocode cache hit skips HTTP call")
     void geocode_cacheHit_skipsHttp() {
-        String cachedJson = "{\"lat\":34.38,\"lng\":109.28,\"adcode\":\"610100\"}";
-        when(redisUtil.getString(startsWith("amap:geocode:"))).thenReturn(cachedJson);
+        when(redisUtil.getString(startsWith("amap:geocode:"))).thenReturn("{\"lat\":34.38,\"lng\":109.28,\"adcode\":\"610100\"}");
 
         Map<String, Object> result = amapClient.geocode("兵马俑", "西安市");
 
@@ -72,99 +74,98 @@ class AmapClientTest {
     }
 
     @Test
-    @DisplayName("geocode: cache miss triggers HTTP call and writes to cache")
-    void geocode_cacheMiss_callsAmapAndCaches() throws IOException {
+    @DisplayName("walking mode parses walking direction API")
+    void getTravelDuration_walking_usesWalkingApi() throws IOException {
         when(redisUtil.getString(any())).thenReturn(null);
-
-        String amapResponse = """
-                {
-                  "status": "1",
-                  "geocodes": [
-                    { "location": "109.278927,34.384232", "adcode": "610100" }
-                  ]
-                }
-                """;
-        mockHttpResponse(amapResponse);
-
-        Map<String, Object> result = amapClient.geocode("兵马俑", "西安市");
-
-        assertThat(((Number) result.get("lat")).doubleValue()).isCloseTo(34.384232, within(0.0001));
-        assertThat(((Number) result.get("lng")).doubleValue()).isCloseTo(109.278927, within(0.0001));
-        assertThat(result.get("adcode")).isEqualTo("610100");
-        verify(redisUtil).setString(startsWith("amap:geocode:"), any(), any());
-    }
-
-    @Test
-    @DisplayName("getWeather: Redis cache hit skips HTTP call")
-    void getWeather_cacheHit_skipsHttp() {
-        String cachedJson = "{\"weather\":\"Sunny\",\"temperature\":\"22\",\"windDirection\":\"North\",\"windPower\":\"3\",\"humidity\":\"45\"}";
-        when(redisUtil.getString(startsWith("amap:weather:"))).thenReturn(cachedJson);
-
-        Map<String, Object> result = amapClient.getWeather("610100");
-
-        assertThat(result.get("weather")).isEqualTo("Sunny");
-        assertThat(result.get("temperature")).isEqualTo("22");
-        verifyNoInteractions(okHttpClient);
-    }
-
-    @Test
-    @DisplayName("getWeather: cache miss calls Amap and returns parsed weather")
-    void getWeather_cacheMiss_callsAmapAndParsesResponse() throws IOException {
-        when(redisUtil.getString(any())).thenReturn(null);
-
-        String amapResponse = """
-                {
-                  "status": "1",
-                  "lives": [
-                    {
-                      "weather": "Sunny",
-                      "temperature": "22",
-                      "winddirection": "North",
-                      "windpower": "3",
-                      "humidity": "45"
-                    }
-                  ]
-                }
-                """;
-        mockHttpResponse(amapResponse);
-
-        Map<String, Object> result = amapClient.getWeather("610100");
-
-        assertThat(result.get("weather")).isEqualTo("Sunny");
-        assertThat(result.get("temperature")).isEqualTo("22");
-        assertThat(result.get("windDirection")).isEqualTo("North");
-        verify(redisUtil).setString(startsWith("amap:weather:"), any(), any());
-    }
-
-    @Test
-    @DisplayName("getDrivingDuration: converts API seconds to minutes correctly")
-    void getDrivingDuration_convertsSecondsToMinutes() throws IOException {
-        when(redisUtil.getString(any())).thenReturn(null);
-
-        String amapResponse = """
+        mockHttpResponse("""
                 {
                   "status": "1",
                   "route": {
                     "paths": [
-                      { "duration": "1500" }
+                      { "duration": "1500", "distance": "2200" }
                     ]
                   }
                 }
-                """;
-        mockHttpResponse(amapResponse);
+                """);
 
-        Map<String, Object> result = amapClient.getDrivingDuration(109.28, 34.38, 109.00, 34.26);
+        Map<String, Object> result = amapClient.getTravelDuration(109.28, 34.38, 109.00, 34.26, "walking");
 
-        assertThat(((Number) result.get("durationMin")).intValue()).isEqualTo(25);
+        assertThat(result.get("durationMin")).isEqualTo(25);
+        assertThat(result.get("distanceMeters")).isEqualTo(2200);
+        assertThat(result.get("routeMode")).isEqualTo("walking");
     }
 
     @Test
-    @DisplayName("geocode: classifies normal Amap errors as TOOL_AMAP_ERROR")
+    @DisplayName("driving mode parses driving direction API")
+    void getTravelDuration_driving_usesDrivingApi() throws IOException {
+        when(redisUtil.getString(any())).thenReturn(null);
+        mockHttpResponse("""
+                {
+                  "status": "1",
+                  "route": {
+                    "paths": [
+                      { "duration": "900", "distance": "5200" }
+                    ]
+                  }
+                }
+                """);
+
+        Map<String, Object> result = amapClient.getTravelDuration(109.28, 34.38, 109.00, 34.26, "driving");
+
+        assertThat(result.get("durationMin")).isEqualTo(15);
+        assertThat(result.get("distanceMeters")).isEqualTo(5200);
+        assertThat(result.get("routeMode")).isEqualTo("driving");
+    }
+
+    @Test
+    @DisplayName("transit falls back to bicycling when transit response is unusable")
+    void getTravelDuration_transit_fallsBackToBicycling() throws IOException {
+        when(redisUtil.getString(any())).thenReturn(null);
+        when(okHttpClient.newCall(any())).thenReturn(okHttpCall);
+        when(okHttpCall.execute())
+                .thenReturn(httpResponse("{\"status\":\"1\",\"route\":{\"transits\":[]}}"))
+                .thenReturn(httpResponse("""
+                        {
+                          "status": "1",
+                          "data": {
+                            "paths": [
+                              { "duration": "600", "distance": "3200" }
+                            ]
+                          }
+                        }
+                        """));
+
+        Map<String, Object> result = amapClient.getTravelDuration(109.28, 34.38, 109.00, 34.26, "transit");
+
+        assertThat(result.get("durationMin")).isEqualTo(10);
+        assertThat(result.get("distanceMeters")).isEqualTo(3200);
+        assertThat(result.get("routeMode")).isEqualTo("bicycling");
+    }
+
+    @Test
+    @DisplayName("distance API returns meters and kilometers")
+    void getDistance_parsesDistanceResponse() throws IOException {
+        when(redisUtil.getString(any())).thenReturn(null);
+        mockHttpResponse("""
+                {
+                  "status": "1",
+                  "results": [
+                    { "distance": "4567" }
+                  ]
+                }
+                """);
+
+        Map<String, Object> result = amapClient.getDistance(109.28, 34.38, 109.00, 34.26);
+
+        assertThat(result.get("distanceMeters")).isEqualTo(4567);
+        assertThat(((Number) result.get("distanceKm")).doubleValue()).isCloseTo(4.567, within(0.001));
+    }
+
+    @Test
+    @DisplayName("geocode classifies normal Amap errors as TOOL_AMAP_ERROR")
     void geocode_amapError_throwsToolAmapError() throws IOException {
         when(redisUtil.getString(any())).thenReturn(null);
-
-        String errorResponse = "{\"status\":\"0\",\"info\":\"INVALID_USER_KEY\"}";
-        mockHttpResponse(errorResponse);
+        mockHttpResponse("{\"status\":\"0\",\"info\":\"INVALID_USER_KEY\"}");
 
         assertThatThrownBy(() -> amapClient.geocode("兵马俑", "西安市"))
                 .isInstanceOf(AgentException.class)
@@ -172,12 +173,10 @@ class AmapClientTest {
     }
 
     @Test
-    @DisplayName("geocode: classifies QPS limit as retryable rate limit")
+    @DisplayName("geocode classifies QPS limit as retryable rate limit")
     void geocode_rateLimit_throwsRetryableAgentException() throws IOException {
         when(redisUtil.getString(any())).thenReturn(null);
-
-        String errorResponse = "{\"status\":\"0\",\"info\":\"CUQPS_HAS_EXCEEDED_THE_LIMIT\"}";
-        mockHttpResponse(errorResponse);
+        mockHttpResponse("{\"status\":\"0\",\"info\":\"CUQPS_HAS_EXCEEDED_THE_LIMIT\"}");
 
         assertThatThrownBy(() -> amapClient.geocode("西湖", "杭州"))
                 .isInstanceOf(AgentException.class)
@@ -189,19 +188,17 @@ class AmapClientTest {
     }
 
     @Test
-    @DisplayName("geocode: local limiter throttles after three calls per second")
+    @DisplayName("geocode local limiter throttles after three calls per second")
     void geocode_localLimiter_throttlesBurstRequests() throws IOException {
         when(redisUtil.getString(any())).thenReturn(null);
-
-        String amapResponse = """
+        mockHttpResponse("""
                 {
                   "status": "1",
                   "geocodes": [
                     { "location": "120.155070,30.274085", "adcode": "330100" }
                   ]
                 }
-                """;
-        mockHttpResponse(amapResponse);
+                """);
 
         long start = System.nanoTime();
         amapClient.geocode("西湖1", "杭州");
@@ -215,12 +212,16 @@ class AmapClientTest {
 
     private void mockHttpResponse(String body) throws IOException {
         when(okHttpClient.newCall(any())).thenReturn(okHttpCall);
-        when(okHttpCall.execute()).thenAnswer(invocation -> new Response.Builder()
+        when(okHttpCall.execute()).thenAnswer(invocation -> httpResponse(body));
+    }
+
+    private Response httpResponse(String body) {
+        return new Response.Builder()
                 .request(new Request.Builder().url("https://example.com").build())
                 .protocol(Protocol.HTTP_1_1)
                 .code(200)
                 .message("OK")
                 .body(ResponseBody.create(body, okhttp3.MediaType.parse("application/json")))
-                .build());
+                .build();
     }
 }

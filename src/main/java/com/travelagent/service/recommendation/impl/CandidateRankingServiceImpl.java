@@ -77,12 +77,14 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
     private RecommendationFeatureBreakdown buildFeatures(NearbyPoiRecommendationRequest request, Attraction candidate) {
         RecommendationFeatureBreakdown features = new RecommendationFeatureBreakdown();
 
-        Double distanceKm = null;
+        Double distanceKm = queryDistanceKm(request, candidate);
         if (request.getCurrentLat() != null && request.getCurrentLng() != null
                 && candidate.getLatitude() != null && candidate.getLongitude() != null) {
-            distanceKm = haversineKm(
-                    request.getCurrentLat(), request.getCurrentLng(),
-                    candidate.getLatitude().doubleValue(), candidate.getLongitude().doubleValue());
+            if (distanceKm == null) {
+                distanceKm = haversineKm(
+                        request.getCurrentLat(), request.getCurrentLng(),
+                        candidate.getLatitude().doubleValue(), candidate.getLongitude().doubleValue());
+            }
             features.setDistanceKm(round(distanceKm));
             features.setGeoScore(round(Math.exp(-distanceKm / GEO_TAU_KM)));
         } else {
@@ -139,6 +141,29 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
             speedKmh = 28.0d;
         }
         return (int) Math.ceil(distanceKm / speedKmh * 60.0d);
+    }
+
+    private Double queryDistanceKm(NearbyPoiRecommendationRequest request, Attraction candidate) {
+        if (request.getCurrentLat() == null || request.getCurrentLng() == null
+                || candidate.getLatitude() == null || candidate.getLongitude() == null) {
+            return null;
+        }
+        try {
+            Map<String, Object> result = amapClient.getDistance(
+                    request.getCurrentLng(), request.getCurrentLat(),
+                    candidate.getLongitude().doubleValue(), candidate.getLatitude().doubleValue());
+            Object distanceKm = result.get("distanceKm");
+            if (distanceKm instanceof Number number) {
+                return number.doubleValue();
+            }
+            Object distanceMeters = result.get("distanceMeters");
+            if (distanceMeters instanceof Number number) {
+                return number.doubleValue() / 1000.0d;
+            }
+        } catch (Exception ignored) {
+            // Fall back to haversine distance.
+        }
+        return null;
     }
 
     private double computeStyleSimilarity(NearbyPoiRecommendationRequest request, Attraction candidate) {

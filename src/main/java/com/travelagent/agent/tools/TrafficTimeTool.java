@@ -55,9 +55,10 @@ public class TrafficTimeTool implements AgentTool {
         double originLat = ((Number) arguments.get("originLat")).doubleValue();
         double destLng   = ((Number) arguments.get("destLng")).doubleValue();
         double destLat   = ((Number) arguments.get("destLat")).doubleValue();
+        String travelMode = String.valueOf(arguments.getOrDefault("travelMode", "driving"));
 
-        log.debug("[TrafficTimeTool] Driving duration from ({},{}) to ({},{})",
-                originLng, originLat, destLng, destLat);
+        log.debug("[TrafficTimeTool] travelMode={} duration from ({},{}) to ({},{})",
+                travelMode, originLng, originLat, destLng, destLat);
 
         if (mcpToolExecutionService.isEnabled()) {
             try {
@@ -65,12 +66,12 @@ public class TrafficTimeTool implements AgentTool {
             } catch (Exception e) {
                 log.warn("[TrafficTimeTool] MCP traffic tool failed, falling back to REST: {}", e.getMessage());
                 Map<String, Object> fallback =
-                        new HashMap<>(amapClient.getDrivingDuration(originLng, originLat, destLng, destLat));
+                        new HashMap<>(amapClient.getTravelDuration(originLng, originLat, destLng, destLat, travelMode));
                 fallback.put("mcpFallback", true);
                 fallback.put("mcpProvider", "amap-rest");
                 return fallback;
             }
         }
-        return amapClient.getDrivingDuration(originLng, originLat, destLng, destLat);
+        return amapClient.getTravelDuration(originLng, originLat, destLng, destLat, travelMode);
     }
 }

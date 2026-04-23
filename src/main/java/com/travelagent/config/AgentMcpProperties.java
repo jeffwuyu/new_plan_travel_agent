@@ -22,7 +22,10 @@ public class AgentMcpProperties {
     public AgentMcpProperties() {
         toolMapping.put("geocode", "maps_geo");
         toolMapping.put("weather", "maps_weather");
-        toolMapping.put("traffic_time", "maps_direction_driving");
+        toolMapping.put("traffic_time.driving", "maps_direction_driving");
+        toolMapping.put("traffic_time.walking", "maps_direction_walking");
+        toolMapping.put("traffic_time.bicycling", "maps_direction_bicycling");
+        toolMapping.put("traffic_time.transit", "maps_direction_transit");
     }
 
     public boolean isEnabled() {

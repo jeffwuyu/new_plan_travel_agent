@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -61,6 +62,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -161,6 +163,97 @@ class AgentServiceImplTest {
 
         verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.COMPLETED), any());
         verify(sseNotificationService, never()).sendEvent(eq("uuid"), eq(SseEvent.ERROR), any());
+    }
+
+    @Test
+    void executeTask_passesTravelModeToTrafficTool() {
+        Task task = buildTask(TaskStatus.PENDING);
+        TaskCheckpoint checkpoint = buildCheckpoint(true);
+        checkpoint.getPlanningConfig().setTravelMode("walking");
+        checkpoint.getPlanningConfig().setDynamicTargetSteps(1);
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+
+        when(taskMapper.findByUuid("uuid")).thenReturn(task);
+        mockStandardTransitions(TaskStatus.PENDING);
+        mockUserLevel(1L, 1);
+        when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("manual"));
+        when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
+                .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
+        when(amapClient.getTravelDuration(any(Double.class), any(Double.class), any(Double.class), any(Double.class), anyString()))
+                .thenReturn(Map.of("durationMin", 25));
+        var geocodeTool = successGeocodeTool();
+        var weatherTool = successWeatherTool();
+        var trafficTool = successTrafficTool();
+        when(toolRegistry.getTool(GeocodeTool.NAME)).thenReturn(geocodeTool);
+        when(toolRegistry.getTool(WeatherTool.NAME)).thenReturn(weatherTool);
+        when(toolRegistry.getTool(TrafficTimeTool.NAME)).thenReturn(trafficTool);
+        when(markovPlanner.generateFinalSummary(any(), any(), anyString())).thenReturn(null);
+        when(planMapper.insertPlan(any())).thenAnswer(invocation -> {
+            Plan plan = invocation.getArgument(0);
+            plan.setId(42L);
+            return 1;
+        });
+
+        agentService.executeTask("uuid");
+
+        ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+        verify(trafficTool).execute(captor.capture(), anyString());
+        assertThat(captor.getValue().get("travelMode")).isEqualTo("walking");
+    }
+
+    @Test
+    void executeTask_differentTravelMode_generatesDifferentTrafficIdempotencyKey() {
+        String drivingKey = buildTrafficIdempotencyKey(Map.of(
+                "originLng", 108.95,
+                "originLat", 34.26,
+                "destLng", 109.28,
+                "destLat", 34.38,
+                "travelMode", "driving"
+        ));
+        String walkingKey = buildTrafficIdempotencyKey(Map.of(
+                "originLng", 108.95,
+                "originLat", 34.26,
+                "destLng", 109.28,
+                "destLat", 34.38,
+                "travelMode", "walking"
+        ));
+
+        assertThat(drivingKey).isNotEqualTo(walkingKey);
+    }
+
+    @Test
+    void executeTask_sameArguments_generatesStableTrafficIdempotencyKey() {
+        Map<String, Object> arguments = Map.of(
+                "originLng", 108.95,
+                "originLat", 34.26,
+                "destLng", 109.28,
+                "destLat", 34.38,
+                "travelMode", "walking"
+        );
+        String firstKey = buildTrafficIdempotencyKey(arguments);
+        String secondKey = buildTrafficIdempotencyKey(arguments);
+
+        assertThat(firstKey).isEqualTo(secondKey);
+    }
+
+    @Test
+    void executeTask_differentCoordinates_generateDifferentTrafficIdempotencyKey() {
+        String firstKey = buildTrafficIdempotencyKey(Map.of(
+                "originLng", 108.95,
+                "originLat", 34.26,
+                "destLng", 109.28,
+                "destLat", 34.38,
+                "travelMode", "walking"
+        ));
+        String secondKey = buildTrafficIdempotencyKey(Map.of(
+                "originLng", 108.90,
+                "originLat", 34.30,
+                "destLng", 109.28,
+                "destLat", 34.38,
+                "travelMode", "walking"
+        ));
+
+        assertThat(firstKey).isNotEqualTo(secondKey);
     }
 
     @Test
@@ -402,5 +495,16 @@ class AgentServiceImplTest {
         var tool = mock(com.travelagent.agent.tools.AgentTool.class);
         when(tool.execute(any(), any())).thenReturn(Map.of("durationMin", 25));
         return tool;
+    }
+
+    private String buildTrafficIdempotencyKey(Map<String, Object> arguments) {
+        return ReflectionTestUtils.invokeMethod(
+                agentService,
+                "buildToolIdempotencyKey",
+                "uuid",
+                0,
+                TrafficTimeTool.NAME,
+                arguments
+        );
     }
 }

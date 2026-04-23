@@ -24,6 +24,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,6 +47,17 @@ class CandidateRankingServiceImplTest {
 
         lenient().when(amapClient.getTravelDuration(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyString()))
                 .thenReturn(Map.of("durationMin", 10));
+        lenient().when(amapClient.getDistance(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenAnswer(invocation -> {
+                    double destLng = invocation.getArgument(2);
+                    if (Math.abs(destLng - 120.001d) < 0.0001d) {
+                        return Map.of("distanceMeters", 300, "distanceKm", 0.3d);
+                    }
+                    if (Math.abs(destLng - 120.040d) < 0.0001d) {
+                        return Map.of("distanceMeters", 5600, "distanceKm", 5.6d);
+                    }
+                    return Map.of("distanceMeters", 1200, "distanceKm", 1.2d);
+                });
     }
 
     @Test
@@ -123,6 +135,31 @@ class CandidateRankingServiceImplTest {
         assertThat(item.getRouteSummary()).isNotBlank();
         assertThat(item.getHighlights()).isNotEmpty();
         assertThat(item.getVisitDurationMin()).isEqualTo(90);
+    }
+
+    @Test
+    @DisplayName("walking request uses walking ETA and distance API")
+    void rankCandidates_usesWalkingEtaAndDistanceApi() {
+        NearbyPoiRecommendationRequest request = baseRequest();
+        Attraction attraction = attraction("walkable", 30.001, 120.001, List.of("湖景"), true, 1);
+
+        rankingService.rankCandidates(request, List.of(attraction));
+
+        verify(amapClient).getTravelDuration(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyString());
+        verify(amapClient).getDistance(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+    }
+
+    @Test
+    @DisplayName("distance falls back to haversine when distance API fails")
+    void rankCandidates_distanceFallbacksToHaversine() {
+        NearbyPoiRecommendationRequest request = baseRequest();
+        Attraction attraction = attraction("fallback", 30.001, 120.001, List.of("湖景"), true, 1);
+        org.mockito.Mockito.when(amapClient.getDistance(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenThrow(new RuntimeException("distance unavailable"));
+
+        List<RecommendedPoiItem> ranked = rankingService.rankCandidates(request, List.of(attraction));
+
+        assertThat(ranked.get(0).getFeatures().getDistanceKm()).isNotNull();
     }
 
     private NearbyPoiRecommendationRequest baseRequest() {

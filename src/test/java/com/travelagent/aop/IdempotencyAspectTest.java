@@ -79,6 +79,8 @@ class IdempotencyAspectTest {
     @DisplayName("Second call: returns cached result without executing tool")
     @SuppressWarnings("unchecked")
     void around_cacheHit_returnsCachedResultWithoutProceed() throws Throwable {
+        when(pjp.getSignature()).thenReturn(methodSignature);
+        when(methodSignature.getName()).thenReturn("execute");
         String idempotencyKey = "task-uuid-step0-geocode";
         when(pjp.getArgs()).thenReturn(new Object[]{Map.of(), idempotencyKey});
 
@@ -121,6 +123,8 @@ class IdempotencyAspectTest {
     @Test
     @DisplayName("Redis read failure: proceeds normally and attempts to store result")
     void around_redisReadFailure_proceedsNormally() throws Throwable {
+        when(pjp.getSignature()).thenReturn(methodSignature);
+        when(methodSignature.getName()).thenReturn("execute");
         String idempotencyKey = "task-uuid-step0-geocode";
         when(pjp.getArgs()).thenReturn(new Object[]{Map.of(), idempotencyKey});
         when(redisUtil.getString(any())).thenThrow(new RuntimeException("Redis connection refused"));
@@ -148,5 +152,29 @@ class IdempotencyAspectTest {
         aspect.around(pjp, annotation);
 
         verify(redisUtil, never()).setString(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Different idempotency keys execute independently")
+    void around_differentKeys_executeIndependently() throws Throwable {
+        when(pjp.getSignature()).thenReturn(methodSignature);
+        when(methodSignature.getName()).thenReturn("execute");
+
+        String firstKey = "task-uuid-step0-traffic_time-aaa";
+        String secondKey = "task-uuid-step0-traffic_time-bbb";
+        when(redisUtil.getString("idempotency:" + firstKey + ":result")).thenReturn(null);
+        when(redisUtil.getString("idempotency:" + secondKey + ":result")).thenReturn(null);
+        when(pjp.proceed())
+                .thenReturn(Map.of("durationMin", 10))
+                .thenReturn(Map.of("durationMin", 20));
+
+        when(pjp.getArgs()).thenReturn(new Object[]{Map.of("travelMode", "walking"), firstKey});
+        Object first = aspect.around(pjp, annotation);
+
+        when(pjp.getArgs()).thenReturn(new Object[]{Map.of("travelMode", "transit"), secondKey});
+        Object second = aspect.around(pjp, annotation);
+
+        assertThat(first).isNotEqualTo(second);
+        verify(pjp, times(2)).proceed();
     }
 }
