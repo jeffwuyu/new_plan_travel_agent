@@ -343,6 +343,9 @@ const rewindingStepIndex = ref(null)
 const submittingNodeChat = ref(false)
 const nodeChatText = ref('')
 const bottomAnchor = ref(null)
+const hasInitializedAutoScroll = ref(false)
+const lastAutoScrollMessageCount = ref(0)
+const lastAutoScrollMessageKey = ref('')
 const resumeStalled = ref(false)
 const resumeSince = ref(0)
 const lastResumeRefreshAt = ref(0)
@@ -386,6 +389,11 @@ const latestSelectionMessageKey = computed(() => {
   const reversed = [...displayMessages.value].reverse()
   const latest = reversed.find(item => item.eventType === 'USER_SELECTION_REQUIRED')
   return latest ? `${latest.eventType}-${latest.createdAt}` : ''
+})
+
+const latestDisplayMessageKey = computed(() => {
+  const latest = displayMessages.value[displayMessages.value.length - 1]
+  return latest ? `${latest.eventType}-${latest.createdAt || ''}` : ''
 })
 
 const awaitingInputTitle = computed(() => {
@@ -443,8 +451,29 @@ watch(displayStatus, (status) => {
 })
 
 watch(
-  [displayMessages, llmTokenBuffer],
-  () => nextTick(() => bottomAnchor.value?.scrollIntoView({ behavior: 'smooth' }))
+  [loading, () => displayMessages.value.length, latestDisplayMessageKey],
+  ([isLoading, messageCount, latestKey]) => {
+    if (isLoading) return
+
+    if (!hasInitializedAutoScroll.value) {
+      hasInitializedAutoScroll.value = true
+      lastAutoScrollMessageCount.value = messageCount
+      lastAutoScrollMessageKey.value = latestKey
+      nextTick(() => bottomAnchor.value?.scrollIntoView({ behavior: 'smooth' }))
+      return
+    }
+
+    const hasNewMessage =
+      messageCount > lastAutoScrollMessageCount.value &&
+      latestKey !== lastAutoScrollMessageKey.value
+    lastAutoScrollMessageCount.value = messageCount
+    lastAutoScrollMessageKey.value = latestKey
+
+    if (hasNewMessage) {
+      nextTick(() => bottomAnchor.value?.scrollIntoView({ behavior: 'smooth' }))
+    }
+  },
+  { immediate: true }
 )
 
 async function fetchAll() {
