@@ -58,6 +58,7 @@ class AmapClientTest {
         ReflectionTestUtils.setField(amapClient, "nearbySearchUrl", "https://restapi.amap.com/v3/place/around");
         ReflectionTestUtils.setField(jsonUtil, "objectMapper", new ObjectMapper());
         ReflectionTestUtils.setField(amapClient, "jsonUtil", jsonUtil);
+        ReflectionTestUtils.setField(amapClient, "rateLimiter", new AmapRateLimiter());
     }
 
     @Test

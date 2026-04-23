@@ -1,6 +1,5 @@
 package com.travelagent.agent.planner;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.PlanningConfig;
@@ -8,38 +7,33 @@ import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.client.dashscope.LlmCallResult;
 import com.travelagent.mapper.LlmCallLogMapper;
+import com.travelagent.model.dto.NearbyPoiRecommendationRequest;
 import com.travelagent.model.dto.NearbyPoiRecommendationResponse;
-import com.travelagent.model.dto.LocationCandidateItem;
 import com.travelagent.model.dto.RecommendedPoiItem;
 import com.travelagent.model.dto.ResolvedLocation;
+import com.travelagent.model.dto.SelectionOptionItem;
 import com.travelagent.model.entity.Task;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
-import com.travelagent.service.rag.RagService;
 import com.travelagent.service.recommendation.NearbyPoiRecommendationService;
-import com.travelagent.service.llm.LlmUsageAccountingService;
-import com.travelagent.util.JsonUtil;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,64 +45,32 @@ class MarkovPlannerTest {
     @Mock private HistoryManager historyManager;
     @Mock private SseNotificationService sseNotificationService;
     @Mock private LlmCallLogMapper llmCallLogMapper;
+    @Mock private PlannerPromptBuilder promptBuilder;
+    @Mock private PlannerResponseParser responseParser;
     @Mock private NearbyPoiRecommendationService nearbyPoiRecommendationService;
-    @Mock private LlmUsageAccountingService llmUsageAccountingService;
 
     @InjectMocks
     private MarkovPlanner markovPlanner;
 
-    private final JsonUtil jsonUtil = new JsonUtil();
-
-    @BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(jsonUtil, "objectMapper",
-                new ObjectMapper().findAndRegisterModules());
-        ReflectionTestUtils.setField(markovPlanner, "jsonUtil", jsonUtil);
-    }
-
     @Test
-    void buildSystemPrompt_includesTimeBudgetAndDestinationConstraint() {
-        TaskCheckpoint cp = buildCheckpoint(2, 3, "Xi'an", List.of(), List.of("history"));
+    void planNextAttraction_withoutBranchSelection_returnsSelectionOptions() {
+        TaskCheckpoint cp = buildCheckpoint(1, 1, "Xi'an", List.of(), List.of());
+        cp.setSelectedBranchType(null);
 
-        String prompt = markovPlanner.buildSystemPrompt(cp);
+        List<SelectionOptionItem> options = List.of(new SelectionOptionItem(), new SelectionOptionItem());
+        Map<String, Object> selectionContext = new LinkedHashMap<>(Map.of("dayNumber", 1));
 
-        assertThat(prompt).contains("Xi'an");
-        assertThat(prompt).contains("Trip window");
-        assertThat(prompt).contains("Remaining planning budget");
-        assertThat(prompt).contains("Soft destination constraint");
-    }
+        when(promptBuilder.buildBranchSelectionOptions(any())).thenReturn(options);
+        when(promptBuilder.buildSelectionContext(eq(cp), any(), any(), eq(null)))
+                .thenReturn(selectionContext);
 
-    @Test
-    void buildStepPrompt_firstStep_mentionsStartAndRemainingBudget() {
-        TaskCheckpoint cp = buildCheckpoint(2, 3, "Xi'an", List.of(), List.of());
-        cp.setCurrentStepIndex(0);
+        PlanningResult result = markovPlanner.planNextAttraction(new Task(), cp, "branch-uuid");
 
-        String prompt = markovPlanner.buildStepPrompt(cp);
-
-        assertThat(prompt).contains("overall 1/6");
-        assertThat(prompt).contains("Start from Bell Tower");
-        assertThat(prompt).contains("Remaining total planning budget");
-    }
-
-    @Test
-    void buildStepPrompt_laterStep_includesPreviousCoordinatesAndDestinationReserve() {
-        CompletedStep prev = step("Wild Goose Pagoda", 34.22, 108.96);
-        TaskCheckpoint cp = buildCheckpoint(1, 4, "Xi'an", List.of(prev), List.of());
-        cp.setCurrentStepIndex(1);
-        cp.setProjectedReturnToDestinationMin(38);
-
-        String prompt = markovPlanner.buildStepPrompt(cp);
-
-        assertThat(prompt).contains("Wild Goose Pagoda");
-        assertThat(prompt).contains("34.22");
-        assertThat(prompt).contains("38 minutes");
-    }
-
-    @Test
-    void parseLlmAttractionName_validJson_returnsName() {
-        String json = "{\"attractionName\":\"Terracotta Army\",\"reason\":\"Famous site\"}";
-        assertThat(markovPlanner.parseLlmAttractionName(json, 0))
-                .isEqualTo("Terracotta Army");
+        assertThat(result.requiresUserSelection()).isTrue();
+        assertThat(result.pendingInputType()).isEqualTo("selection_branch");
+        assertThat(result.selectionOptions()).isEqualTo(options);
+        assertThat(result.currentContext()).isEqualTo(selectionContext);
+        assertThat(result.weatherContext()).containsKeys("summary", "constraintHints", "source");
     }
 
     @Test
@@ -117,19 +79,29 @@ class MarkovPlannerTest {
         cp.setCurrentStepIndex(1);
         cp.setSelectedBranchType("nearby_poi");
 
+        NearbyPoiRecommendationRequest request = new NearbyPoiRecommendationRequest();
         NearbyPoiRecommendationResponse response = new NearbyPoiRecommendationResponse();
         RecommendedPoiItem item = new RecommendedPoiItem();
         item.setName("Leifeng Pagoda");
         item.setAmapPoiId("poi-1");
         response.setRecommendations(List.of(item));
 
-        when(nearbyPoiRecommendationService.recommend(any())).thenReturn(response);
+        Map<String, Object> selectionContext = new LinkedHashMap<>(Map.of("currentPositionName", "West Lake"));
+
+        when(promptBuilder.buildRecommendationRequest(eq(cp), any(), any())).thenReturn(request);
+        when(nearbyPoiRecommendationService.recommend(request)).thenReturn(response);
+        when(responseParser.resolveWeatherSuitability(any(), any())).thenReturn("weather-friendly");
+        when(promptBuilder.buildSelectionContext(eq(cp), any(), any(), eq("nearby_poi")))
+                .thenReturn(selectionContext);
 
         PlanningResult result = markovPlanner.planNextAttraction(new Task(), cp, "rec-uuid");
 
         assertThat(result.requiresUserSelection()).isTrue();
+        assertThat(result.selectedBranchType()).isEqualTo("nearby_poi");
         assertThat(result.recommendationCandidates()).hasSize(1);
         assertThat(result.recommendationCandidates().get(0).getName()).isEqualTo("Leifeng Pagoda");
+        assertThat(result.currentContext()).containsEntry("currentPositionName", "West Lake");
+        assertThat(result.currentContext()).containsKey("emptyCandidateMessage");
     }
 
     @Test
@@ -143,15 +115,21 @@ class MarkovPlannerTest {
         task.setUserId(10L);
 
         when(historyManager.prepareForLlm(cp)).thenReturn(List.of());
+        when(promptBuilder.buildSystemPrompt(cp)).thenReturn("system prompt");
+        when(promptBuilder.buildStepPrompt(cp)).thenReturn("user prompt");
+        when(promptBuilder.buildAdvisorContext(eq(cp), eq(List.of()))).thenReturn(Map.of("schema", "value"));
         when(llmClient.defaultPlanningAdvisors()).thenReturn(List.of("travelPlanning", "jsonSchema", "ragContext"));
         when(llmClient.callStreaming(any(), any(), anyString(), anyString(),
                 any(), anyString(), anyString(), any(), any(), any()))
                 .thenReturn(new LlmCallResult("{\"attractionName\":\"Terracotta Army\",\"reason\":\"Famous\"}", 0));
+        when(responseParser.parseLlmAttractionName("{\"attractionName\":\"Terracotta Army\",\"reason\":\"Famous\"}", 0))
+                .thenReturn("Terracotta Army");
 
         PlanningResult result = markovPlanner.planNextAttraction(task, cp, "test-uuid");
 
         assertThat(result.attractionName()).isEqualTo("Terracotta Army");
-        verify(historyManager).appendExchange(eq(cp), anyString(), anyString());
+        verify(historyManager).appendExchange(cp, "user prompt",
+                "{\"attractionName\":\"Terracotta Army\",\"reason\":\"Famous\"}");
     }
 
     @Test
@@ -165,10 +143,15 @@ class MarkovPlannerTest {
         task.setUserId(99L);
 
         when(historyManager.prepareForLlm(cp)).thenReturn(List.of());
+        when(promptBuilder.buildSystemPrompt(cp)).thenReturn("system prompt");
+        when(promptBuilder.buildStepPrompt(cp)).thenReturn("user prompt");
+        when(promptBuilder.buildAdvisorContext(eq(cp), eq(List.of()))).thenReturn(Map.of());
         when(llmClient.defaultPlanningAdvisors()).thenReturn(List.of("travelPlanning"));
         when(llmClient.callStreaming(any(), any(), anyString(), anyString(),
                 any(), anyString(), anyString(), any(), any(), any()))
                 .thenReturn(new LlmCallResult("{\"attractionName\":\"Terracotta Army\",\"reason\":\"Famous\"}", 0));
+        when(responseParser.parseLlmAttractionName("{\"attractionName\":\"Terracotta Army\",\"reason\":\"Famous\"}", 0))
+                .thenReturn("Terracotta Army");
         when(llmCallLogMapper.findLatestSuccessfulTotalTokens(5L, "task-uuid-step0-llm")).thenReturn(321);
 
         PlanningResult result = markovPlanner.planNextAttraction(task, cp, "task-uuid");
@@ -181,11 +164,15 @@ class MarkovPlannerTest {
         TaskCheckpoint cp = buildCheckpoint(1, 1, "Beijing", List.of(), List.of());
         cp.setCurrentStepIndex(0);
         cp.setLlmConversationHistory(new ArrayList<>());
+
         Task task = new Task();
         task.setId(2L);
         task.setUserId(20L);
 
         when(historyManager.prepareForLlm(cp)).thenReturn(List.of());
+        when(promptBuilder.buildSystemPrompt(cp)).thenReturn("system prompt");
+        when(promptBuilder.buildStepPrompt(cp)).thenReturn("user prompt");
+        when(promptBuilder.buildAdvisorContext(eq(cp), eq(List.of()))).thenReturn(Map.of());
         when(llmClient.defaultPlanningAdvisors()).thenReturn(List.of("travelPlanning", "jsonSchema", "ragContext"));
         when(llmClient.callStreaming(any(), any(), anyString(), anyString(),
                 any(), anyString(), anyString(), any(), any(), any()))
@@ -195,79 +182,13 @@ class MarkovPlannerTest {
                     consumer.accept(" City");
                     return new LlmCallResult("{\"attractionName\":\"Forbidden City\",\"reason\":\"Imperial palace\"}", 0);
                 });
+        when(responseParser.parseLlmAttractionName("{\"attractionName\":\"Forbidden City\",\"reason\":\"Imperial palace\"}", 0))
+                .thenReturn("Forbidden City");
 
         markovPlanner.planNextAttraction(task, cp, "uuid-2");
 
         verify(sseNotificationService).sendEvent("uuid-2", SseEvent.LLM_STREAM, Map.of("token", "Forbidden"));
         verify(sseNotificationService).sendEvent("uuid-2", SseEvent.LLM_STREAM, Map.of("token", " City"));
-    }
-
-    @Test
-    void buildSystemPrompt_ragServiceDoesNotBreakPrompt() {
-        RagService mockRagService = mock(RagService.class);
-        ReflectionTestUtils.setField(markovPlanner, "ragService", mockRagService);
-
-        TaskCheckpoint cp = buildCheckpoint(1, 1, "Xi'an", List.of(), List.of());
-
-        assertThatNoException().isThrownBy(() -> markovPlanner.buildSystemPrompt(cp));
-
-        ReflectionTestUtils.setField(markovPlanner, "ragService", null);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void parseRouteCandidates_prefersLlmReasonHighlightsAndFiltersProcessTerms() {
-        String response = """
-                {
-                  "routes": [
-                    {
-                      "routeId": "route-1",
-                      "title": "西安城墙夜游线",
-                      "targetAttractionName": "西安城墙",
-                      "stops": ["永宁门", "城墙"],
-                      "reasonHighlights": ["历史氛围", "路线推荐", "夜景体验", "天气合适", "地标打卡"],
-                      "reason": "适合晚上慢游",
-                      "estimatedTotalDurationMin": 180,
-                      "weatherSuitability": "舒适"
-                    }
-                  ]
-                }
-                """;
-
-        List<LocationCandidateItem> result = (List<LocationCandidateItem>) ReflectionTestUtils.invokeMethod(
-                markovPlanner, "parseRouteCandidates", response, Map.of("summary", "晴天"));
-
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getHighlights()).containsExactly("历史氛围", "夜景体验", "地标打卡");
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void parseRouteCandidates_withoutReasonHighlights_fallsBackToAttractionKeywords() {
-        String response = """
-                {
-                  "routes": [
-                    {
-                      "routeId": "route-2",
-                      "title": "回民街美食漫游",
-                      "targetAttractionName": "回民街",
-                      "stops": ["鼓楼", "回民街"],
-                      "reason": "美食体验 烟火气 夜游氛围",
-                      "estimatedTotalDurationMin": 150,
-                      "weatherSuitability": "常规适配"
-                    }
-                  ]
-                }
-                """;
-
-        List<LocationCandidateItem> result = (List<LocationCandidateItem>) ReflectionTestUtils.invokeMethod(
-                markovPlanner, "parseRouteCandidates", response, Map.of("summary", "晴天"));
-
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getHighlights()).isNotEmpty();
-        assertThat(result.get(0).getHighlights()).doesNotContain("路线规划候选", "结合顺路关系和天气约束生成");
-        assertThat(result.get(0).getHighlights()).anySatisfy(value ->
-                assertThat(value).isIn("回民街美食漫游", "回民街", "鼓楼", "美食体验", "烟火气", "夜游氛围"));
     }
 
     private TaskCheckpoint buildCheckpoint(int days, int perDay, String region,

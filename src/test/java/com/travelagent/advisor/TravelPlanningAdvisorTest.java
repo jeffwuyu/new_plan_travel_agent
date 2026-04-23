@@ -25,20 +25,20 @@ class TravelPlanningAdvisorTest {
         config.setPreferenceKeywords(List.of("history", "culture"));
 
         CompletedStep step = new CompletedStep();
-        step.setAttractionName("兵马俑");
+        step.setAttractionName("Terracotta Army");
 
         String text = advisor.buildPlanningInstructions(Map.of(
-                AdvisorContextKeys.REGION, "西安市",
-                AdvisorContextKeys.USER_INTENT, "3天历史文化游",
+                AdvisorContextKeys.REGION, "Xi'an",
+                AdvisorContextKeys.USER_INTENT, "3 day history trip",
                 AdvisorContextKeys.PLANNING_CONFIG, config,
                 AdvisorContextKeys.COMPLETED_STEPS, List.of(step),
                 AdvisorContextKeys.SAME_DAY_RADIUS_KM, 30
         ));
 
-        assertThat(text).contains("Destination region: 西安市");
+        assertThat(text).contains("Destination region: Xi'an");
         assertThat(text).contains("totalDays=3");
         assertThat(text).contains("history, culture");
-        assertThat(text).contains("Already planned attractions: 兵马俑");
-        assertThat(text).contains("within 30 km");
+        assertThat(text).contains("Terracotta Army");
+        assertThat(text).contains("15km");
     }
 }

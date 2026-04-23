@@ -208,7 +208,9 @@ public class AmapClient {
     }
 
     private String executeGet(String url, String apiName) {
-        rateLimiter.acquire(apiName);
+        if (rateLimiter != null) {
+            rateLimiter.acquire(apiName);
+        }
         Request request = new Request.Builder().url(url).get().build();
         try (Response response = okHttpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {

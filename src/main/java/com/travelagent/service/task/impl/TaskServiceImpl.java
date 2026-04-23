@@ -8,6 +8,7 @@ import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.planner.MarkovPlanner;
 import com.travelagent.agent.planner.PlanNextAttractionRequest;
 import com.travelagent.agent.planner.PlanningResult;
+import com.travelagent.agent.planner.TaskExecutionDispatcher;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
 import com.travelagent.client.amap.AmapClient;
@@ -38,6 +39,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -55,6 +58,7 @@ public class TaskServiceImpl implements TaskService {
 
     private static final Logger log = LoggerFactory.getLogger(TaskServiceImpl.class);
     private static final int ESTIMATED_MINUTES_PER_STOP = 150;
+    private static final String PAUSE_REASON_RESUME_DISPATCH_FAILED = "resume_dispatch_failed";
 
     @Autowired private TaskMapper taskMapper;
     @Autowired private QuotaService quotaService;
@@ -67,6 +71,7 @@ public class TaskServiceImpl implements TaskService {
     @Autowired private TaskProgressService taskProgressService;
     @Autowired private LlmUsageAccountingService llmUsageAccountingService;
     @Autowired private TaskRewindHandler rewindHandler;
+    @Autowired private TaskExecutionDispatcher taskExecutionDispatcher;
 
     @Override
     @Transactional
@@ -146,7 +151,9 @@ public class TaskServiceImpl implements TaskService {
         }
 
         TaskStatus next = stateMachine.transition(current, AgentEvent.RESUME);
+        task.setStatus(next.getCode());
         taskMapper.updateStatus(task.getId(), next.getCode());
+        scheduleResumeDispatch(taskUuid, "manual_resume");
         Task updated = taskMapper.findByUuid(taskUuid);
         return TaskResponse.from(updated, parseCheckpoint(updated));
     }
@@ -233,6 +240,7 @@ public class TaskServiceImpl implements TaskService {
                 "taskUuid", taskUuid,
                 "pendingInputType", pendingInputType != null ? pendingInputType : ""
         ));
+        scheduleResumeDispatch(taskUuid, "user_selection_confirmed");
 
         Task updated = taskMapper.findByUuid(taskUuid);
         return TaskResponse.from(updated, checkpoint);
@@ -282,6 +290,7 @@ public class TaskServiceImpl implements TaskService {
                 "totalTokensUsed", task.getTotalTokensUsed() == null ? 0 : task.getTotalTokensUsed(),
                 "remainingTimeBudgetMin", checkpoint.getRemainingTimeBudgetMin()
         ));
+        scheduleResumeDispatch(taskUuid, "rewind");
 
         return TaskResponse.from(task, checkpoint);
     }
@@ -648,6 +657,62 @@ public class TaskServiceImpl implements TaskService {
             payload.put("selectedOrigin", checkpoint.getSelectedOrigin());
         }
         return payload;
+    }
+
+    private void scheduleResumeDispatch(String taskUuid, String trigger) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    dispatchResumeAfterCommit(taskUuid, trigger);
+                }
+            });
+            return;
+        }
+        dispatchResumeAfterCommit(taskUuid, trigger);
+    }
+
+    private void dispatchResumeAfterCommit(String taskUuid, String trigger) {
+        try {
+            taskExecutionDispatcher.dispatchTask(taskUuid, "resume:" + trigger);
+        } catch (Exception e) {
+            log.error("Failed to dispatch resumed task uuid={} trigger={}: {}", taskUuid, trigger, e.getMessage(), e);
+            markResumeDispatchFailed(taskUuid, e, trigger);
+        }
+    }
+
+    private void markResumeDispatchFailed(String taskUuid, Exception exception, String trigger) {
+        Task freshTask = taskMapper.findByUuid(taskUuid);
+        if (freshTask == null) {
+            return;
+        }
+
+        if (TaskStatus.fromCode(freshTask.getStatus()) != TaskStatus.RESUMING) {
+            return;
+        }
+
+        TaskCheckpoint checkpoint = parseCheckpoint(freshTask);
+        if (checkpoint != null) {
+            checkpoint.setCurrentState(TaskStatus.PAUSED.getCode());
+            checkpoint.setPauseReason(PAUSE_REASON_RESUME_DISPATCH_FAILED);
+            freshTask.setCheckpointJson(jsonUtil.toJson(checkpoint));
+        }
+
+        String message = "Task resume dispatch failed: " + exception.getMessage();
+        freshTask.setStatus(TaskStatus.PAUSED.getCode());
+        freshTask.setErrorMessage(message);
+        taskMapper.update(freshTask);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("code", "RESUME_DISPATCH_FAILED");
+        payload.put("message", message);
+        payload.put("retryable", true);
+        payload.put("trigger", trigger);
+        payload.put("reason", PAUSE_REASON_RESUME_DISPATCH_FAILED);
+
+        taskProgressService.recordEvent(taskUuid, "ERROR", TaskStatus.PAUSED.getCode(), null, null, message, payload);
+        sseNotificationService.sendEvent(taskUuid, SseEvent.ERROR, payload);
+        sseNotificationService.sendEvent(taskUuid, SseEvent.PAUSED, payload);
     }
 
 }

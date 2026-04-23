@@ -1,22 +1,13 @@
 package com.travelagent.agent.planner;
 
 import com.travelagent.config.DatabaseSchemaGuard;
-import com.travelagent.mapper.TaskMapper;
-import com.travelagent.model.entity.Task;
 import com.travelagent.model.enums.TaskStatus;
-import com.travelagent.service.agent.AgentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Background poller that dispatches runnable tasks to the agent thread pool.
@@ -56,16 +47,8 @@ public class TaskDispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(TaskDispatcher.class);
 
-    @Autowired private TaskMapper    taskMapper;
-    @Autowired private AgentService  agentService;
     @Autowired private DatabaseSchemaGuard schemaGuard;
-
-    @Autowired
-    @Qualifier("agentTaskExecutor")
-    private ThreadPoolTaskExecutor executor;
-
-    /** UUIDs currently dispatched to the thread pool (clears on restart). */
-    private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
+    @Autowired private TaskExecutionDispatcher taskExecutionDispatcher;
 
     /**
      * Maximum number of tasks to fetch per status per poll cycle.
@@ -89,40 +72,10 @@ public class TaskDispatcher {
             return;
         }
         try {
-            dispatchByStatus(TaskStatus.PENDING.getCode());
-            dispatchByStatus(TaskStatus.RESUMING.getCode());
+            taskExecutionDispatcher.dispatchByStatus(TaskStatus.PENDING.getCode(), maxPerPoll);
+            taskExecutionDispatcher.dispatchByStatus(TaskStatus.RESUMING.getCode(), maxPerPoll);
         } catch (Exception e) {
             log.error("TaskDispatcher poll error", e);
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Private helpers
-    // -----------------------------------------------------------------------
-
-    private void dispatchByStatus(String statusCode) {
-        List<Task> tasks = taskMapper.findByStatus(statusCode, maxPerPoll);
-        if (tasks.isEmpty()) return;
-
-        for (Task task : tasks) {
-            String uuid = task.getTaskUuid();
-
-            // Skip if already in-flight (ConcurrentHashMap.newKeySet add is atomic)
-            if (!inFlight.add(uuid)) {
-                log.debug("Task {} already in-flight, skipping", uuid);
-                continue;
-            }
-
-            log.info("Dispatching task uuid={} status={}", uuid, statusCode);
-            executor.execute(() -> {
-                try {
-                    agentService.executeTask(uuid);
-                } catch (Exception e) {
-                    log.error("Uncaught exception executing task {}", uuid, e);
-                } finally {
-                    inFlight.remove(uuid);
-                }
-            });
         }
     }
 }

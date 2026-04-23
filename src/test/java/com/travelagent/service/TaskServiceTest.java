@@ -4,6 +4,7 @@ import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.planner.MarkovPlanner;
 import com.travelagent.agent.planner.PlanningResult;
+import com.travelagent.agent.planner.TaskExecutionDispatcher;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
 import com.travelagent.client.amap.AmapClient;
@@ -27,10 +28,12 @@ import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.task.OriginCandidateService;
 import com.travelagent.service.task.TaskProgressService;
+import com.travelagent.service.task.impl.TaskRewindHandler;
 import com.travelagent.service.task.impl.TaskServiceImpl;
 import com.travelagent.service.user.QuotaService;
 import com.travelagent.util.JsonUtil;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -68,13 +71,21 @@ class TaskServiceTest {
     @Mock private MarkovPlanner markovPlanner;
     @Mock private TaskProgressService taskProgressService;
     @Mock private LlmUsageAccountingService llmUsageAccountingService;
+    @Mock private TaskExecutionDispatcher taskExecutionDispatcher;
 
     @InjectMocks
     private TaskServiceImpl taskService;
 
+    private final TaskRewindHandler rewindHandler = new TaskRewindHandler();
+
     private static final Long USER_ID = 1L;
     private static final int USER_LEVEL = 1;
     private static final String TASK_UUID = "test-uuid-0001";
+
+    @BeforeEach
+    void setUp() {
+        org.springframework.test.util.ReflectionTestUtils.setField(taskService, "rewindHandler", rewindHandler);
+    }
 
     @Test
     void createTask_success_insertAndCheckpointPersisted() {
@@ -221,6 +232,7 @@ class TaskServiceTest {
         assertThat(response.getStatus()).isEqualTo(TaskStatus.RESUMING.getCode());
         verify(taskMapper).updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
         verify(taskMapper).updateCheckpoint(task);
+        verify(taskExecutionDispatcher).dispatchTask(TASK_UUID, "resume:user_selection_confirmed");
 
         Map<String, Object> payload = captureSelectionConfirmedPayload();
         assertThat(payload)
@@ -248,6 +260,7 @@ class TaskServiceTest {
         TaskResponse response = taskService.confirmOriginSelection(TASK_UUID, USER_ID, request);
 
         assertThat(response.getStatus()).isEqualTo(TaskStatus.RESUMING.getCode());
+        verify(taskExecutionDispatcher).dispatchTask(TASK_UUID, "resume:user_selection_confirmed");
 
         Map<String, Object> payload = captureSelectionConfirmedPayload();
         assertThat(payload)
@@ -273,6 +286,7 @@ class TaskServiceTest {
         TaskResponse response = taskService.confirmOriginSelection(TASK_UUID, USER_ID, request);
 
         assertThat(response.getStatus()).isEqualTo(TaskStatus.RESUMING.getCode());
+        verify(taskExecutionDispatcher).dispatchTask(TASK_UUID, "resume:user_selection_confirmed");
 
         Map<String, Object> payload = captureSelectionConfirmedPayload();
         assertThat(payload)
@@ -294,6 +308,7 @@ class TaskServiceTest {
         TaskResponse response = taskService.confirmOriginSelection(TASK_UUID, USER_ID, request);
 
         assertThat(response.getStatus()).isEqualTo(TaskStatus.RESUMING.getCode());
+        verify(taskExecutionDispatcher).dispatchTask(TASK_UUID, "resume:user_selection_confirmed");
 
         Map<String, Object> payload = captureSelectionConfirmedPayload();
         assertThat(payload)
@@ -326,6 +341,25 @@ class TaskServiceTest {
         verify(taskMapper).updateCheckpoint(task);
         verify(taskMapper).updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
         verify(sseNotificationService).sendEvent(eq(TASK_UUID), eq(SseEvent.REWIND), any());
+        verify(taskExecutionDispatcher).dispatchTask(TASK_UUID, "resume:rewind");
+    }
+
+    @Test
+    void resumeTask_pausedTask_dispatchesExecution() {
+        Task task = pendingTask();
+        task.setStatus(TaskStatus.PAUSED.getCode());
+        TaskCheckpoint checkpoint = awaitingCheckpoint("poi_candidate_selection");
+        checkpoint.setCurrentState(TaskStatus.PAUSED.getCode());
+        when(taskMapper.findByUuid(TASK_UUID)).thenReturn(task, task);
+        when(jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class)).thenReturn(checkpoint);
+        when(jsonUtil.toJson(any())).thenReturn("{\"schemaVersion\":\"1.0\"}");
+        when(stateMachine.transition(TaskStatus.PAUSED, AgentEvent.RESUME)).thenReturn(TaskStatus.RESUMING);
+
+        TaskResponse response = taskService.resumeTask(TASK_UUID, USER_ID);
+
+        assertThat(response.getStatus()).isEqualTo(TaskStatus.RESUMING.getCode());
+        verify(taskMapper).updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
+        verify(taskExecutionDispatcher).dispatchTask(TASK_UUID, "resume:manual_resume");
     }
 
     @Test

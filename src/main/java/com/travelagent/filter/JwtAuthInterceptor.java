@@ -1,6 +1,7 @@
 package com.travelagent.filter;
 
 import com.travelagent.mapper.UserMapper;
+import com.travelagent.model.entity.User;
 import com.travelagent.util.JwtUtil;
 import com.travelagent.util.RedisUtil;
 import io.jsonwebtoken.Claims;
@@ -87,16 +88,14 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         try {
             Claims claims = jwtUtil.parseToken(token);
             Long userId = Long.valueOf(claims.getSubject());
-            int userLevel = claims.get("lvl", Integer.class);
-
-            Boolean isActive = userMapper.findUserActiveStatus(userId);
-            if (isActive == null || !isActive) {
+            User user = userMapper.findById(userId);
+            if (user == null || !user.isActive()) {
                 sendUnauthorized(response, "账号已被禁用或不存在，请联系管理员");
                 return false;
             }
 
             request.setAttribute(ATTR_USER_ID, userId);
-            request.setAttribute(ATTR_USER_LEVEL, userLevel);
+            request.setAttribute(ATTR_USER_LEVEL, user.getUserLevel());
             return true;
         } catch (ExpiredJwtException e) {
             sendUnauthorized(response, "Token已过期，请重新登录");

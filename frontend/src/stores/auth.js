@@ -54,6 +54,9 @@ export const useAuthStore = defineStore('auth', () => {
   const userLevelLabel = ref('')
   const quota = ref(emptyQuota())
   const quotaLoaded = ref(false)
+  const hydrated = ref(false)
+  const bootstrapped = ref(false)
+  let bootstrapPromise = null
 
   const isAdmin = computed(() => userLevel.value === 3)
   const isLoggedIn = computed(() => !!token.value)
@@ -81,6 +84,8 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch {
       // ignore broken storage payloads
+    } finally {
+      hydrated.value = true
     }
   }
 
@@ -90,6 +95,7 @@ export const useAuthStore = defineStore('auth', () => {
     username.value = data.username
     userLevel.value = data.userLevel || 0
     userLevelLabel.value = data.userLevelLabel || userLevelLabel.value || ''
+    bootstrapped.value = false
     persist()
   }
 
@@ -126,12 +132,22 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function bootstrapAuthData() {
-    if (!token.value) return
-    try {
-      await Promise.allSettled([refreshProfile(), refreshQuota()])
-    } catch {
-      // individual failures are already isolated via allSettled
+    if (!token.value) {
+      bootstrapped.value = true
+      return null
     }
+    if (bootstrapPromise) {
+      return bootstrapPromise
+    }
+    bootstrapPromise = (async () => {
+      try {
+        await Promise.allSettled([refreshProfile(), refreshQuota()])
+      } finally {
+        bootstrapped.value = true
+        bootstrapPromise = null
+      }
+    })()
+    return bootstrapPromise
   }
 
   function logout() {
@@ -142,6 +158,7 @@ export const useAuthStore = defineStore('auth', () => {
     userLevelLabel.value = ''
     quota.value = emptyQuota()
     quotaLoaded.value = false
+    bootstrapped.value = false
     localStorage.removeItem(STORAGE_KEY)
   }
 
@@ -153,6 +170,8 @@ export const useAuthStore = defineStore('auth', () => {
     userLevelLabel,
     quota,
     quotaLoaded,
+    hydrated,
+    bootstrapped,
     isAdmin,
     isLoggedIn,
     loadFromStorage,

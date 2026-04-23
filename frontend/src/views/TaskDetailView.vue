@@ -284,6 +284,13 @@
             </el-card>
 
             <el-alert
+              v-if="displayStatus === 'resuming'"
+              class="sidebar-alert"
+              :type="resumeStalled ? 'warning' : 'info'"
+              :closable="false"
+              :title="resumingAlertTitle"
+            />
+            <el-alert
               v-if="displayStatus === 'paused'"
               class="sidebar-alert"
               type="warning"
@@ -336,6 +343,9 @@ const rewindingStepIndex = ref(null)
 const submittingNodeChat = ref(false)
 const nodeChatText = ref('')
 const bottomAnchor = ref(null)
+const resumeStalled = ref(false)
+const resumeSince = ref(0)
+const lastResumeRefreshAt = ref(0)
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled'])
 const isTerminal = (status) => TERMINAL.has(status)
@@ -393,7 +403,15 @@ const pausedAlertTitle = computed(() => {
   return '任务因配额耗尽暂停，恢复后会从当前进度继续。'
 })
 
+const resumingAlertTitle = computed(() => {
+  if (resumeStalled.value) {
+    return '任务恢复中暂未收到新进展，页面已主动刷新任务状态'
+  }
+  return '任务正在恢复执行，系统会继续推进后续规划'
+})
+
 let pollTimer = null
+let resumeWatchTimer = null
 
 onMounted(async () => {
   await fetchAll()
@@ -401,10 +419,12 @@ onMounted(async () => {
     connect()
   }
   schedulePoll()
+  scheduleResumeWatch()
 })
 
 onUnmounted(() => {
   clearInterval(pollTimer)
+  clearInterval(resumeWatchTimer)
   disconnect()
 })
 
@@ -412,9 +432,14 @@ watch(liveStatus, async (status) => {
   if (status && task.value) {
     task.value.status = status
   }
+  trackResumeState(status || task.value?.status)
   if (status === 'completed' && !planId.value) {
     await fetchPlanId()
   }
+})
+
+watch(displayStatus, (status) => {
+  trackResumeState(status)
 })
 
 watch(
@@ -466,6 +491,33 @@ function schedulePoll() {
       // ignore single poll failures
     }
   }, 8000)
+}
+
+function scheduleResumeWatch() {
+  resumeWatchTimer = setInterval(async () => {
+    if (displayStatus.value !== 'resuming') return
+    const now = Date.now()
+    if (!resumeSince.value) {
+      resumeSince.value = now
+      return
+    }
+    if (now - resumeSince.value < 15000) return
+    if (now - lastResumeRefreshAt.value < 15000) return
+    resumeStalled.value = true
+    lastResumeRefreshAt.value = now
+    await fetchAll()
+  }, 5000)
+}
+
+function trackResumeState(status) {
+  if (status === 'resuming') {
+    if (!resumeSince.value) {
+      resumeSince.value = Date.now()
+    }
+    return
+  }
+  resumeSince.value = 0
+  resumeStalled.value = false
 }
 
 async function handleCancel() {

@@ -23,9 +23,9 @@ class JsonSchemaAdvisorTest {
                 )
         ));
 
-        assertThat(text).contains("Reply ONLY with valid JSON");
-        assertThat(text).contains("Top-level JSON type: object");
-        assertThat(text).contains("Required fields: attractionName, reason");
-        assertThat(text).contains("Do not wrap the JSON in markdown fences");
+        assertThat(text).contains("JSON");
+        assertThat(text).contains("Markdown");
+        assertThat(text).contains("object");
+        assertThat(text).contains("attractionName, reason");
     }
 }

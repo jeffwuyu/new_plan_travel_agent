@@ -7,6 +7,7 @@ import com.travelagent.model.dto.RecommendedPoiItem;
 import com.travelagent.model.dto.RoutePoint;
 import com.travelagent.model.entity.Attraction;
 import com.travelagent.service.recommendation.impl.CandidateRankingServiceImpl;
+import com.travelagent.service.recommendation.impl.PoiScoringEngine;
 import com.travelagent.service.recommendation.impl.RecommendationExplanationServiceImpl;
 import com.travelagent.util.JsonUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,8 +25,8 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CandidateRankingServiceImpl Tests")
@@ -38,11 +39,15 @@ class CandidateRankingServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        rankingService = new CandidateRankingServiceImpl();
         JsonUtil jsonUtil = new JsonUtil();
         ReflectionTestUtils.setField(jsonUtil, "objectMapper", new ObjectMapper().findAndRegisterModules());
-        ReflectionTestUtils.setField(rankingService, "amapClient", amapClient);
-        ReflectionTestUtils.setField(rankingService, "jsonUtil", jsonUtil);
+
+        PoiScoringEngine scoringEngine = new PoiScoringEngine();
+        ReflectionTestUtils.setField(scoringEngine, "jsonUtil", jsonUtil);
+        ReflectionTestUtils.setField(scoringEngine, "amapClient", amapClient);
+
+        rankingService = new CandidateRankingServiceImpl();
+        ReflectionTestUtils.setField(rankingService, "scoringEngine", scoringEngine);
         ReflectionTestUtils.setField(rankingService, "explanationService", new RecommendationExplanationServiceImpl());
 
         lenient().when(amapClient.getTravelDuration(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyString()))
@@ -64,8 +69,8 @@ class CandidateRankingServiceImplTest {
     @DisplayName("nearby mode prefers nearer candidate with shorter ETA")
     void rankCandidates_prefersNearerCandidate() {
         NearbyPoiRecommendationRequest request = baseRequest();
-        Attraction near = attraction("near", 30.001, 120.001, List.of("湖景", "散步"), true, 1);
-        Attraction far = attraction("far", 30.040, 120.040, List.of("湖景", "散步"), true, 1);
+        Attraction near = attraction("near", 30.001, 120.001, List.of("lake", "walk"), 1);
+        Attraction far = attraction("far", 30.040, 120.040, List.of("lake", "walk"), 1);
 
         List<RecommendedPoiItem> ranked = rankingService.rankCandidates(request, List.of(far, near));
 
@@ -85,8 +90,8 @@ class CandidateRankingServiceImplTest {
                 new RoutePoint(30.010, 120.010, "B")
         ));
 
-        Attraction onRoute = attraction("on-route", 30.005, 120.005, List.of("湖景"), true, 1);
-        Attraction detour = attraction("detour", 30.050, 120.060, List.of("湖景"), true, 1);
+        Attraction onRoute = attraction("on-route", 30.005, 120.005, List.of("lake"), 1);
+        Attraction detour = attraction("detour", 30.050, 120.060, List.of("lake"), 1);
 
         List<RecommendedPoiItem> ranked = rankingService.rankCandidates(request, List.of(detour, onRoute));
 
@@ -102,9 +107,9 @@ class CandidateRankingServiceImplTest {
         request.setDayOfWeek("mon");
         request.setCurrentTime("22:00");
 
-        Attraction open = attraction("open", 30.001, 120.001, List.of("湖景"), true, 1);
+        Attraction open = attraction("open", 30.001, 120.001, List.of("lake"), 1);
         open.setOpenHoursJson("{\"mon\":[\"08:00-23:00\"]}");
-        Attraction closed = attraction("closed", 30.002, 120.002, List.of("湖景"), true, 1);
+        Attraction closed = attraction("closed", 30.002, 120.002, List.of("lake"), 1);
         closed.setOpenHoursJson("{\"mon\":[\"08:00-18:00\"]}");
 
         List<RecommendedPoiItem> ranked = rankingService.rankCandidates(request, List.of(open, closed));
@@ -117,10 +122,10 @@ class CandidateRankingServiceImplTest {
     @DisplayName("response item contains score explanations and feature breakdown")
     void rankCandidates_returnsExplanationAndFeatures() {
         NearbyPoiRecommendationRequest request = baseRequest();
-        Attraction attraction = attraction("sample", 30.001, 120.001, List.of("湖景", "散步"), true, 1);
-        attraction.setDescription("适合边走边拍照，也适合轻松停留。");
-        attraction.setBestVisitTimeJson("[\"傍晚景色更好\"]");
-        attraction.setSuitableForJson("[\"亲子\", \"慢节奏游玩\"]");
+        Attraction attraction = attraction("sample", 30.001, 120.001, List.of("lake", "walk"), 1);
+        attraction.setDescription("A relaxed place for photos and a short stay.");
+        attraction.setBestVisitTimeJson("[\"sunset\"]");
+        attraction.setSuitableForJson("[\"family\", \"slow_travel\"]");
         attraction.setVisitDurationMin(90);
 
         List<RecommendedPoiItem> ranked = rankingService.rankCandidates(request, List.of(attraction));
@@ -141,7 +146,7 @@ class CandidateRankingServiceImplTest {
     @DisplayName("walking request uses walking ETA and distance API")
     void rankCandidates_usesWalkingEtaAndDistanceApi() {
         NearbyPoiRecommendationRequest request = baseRequest();
-        Attraction attraction = attraction("walkable", 30.001, 120.001, List.of("湖景"), true, 1);
+        Attraction attraction = attraction("walkable", 30.001, 120.001, List.of("lake"), 1);
 
         rankingService.rankCandidates(request, List.of(attraction));
 
@@ -153,7 +158,7 @@ class CandidateRankingServiceImplTest {
     @DisplayName("distance falls back to haversine when distance API fails")
     void rankCandidates_distanceFallbacksToHaversine() {
         NearbyPoiRecommendationRequest request = baseRequest();
-        Attraction attraction = attraction("fallback", 30.001, 120.001, List.of("湖景"), true, 1);
+        Attraction attraction = attraction("fallback", 30.001, 120.001, List.of("lake"), 1);
         org.mockito.Mockito.when(amapClient.getDistance(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                 .thenThrow(new RuntimeException("distance unavailable"));
 
@@ -164,24 +169,23 @@ class CandidateRankingServiceImplTest {
 
     private NearbyPoiRecommendationRequest baseRequest() {
         NearbyPoiRecommendationRequest request = new NearbyPoiRecommendationRequest();
-        request.setRegion("杭州");
+        request.setRegion("Hangzhou");
         request.setCurrentLat(30.000);
         request.setCurrentLng(120.000);
-        request.setPreferredTags(List.of("湖景", "散步"));
+        request.setPreferredTags(List.of("lake", "walk"));
         request.setTravelMode("walking");
         request.setQueryType("nearby");
         request.setTopK(5);
         return request;
     }
 
-    private Attraction attraction(String name, double lat, double lng, List<String> tags, boolean walkable, int priceLevel) {
+    private Attraction attraction(String name, double lat, double lng, List<String> tags, int priceLevel) {
         Attraction attraction = new Attraction();
         attraction.setName(name);
-        attraction.setRegion("杭州");
+        attraction.setRegion("Hangzhou");
         attraction.setLatitude(BigDecimal.valueOf(lat));
         attraction.setLongitude(BigDecimal.valueOf(lng));
         attraction.setTagsJson("[\"" + String.join("\",\"", tags) + "\"]");
-        attraction.setTransportAccessJson("{\"walkable\":" + walkable + "}");
         attraction.setPriceLevel(priceLevel);
         attraction.setCategory(tags.get(0));
         return attraction;

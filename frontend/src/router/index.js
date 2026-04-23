@@ -29,8 +29,11 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const auth = useAuthStore()
+  if (auth.isLoggedIn && !auth.bootstrapped) {
+    await auth.bootstrapAuthData()
+  }
   if (!to.meta.public && !auth.isLoggedIn) {
     next({ path: '/login', query: { redirect: to.fullPath } })
   } else if (to.meta.adminOnly && !auth.isAdmin) {

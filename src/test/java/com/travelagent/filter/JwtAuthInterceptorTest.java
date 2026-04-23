@@ -1,6 +1,7 @@
 package com.travelagent.filter;
 
 import com.travelagent.mapper.UserMapper;
+import com.travelagent.model.entity.User;
 import com.travelagent.util.JwtUtil;
 import com.travelagent.util.RedisUtil;
 import io.jsonwebtoken.Claims;
@@ -16,17 +17,15 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
-/**
- * Unit tests for JwtAuthInterceptor.
- */
-
-/**
- * 中文注释：测试类，用于验证 Jwt Auth Interceptor Test 相关行为是否符合预期。
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("JwtAuthInterceptor Tests")
@@ -50,27 +49,31 @@ class JwtAuthInterceptorTest {
         ReflectionTestUtils.setField(interceptor, "tokenPrefix", "Bearer");
     }
 
-    private Claims buildClaims(Long userId, int level) {
+    private Claims buildClaims(Long userId) {
         Claims claims = mock(Claims.class);
         when(claims.getSubject()).thenReturn(String.valueOf(userId));
-        when(claims.get("lvl", Integer.class)).thenReturn(level);
         return claims;
     }
 
+    private User user(Long userId, int level, int status) {
+        User user = new User();
+        user.setId(userId);
+        user.setUserLevel(level);
+        user.setStatus(status);
+        return user;
+    }
+
     @Test
-    @DisplayName("有效 Token - 放行并设置 userId 和 userLevel 属性")
+    @DisplayName("valid token sets userId and userLevel")
     void validToken_allowsRequest() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.addHeader("Authorization", "Bearer valid.jwt.token");
 
-        // Build claims BEFORE outer when() to avoid nested stubbing (nested when() inside
-        // thenReturn() argument leaves Mockito in an "UnfinishedStubbing" state which
-        // contaminates subsequent test classes via thread-local state pollution).
-        Claims claims = buildClaims(42L, 2);
+        Claims claims = buildClaims(42L);
         when(redisUtil.hasKey("jwt:blacklist:valid.jwt.token")).thenReturn(false);
         when(jwtUtil.parseToken("valid.jwt.token")).thenReturn(claims);
-        when(userMapper.findUserActiveStatus(42L)).thenReturn(true);
+        when(userMapper.findById(42L)).thenReturn(user(42L, 2, 1));
 
         boolean result = interceptor.preHandle(request, response, null);
 
@@ -80,16 +83,16 @@ class JwtAuthInterceptorTest {
     }
 
     @Test
-    @DisplayName("账号已被禁用 - 返回 401")
+    @DisplayName("disabled user returns 401")
     void disabledUser_returns401() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.addHeader("Authorization", "Bearer valid.jwt.token");
 
-        Claims claims = buildClaims(42L, 2);
+        Claims claims = buildClaims(42L);
         when(redisUtil.hasKey("jwt:blacklist:valid.jwt.token")).thenReturn(false);
         when(jwtUtil.parseToken("valid.jwt.token")).thenReturn(claims);
-        when(userMapper.findUserActiveStatus(42L)).thenReturn(false);
+        when(userMapper.findById(42L)).thenReturn(user(42L, 2, 0));
 
         boolean result = interceptor.preHandle(request, response, null);
 
@@ -99,7 +102,7 @@ class JwtAuthInterceptorTest {
     }
 
     @Test
-    @DisplayName("缺少 Authorization 头 - 返回 401")
+    @DisplayName("missing auth header returns 401")
     void missingAuthHeader_returns401() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -111,7 +114,7 @@ class JwtAuthInterceptorTest {
     }
 
     @Test
-    @DisplayName("Token 已被加入黑名单（已登出）- 返回 401")
+    @DisplayName("blacklisted token returns 401")
     void blacklistedToken_returns401() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -127,7 +130,7 @@ class JwtAuthInterceptorTest {
     }
 
     @Test
-    @DisplayName("Token 已过期 - 返回 401")
+    @DisplayName("expired token returns 401")
     void expiredToken_returns401() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -144,7 +147,7 @@ class JwtAuthInterceptorTest {
     }
 
     @Test
-    @DisplayName("Authorization 头格式错误（无 Bearer 前缀）- 返回 401")
+    @DisplayName("wrong auth header format returns 401")
     void wrongHeaderFormat_returns401() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -157,11 +160,29 @@ class JwtAuthInterceptorTest {
     }
 
     @Test
-    @DisplayName("getUserId 静态方法 - 正确从 request 属性读取")
+    @DisplayName("getUserId reads from request attribute")
     void getUserId_readsFromRequestAttribute() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute(JwtAuthInterceptor.ATTR_USER_ID, 99L);
 
         assertEquals(99L, JwtAuthInterceptor.getUserId(request));
+    }
+
+    @Test
+    @DisplayName("JWT level claim does not override database level")
+    void userLevel_isLoadedFromDatabaseInsteadOfJwtClaim() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.addHeader("Authorization", "Bearer stale-level.jwt");
+
+        Claims claims = buildClaims(7L);
+        when(redisUtil.hasKey("jwt:blacklist:stale-level.jwt")).thenReturn(false);
+        when(jwtUtil.parseToken("stale-level.jwt")).thenReturn(claims);
+        when(userMapper.findById(7L)).thenReturn(user(7L, 3, 1));
+
+        boolean result = interceptor.preHandle(request, response, null);
+
+        assertTrue(result);
+        assertEquals(3, request.getAttribute(JwtAuthInterceptor.ATTR_USER_LEVEL));
     }
 }
