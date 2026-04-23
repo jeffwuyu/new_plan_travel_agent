@@ -1,9 +1,13 @@
 package com.travelagent.service.task.impl;
 
+import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.RetryState;
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.agent.planner.MarkovPlanner;
+import com.travelagent.agent.planner.PlanNextAttractionRequest;
+import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
 import com.travelagent.client.amap.AmapClient;
@@ -13,15 +17,19 @@ import com.travelagent.mapper.TaskMapper;
 import com.travelagent.model.dto.ConfirmOriginSelectionRequest;
 import com.travelagent.model.dto.CreateTaskRequest;
 import com.travelagent.model.dto.LocationCandidateItem;
+import com.travelagent.model.dto.NodeChatRequest;
+import com.travelagent.model.dto.RewindTaskRequest;
 import com.travelagent.model.dto.ResolvedLocation;
 import com.travelagent.model.dto.SelectionOptionItem;
 import com.travelagent.model.dto.TaskResponse;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.entity.UserQuotaConfig;
 import com.travelagent.model.enums.TaskStatus;
+import com.travelagent.service.llm.LlmUsageAccountingService;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.task.OriginCandidateService;
+import com.travelagent.service.task.TaskProgressService;
 import com.travelagent.service.task.TaskService;
 import com.travelagent.service.user.QuotaService;
 import com.travelagent.util.JsonUtil;
@@ -55,6 +63,10 @@ public class TaskServiceImpl implements TaskService {
     @Autowired private JsonUtil jsonUtil;
     @Autowired private OriginCandidateService originCandidateService;
     @Autowired private AmapClient amapClient;
+    @Autowired private MarkovPlanner markovPlanner;
+    @Autowired private TaskProgressService taskProgressService;
+    @Autowired private LlmUsageAccountingService llmUsageAccountingService;
+    @Autowired private TaskRewindHandler rewindHandler;
 
     @Override
     @Transactional
@@ -227,6 +239,155 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional
+    public TaskResponse rewindTask(String taskUuid, Long requestingUserId, RewindTaskRequest request) {
+        Task task = loadAndVerifyOwnership(taskUuid, requestingUserId);
+        TaskStatus current = TaskStatus.fromCode(task.getStatus());
+        if (current != TaskStatus.PAUSED && current != TaskStatus.AWAITING_USER_INPUT) {
+            throw new BusinessException(400, "only paused or awaiting_user_input tasks can be rewound");
+        }
+
+        TaskCheckpoint checkpoint = parseCheckpoint(task);
+        if (checkpoint == null || checkpoint.getCompletedSteps() == null || checkpoint.getCompletedSteps().isEmpty()) {
+            throw new BusinessException(400, "no completed steps available for rewind");
+        }
+
+        int targetStepIndex = request.getTargetStepIndex();
+        if (targetStepIndex < 0 || targetStepIndex >= checkpoint.getCompletedSteps().size()) {
+            throw new BusinessException(400, "target step index is out of range");
+        }
+
+        List<CompletedStep> retainedSteps = rewindHandler.applyRewind(checkpoint, targetStepIndex);
+
+        task.setStatus(TaskStatus.RESUMING.getCode());
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+        taskMapper.updateCheckpoint(task);
+        taskMapper.updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
+
+        String targetName = retainedSteps.get(retainedSteps.size() - 1).getAttractionName();
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("taskUuid", taskUuid);
+        payload.put("targetStepIndex", targetStepIndex);
+        payload.put("targetStepName", targetName);
+        payload.put("remainingTimeBudgetMin", checkpoint.getRemainingTimeBudgetMin());
+        payload.put("status", TaskStatus.RESUMING.getCode());
+
+        taskProgressService.recordEvent(taskUuid, "REWIND", TaskStatus.RESUMING.getCode(),
+                targetStepIndex, checkpoint.totalPlannedSteps(),
+                "Rewound task to step " + targetStepIndex, payload);
+        sseNotificationService.sendEvent(taskUuid, SseEvent.REWIND, payload);
+        sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE, Map.of(
+                "status", TaskStatus.RESUMING.getCode(),
+                "taskUuid", taskUuid,
+                "totalTokensUsed", task.getTotalTokensUsed() == null ? 0 : task.getTotalTokensUsed(),
+                "remainingTimeBudgetMin", checkpoint.getRemainingTimeBudgetMin()
+        ));
+
+        return TaskResponse.from(task, checkpoint);
+    }
+
+    @Override
+    @Transactional
+    public TaskResponse refreshNodeSelection(String taskUuid, Long requestingUserId, NodeChatRequest request) {
+        Task task = loadAndVerifyOwnership(taskUuid, requestingUserId);
+        TaskStatus current = TaskStatus.fromCode(task.getStatus());
+        if (current != TaskStatus.AWAITING_USER_INPUT) {
+            throw new BusinessException(400, "task is not waiting for node input");
+        }
+
+        TaskCheckpoint checkpoint = parseCheckpoint(task);
+        if (checkpoint == null) {
+            throw new BusinessException(400, "task checkpoint is missing");
+        }
+
+        String pendingInputType = resolvePendingInputType(checkpoint, request.getPendingInputType());
+        if ("origin_selection".equals(pendingInputType)) {
+            throw new BusinessException(400, "origin selection does not support node preference refresh");
+        }
+
+        Map<String, Object> currentContext = checkpoint.getCurrentContext() == null
+                ? new LinkedHashMap<>()
+                : new LinkedHashMap<>(checkpoint.getCurrentContext());
+        currentContext.put("userPreferencePrompt", request.getMessage().trim());
+        checkpoint.setCurrentContext(currentContext);
+        checkpoint.setSelectedAttractionCandidate(null);
+        checkpoint.setPendingInputType(null);
+        checkpoint.setSelectionStage(null);
+        checkpoint.setSelectionOptions(new ArrayList<>());
+        checkpoint.setRecommendationCandidates(new ArrayList<>());
+        checkpoint.setWeatherContext(new LinkedHashMap<>());
+
+        if ("selection_branch".equals(pendingInputType)) {
+            checkpoint.setSelectedBranchType(null);
+        } else if ("route_candidate_selection".equals(pendingInputType)) {
+            checkpoint.setSelectedBranchType("route_plan");
+        } else if ("poi_candidate_selection".equals(pendingInputType) || "attraction_selection".equals(pendingInputType)) {
+            if (checkpoint.getSelectedBranchType() == null || checkpoint.getSelectedBranchType().isBlank()) {
+                checkpoint.setSelectedBranchType("nearby_poi");
+            }
+        } else {
+            throw new BusinessException(400, "unsupported pending input type for node preference: " + pendingInputType);
+        }
+
+        PlanNextAttractionRequest planningRequest = markovPlanner.buildPlanRequest(checkpoint);
+        PlanningResult planResult = markovPlanner.planNextAttraction(task, checkpoint, planningRequest, taskUuid);
+        if (planResult.totalTokens() > 0) {
+            int updatedTotal = llmUsageAccountingService.recordUsage(task.getId(), task.getUserId(), planResult.totalTokens());
+            task.setTotalTokensUsed(updatedTotal);
+        }
+        if (!planResult.requiresUserSelection()) {
+            throw new BusinessException(400, "node preference refresh did not produce selectable candidates");
+        }
+
+        checkpoint.setPendingInputType(planResult.pendingInputType());
+        checkpoint.setSelectionStage(planResult.selectionStage());
+        checkpoint.setSelectedBranchType(planResult.selectedBranchType());
+        checkpoint.setSelectionOptions(planResult.selectionOptions() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(planResult.selectionOptions()));
+        checkpoint.setRecommendationCandidates(planResult.recommendationCandidates() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(planResult.recommendationCandidates()));
+        Map<String, Object> refreshedContext = planResult.currentContext() == null
+                ? new LinkedHashMap<>()
+                : new LinkedHashMap<>(planResult.currentContext());
+        refreshedContext.put("userPreferencePrompt", request.getMessage().trim());
+        checkpoint.setCurrentContext(refreshedContext);
+        checkpoint.setWeatherContext(planResult.weatherContext() == null
+                ? new LinkedHashMap<>()
+                : new LinkedHashMap<>(planResult.weatherContext()));
+        checkpoint.setCurrentState(TaskStatus.AWAITING_USER_INPUT.getCode());
+
+        task.setStatus(TaskStatus.AWAITING_USER_INPUT.getCode());
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+        taskMapper.updateCheckpoint(task);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("taskUuid", taskUuid);
+        payload.put("pendingInputType", checkpoint.getPendingInputType());
+        payload.put("selectionStage", checkpoint.getSelectionStage());
+        payload.put("selectedBranchType", checkpoint.getSelectedBranchType());
+        payload.put("selectionOptions", checkpoint.getSelectionOptions());
+        payload.put("recommendationCandidates", checkpoint.getRecommendationCandidates());
+        payload.put("currentContext", checkpoint.getCurrentContext());
+        payload.put("weatherContext", checkpoint.getWeatherContext());
+        payload.put("totalTokensUsed", task.getTotalTokensUsed() == null ? 0 : task.getTotalTokensUsed());
+
+        taskProgressService.recordEvent(taskUuid, "NODE_CHAT", TaskStatus.AWAITING_USER_INPUT.getCode(),
+                checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(),
+                "Refreshed current node candidates from preference prompt", Map.of(
+                        "pendingInputType", pendingInputType,
+                        "message", request.getMessage().trim()
+                ));
+        taskProgressService.recordEvent(taskUuid, "USER_SELECTION_REQUIRED", TaskStatus.AWAITING_USER_INPUT.getCode(),
+                checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(),
+                "Waiting for refreshed user selection", payload);
+        sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_REQUIRED, payload);
+
+        return TaskResponse.from(task, checkpoint);
+    }
+
+    @Override
     public Task getTaskEntity(String taskUuid, Long requestingUserId) {
         return loadAndVerifyOwnership(taskUuid, requestingUserId);
     }
@@ -256,6 +417,7 @@ public class TaskServiceImpl implements TaskService {
         TaskCheckpoint cp = new TaskCheckpoint();
         cp.setSchemaVersion("1.0");
         cp.setTaskId(task.getId());
+        cp.setUserId(task.getUserId());
         cp.setTaskUuid(task.getTaskUuid());
         cp.setCurrentState(TaskStatus.PENDING.getCode());
         cp.setRegion(req.getRegion());
@@ -384,8 +546,11 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private String resolvePendingInputType(TaskCheckpoint checkpoint, ConfirmOriginSelectionRequest request) {
+        return resolvePendingInputType(checkpoint, request.getPendingInputType());
+    }
+
+    private String resolvePendingInputType(TaskCheckpoint checkpoint, String requestType) {
         String checkpointType = checkpoint.getPendingInputType();
-        String requestType = request.getPendingInputType();
         if (requestType == null || requestType.isBlank()) {
             return checkpointType;
         }
@@ -484,4 +649,5 @@ public class TaskServiceImpl implements TaskService {
         }
         return payload;
     }
+
 }

@@ -9,6 +9,7 @@ import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.client.dashscope.LlmCallResult;
 import com.travelagent.mapper.LlmCallLogMapper;
 import com.travelagent.model.dto.NearbyPoiRecommendationResponse;
+import com.travelagent.model.dto.LocationCandidateItem;
 import com.travelagent.model.dto.RecommendedPoiItem;
 import com.travelagent.model.dto.ResolvedLocation;
 import com.travelagent.model.entity.Task;
@@ -16,6 +17,7 @@ import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.rag.RagService;
 import com.travelagent.service.recommendation.NearbyPoiRecommendationService;
+import com.travelagent.service.llm.LlmUsageAccountingService;
 import com.travelagent.util.JsonUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -50,6 +52,7 @@ class MarkovPlannerTest {
     @Mock private SseNotificationService sseNotificationService;
     @Mock private LlmCallLogMapper llmCallLogMapper;
     @Mock private NearbyPoiRecommendationService nearbyPoiRecommendationService;
+    @Mock private LlmUsageAccountingService llmUsageAccountingService;
 
     @InjectMocks
     private MarkovPlanner markovPlanner;
@@ -209,6 +212,62 @@ class MarkovPlannerTest {
         assertThatNoException().isThrownBy(() -> markovPlanner.buildSystemPrompt(cp));
 
         ReflectionTestUtils.setField(markovPlanner, "ragService", null);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void parseRouteCandidates_prefersLlmReasonHighlightsAndFiltersProcessTerms() {
+        String response = """
+                {
+                  "routes": [
+                    {
+                      "routeId": "route-1",
+                      "title": "西安城墙夜游线",
+                      "targetAttractionName": "西安城墙",
+                      "stops": ["永宁门", "城墙"],
+                      "reasonHighlights": ["历史氛围", "路线推荐", "夜景体验", "天气合适", "地标打卡"],
+                      "reason": "适合晚上慢游",
+                      "estimatedTotalDurationMin": 180,
+                      "weatherSuitability": "舒适"
+                    }
+                  ]
+                }
+                """;
+
+        List<LocationCandidateItem> result = (List<LocationCandidateItem>) ReflectionTestUtils.invokeMethod(
+                markovPlanner, "parseRouteCandidates", response, Map.of("summary", "晴天"));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getHighlights()).containsExactly("历史氛围", "夜景体验", "地标打卡");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void parseRouteCandidates_withoutReasonHighlights_fallsBackToAttractionKeywords() {
+        String response = """
+                {
+                  "routes": [
+                    {
+                      "routeId": "route-2",
+                      "title": "回民街美食漫游",
+                      "targetAttractionName": "回民街",
+                      "stops": ["鼓楼", "回民街"],
+                      "reason": "美食体验 烟火气 夜游氛围",
+                      "estimatedTotalDurationMin": 150,
+                      "weatherSuitability": "常规适配"
+                    }
+                  ]
+                }
+                """;
+
+        List<LocationCandidateItem> result = (List<LocationCandidateItem>) ReflectionTestUtils.invokeMethod(
+                markovPlanner, "parseRouteCandidates", response, Map.of("summary", "晴天"));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getHighlights()).isNotEmpty();
+        assertThat(result.get(0).getHighlights()).doesNotContain("路线规划候选", "结合顺路关系和天气约束生成");
+        assertThat(result.get(0).getHighlights()).anySatisfy(value ->
+                assertThat(value).isIn("回民街美食漫游", "回民街", "鼓楼", "美食体验", "烟火气", "夜游氛围"));
     }
 
     private TaskCheckpoint buildCheckpoint(int days, int perDay, String region,

@@ -1,6 +1,7 @@
 package com.travelagent.service.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.PendingToolCall;
 import com.travelagent.agent.context.PlanningConfig;
@@ -32,6 +33,7 @@ import com.travelagent.model.entity.User;
 import com.travelagent.model.enums.TaskStatus;
 import com.travelagent.monitoring.TaskMetricsService;
 import com.travelagent.service.agent.impl.AgentServiceImpl;
+import com.travelagent.service.llm.LlmUsageAccountingService;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.task.TaskProgressService;
@@ -60,6 +62,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -83,6 +86,7 @@ class AgentServiceImplTest {
     @Mock private TaskMetricsService taskMetricsService;
     @Mock private DatabaseSchemaGuard schemaGuard;
     @Mock private AmapClient amapClient;
+    @Mock private LlmUsageAccountingService llmUsageAccountingService;
 
     @InjectMocks private AgentServiceImpl agentService;
 
@@ -163,6 +167,87 @@ class AgentServiceImplTest {
 
         verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.COMPLETED), any());
         verify(sseNotificationService, never()).sendEvent(eq("uuid"), eq(SseEvent.ERROR), any());
+    }
+
+    @Test
+    void executeTask_firstStepOriginTrafficIsDisplayedButNotBudgeted() {
+        Task task = buildTask(TaskStatus.PENDING);
+        TaskCheckpoint checkpoint = buildCheckpoint(true);
+        checkpoint.getPlanningConfig().setDynamicTargetSteps(1);
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+
+        when(taskMapper.findByUuid("uuid")).thenReturn(task);
+        mockStandardTransitions(TaskStatus.PENDING);
+        mockUserLevel(1L, 1);
+        when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("manual"));
+        when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
+                .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
+        when(amapClient.getTravelDuration(any(Double.class), any(Double.class), any(Double.class), any(Double.class), anyString()))
+                .thenReturn(Map.of("durationMin", 25));
+        mockToolRegistry();
+        when(planMapper.insertPlan(any())).thenAnswer(invocation -> {
+            Plan plan = invocation.getArgument(0);
+            plan.setId(42L);
+            return 1;
+        });
+
+        agentService.executeTask("uuid");
+
+        TaskCheckpoint saved = jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
+        assertThat(saved.getUsedTimeBudgetMin()).isEqualTo(120);
+        assertThat(saved.getCompletedSteps()).hasSize(1);
+        CompletedStep completedStep = saved.getCompletedSteps().get(0);
+        assertThat(completedStep.getTrafficTimeFromPrevMin()).isEqualTo(25);
+        assertThat(completedStep.getPlannedStartTime()).isEqualTo(LocalDateTime.of(2026, 4, 22, 9, 0));
+        assertThat(completedStep.getPlannedEndTime()).isEqualTo(LocalDateTime.of(2026, 4, 22, 11, 0));
+    }
+
+    @Test
+    void executeTask_laterStepStillConsumesTrafficBudget() {
+        Task task = buildTask(TaskStatus.PENDING);
+        TaskCheckpoint checkpoint = buildCheckpoint(true);
+        checkpoint.getPlanningConfig().setDynamicTargetSteps(2);
+        checkpoint.setCurrentStepIndex(1);
+        checkpoint.setUsedTimeBudgetMin(120);
+        checkpoint.setRemainingTimeBudgetMin(240);
+        CompletedStep firstStep = new CompletedStep();
+        firstStep.setStepIndex(0);
+        firstStep.setDayNumber(1);
+        firstStep.setAttractionName("Bell Tower");
+        firstStep.setLat(34.26);
+        firstStep.setLng(108.95);
+        checkpoint.getCompletedSteps().add(firstStep);
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+
+        PlanNextAttractionRequest request = buildPlanningRequest("manual");
+        request.setCurrentPositionName("Bell Tower");
+        request.setCurrentLat(34.26);
+        request.setCurrentLng(108.95);
+
+        when(taskMapper.findByUuid("uuid")).thenReturn(task);
+        mockStandardTransitions(TaskStatus.PENDING);
+        mockUserLevel(1L, 1);
+        when(markovPlanner.buildPlanRequest(any())).thenReturn(request);
+        when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
+                .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
+        when(amapClient.getTravelDuration(any(Double.class), any(Double.class), any(Double.class), any(Double.class), anyString()))
+                .thenReturn(Map.of("durationMin", 25));
+        mockToolRegistry();
+        when(planMapper.insertPlan(any())).thenAnswer(invocation -> {
+            Plan plan = invocation.getArgument(0);
+            plan.setId(42L);
+            return 1;
+        });
+
+        agentService.executeTask("uuid");
+
+        TaskCheckpoint saved = jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
+        assertThat(saved.getUsedTimeBudgetMin()).isEqualTo(265);
+        assertThat(saved.getCompletedSteps()).hasSize(2);
+        CompletedStep completedStep = saved.getCompletedSteps().get(1);
+        assertThat(completedStep.getTrafficTimeFromPrevMin()).isEqualTo(25);
+        assertThat(completedStep.getPlannedStartTime()).isEqualTo(LocalDateTime.of(2026, 4, 22, 11, 25));
+        assertThat(completedStep.getPlannedEndTime()).isEqualTo(LocalDateTime.of(2026, 4, 22, 13, 25));
     }
 
     @Test
@@ -366,10 +451,10 @@ class AgentServiceImplTest {
     }
 
     private void mockStandardTransitions(TaskStatus initialStatus) {
-        when(stateMachine.transition(initialStatus, AgentEvent.START_PLANNING)).thenReturn(TaskStatus.PLANNING);
-        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.START_TOOL_CALL)).thenReturn(TaskStatus.TOOL_CALLING);
-        when(stateMachine.transition(TaskStatus.TOOL_CALLING, AgentEvent.TOOL_CALL_DONE)).thenReturn(TaskStatus.PLANNING);
-        when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.COMPLETE)).thenReturn(TaskStatus.COMPLETED);
+        lenient().when(stateMachine.transition(initialStatus, AgentEvent.START_PLANNING)).thenReturn(TaskStatus.PLANNING);
+        lenient().when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.START_TOOL_CALL)).thenReturn(TaskStatus.TOOL_CALLING);
+        lenient().when(stateMachine.transition(TaskStatus.TOOL_CALLING, AgentEvent.TOOL_CALL_DONE)).thenReturn(TaskStatus.PLANNING);
+        lenient().when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.COMPLETE)).thenReturn(TaskStatus.COMPLETED);
     }
 
     private Task buildTask(TaskStatus status) {

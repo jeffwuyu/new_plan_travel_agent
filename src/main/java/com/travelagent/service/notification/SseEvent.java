@@ -11,5 +11,6 @@ public enum SseEvent {
     COMPLETED,
     ERROR,
     PROGRESS_SNAPSHOT,
-    RETRY
+    RETRY,
+    REWIND
 }

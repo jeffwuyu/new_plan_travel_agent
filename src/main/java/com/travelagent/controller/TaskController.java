@@ -4,6 +4,8 @@ import com.travelagent.exception.BusinessException;
 import com.travelagent.filter.JwtAuthInterceptor;
 import com.travelagent.model.dto.ConfirmOriginSelectionRequest;
 import com.travelagent.model.dto.CreateTaskRequest;
+import com.travelagent.model.dto.NodeChatRequest;
+import com.travelagent.model.dto.RewindTaskRequest;
 import com.travelagent.model.dto.Result;
 import com.travelagent.model.dto.TaskExecutionProgressResponse;
 import com.travelagent.model.dto.TaskResponse;
@@ -70,6 +72,22 @@ public class TaskController {
                                                      HttpServletRequest httpRequest) {
         Long userId = JwtAuthInterceptor.getUserId(httpRequest);
         return Result.success(taskService.confirmOriginSelection(taskUuid, userId, request));
+    }
+
+    @PostMapping("/{taskUuid}/rewind")
+    public Result<TaskResponse> rewindTask(@PathVariable String taskUuid,
+                                           @Valid @RequestBody RewindTaskRequest request,
+                                           HttpServletRequest httpRequest) {
+        Long userId = JwtAuthInterceptor.getUserId(httpRequest);
+        return Result.success(taskService.rewindTask(taskUuid, userId, request));
+    }
+
+    @PostMapping("/{taskUuid}/node-chat")
+    public Result<TaskResponse> refreshNodeSelection(@PathVariable String taskUuid,
+                                                     @Valid @RequestBody NodeChatRequest request,
+                                                     HttpServletRequest httpRequest) {
+        Long userId = JwtAuthInterceptor.getUserId(httpRequest);
+        return Result.success(taskService.refreshNodeSelection(taskUuid, userId, request));
     }
 
     @GetMapping("/{taskUuid}/progress")

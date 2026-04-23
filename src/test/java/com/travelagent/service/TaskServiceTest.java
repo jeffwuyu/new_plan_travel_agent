@@ -1,6 +1,9 @@
 package com.travelagent.service;
 
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.agent.context.CompletedStep;
+import com.travelagent.agent.planner.MarkovPlanner;
+import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
 import com.travelagent.client.amap.AmapClient;
@@ -11,14 +14,19 @@ import com.travelagent.mapper.TaskMapper;
 import com.travelagent.model.dto.ConfirmOriginSelectionRequest;
 import com.travelagent.model.dto.CreateTaskRequest;
 import com.travelagent.model.dto.LocationCandidateItem;
+import com.travelagent.model.dto.NodeChatRequest;
+import com.travelagent.model.dto.ResolvedLocation;
+import com.travelagent.model.dto.RewindTaskRequest;
 import com.travelagent.model.dto.SelectionOptionItem;
 import com.travelagent.model.dto.TaskResponse;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.entity.UserQuotaConfig;
 import com.travelagent.model.enums.TaskStatus;
+import com.travelagent.service.llm.LlmUsageAccountingService;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.task.OriginCandidateService;
+import com.travelagent.service.task.TaskProgressService;
 import com.travelagent.service.task.impl.TaskServiceImpl;
 import com.travelagent.service.user.QuotaService;
 import com.travelagent.util.JsonUtil;
@@ -57,6 +65,9 @@ class TaskServiceTest {
     @Mock private JsonUtil jsonUtil;
     @Mock private OriginCandidateService originCandidateService;
     @Mock private AmapClient amapClient;
+    @Mock private MarkovPlanner markovPlanner;
+    @Mock private TaskProgressService taskProgressService;
+    @Mock private LlmUsageAccountingService llmUsageAccountingService;
 
     @InjectMocks
     private TaskServiceImpl taskService;
@@ -294,6 +305,83 @@ class TaskServiceTest {
         assertThat(payload.get("selectedOrigin")).isNotNull();
     }
 
+    @Test
+    void rewindTask_pausedTask_truncatesCheckpointAndResumes() {
+        Task task = pendingTask();
+        task.setStatus(TaskStatus.PAUSED.getCode());
+        TaskCheckpoint checkpoint = rewindCheckpoint();
+        when(taskMapper.findByUuid(TASK_UUID)).thenReturn(task);
+        when(jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class)).thenReturn(checkpoint);
+        when(jsonUtil.toJson(any())).thenReturn("{\"schemaVersion\":\"1.0\"}");
+
+        RewindTaskRequest request = new RewindTaskRequest();
+        request.setTargetStepIndex(0);
+
+        TaskResponse response = taskService.rewindTask(TASK_UUID, USER_ID, request);
+
+        assertThat(response.getStatus()).isEqualTo(TaskStatus.RESUMING.getCode());
+        assertThat(checkpoint.getCompletedSteps()).hasSize(1);
+        assertThat(checkpoint.getCurrentStepIndex()).isEqualTo(1);
+        assertThat(checkpoint.getPendingInputType()).isNull();
+        verify(taskMapper).updateCheckpoint(task);
+        verify(taskMapper).updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
+        verify(sseNotificationService).sendEvent(eq(TASK_UUID), eq(SseEvent.REWIND), any());
+    }
+
+    @Test
+    void rewindTask_planningTask_rejected() {
+        Task task = pendingTask();
+        task.setStatus(TaskStatus.PLANNING.getCode());
+        when(taskMapper.findByUuid(TASK_UUID)).thenReturn(task);
+
+        RewindTaskRequest request = new RewindTaskRequest();
+        request.setTargetStepIndex(0);
+
+        assertThatThrownBy(() -> taskService.rewindTask(TASK_UUID, USER_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("only paused or awaiting_user_input");
+    }
+
+    @Test
+    void refreshNodeSelection_updatesCandidatesWithoutCompletingStep() {
+        Task task = awaitingUserInputTask();
+        TaskCheckpoint checkpoint = awaitingCheckpoint("poi_candidate_selection");
+        checkpoint.setTaskId(task.getId());
+        checkpoint.setUserId(task.getUserId());
+        checkpoint.setCurrentStepIndex(1);
+        checkpoint.setCompletedSteps(new java.util.ArrayList<>(List.of(completedStep(0, "West Lake"))));
+        checkpoint.setSelectedBranchType("nearby_poi");
+        when(taskMapper.findByUuid(TASK_UUID)).thenReturn(task);
+        when(jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class)).thenReturn(checkpoint);
+        when(jsonUtil.toJson(any())).thenReturn("{\"schemaVersion\":\"1.0\"}");
+
+        LocationCandidateItem refreshed = recommendationCandidate("poi-2", "Indoor Museum");
+        refreshed.setBranchType("nearby_poi");
+        when(markovPlanner.planNextAttraction(eq(task), eq(checkpoint), any(), eq(TASK_UUID)))
+                .thenReturn(PlanningResult.forCandidates(
+                        List.of(refreshed),
+                        88,
+                        "poi_candidate_selection",
+                        "poi_candidate_selection",
+                        "nearby_poi",
+                        Map.of("userPreferencePrompt", "室内 少走路"),
+                        Map.of()));
+        when(llmUsageAccountingService.recordUsage(task.getId(), task.getUserId(), 88)).thenReturn(88);
+
+        NodeChatRequest request = new NodeChatRequest();
+        request.setPendingInputType("poi_candidate_selection");
+        request.setSelectionStage("poi_candidate_selection");
+        request.setMessage("室内 少走路");
+
+        TaskResponse response = taskService.refreshNodeSelection(TASK_UUID, USER_ID, request);
+
+        assertThat(response.getStatus()).isEqualTo(TaskStatus.AWAITING_USER_INPUT.getCode());
+        assertThat(checkpoint.getCompletedSteps()).hasSize(1);
+        assertThat(checkpoint.getRecommendationCandidates()).hasSize(1);
+        assertThat(checkpoint.getCurrentContext()).containsEntry("userPreferencePrompt", "室内 少走路");
+        verify(sseNotificationService).sendEvent(eq(TASK_UUID), eq(SseEvent.USER_SELECTION_REQUIRED), any());
+    }
+
     private Task pendingTask() {
         Task task = new Task();
         task.setId(1L);
@@ -376,12 +464,56 @@ class TaskServiceTest {
     private TaskCheckpoint awaitingCheckpoint(String pendingInputType) {
         TaskCheckpoint checkpoint = new TaskCheckpoint();
         checkpoint.setTaskUuid(TASK_UUID);
+        checkpoint.setTaskId(1L);
+        checkpoint.setUserId(USER_ID);
         checkpoint.setPendingInputType(pendingInputType);
         checkpoint.setSelectionStage(pendingInputType);
         checkpoint.setCurrentState(TaskStatus.AWAITING_USER_INPUT.getCode());
         checkpoint.setCurrentContext(new LinkedHashMap<>());
         checkpoint.setWeatherContext(new LinkedHashMap<>());
+        checkpoint.setPlanningConfig(new com.travelagent.agent.context.PlanningConfig());
+        checkpoint.getPlanningConfig().setTotalDays(1);
+        checkpoint.getPlanningConfig().setDynamicTargetSteps(3);
         return checkpoint;
+    }
+
+    private TaskCheckpoint rewindCheckpoint() {
+        TaskCheckpoint checkpoint = awaitingCheckpoint("poi_candidate_selection");
+        checkpoint.setCurrentState(TaskStatus.PAUSED.getCode());
+        checkpoint.setDailyTimeWindows(List.of(
+                new com.travelagent.agent.context.DailyTimeWindow(
+                        1,
+                        LocalDateTime.of(2026, 4, 22, 9, 0),
+                        LocalDateTime.of(2026, 4, 22, 21, 0)
+                )
+        ));
+        checkpoint.setSelectedDestination(new ResolvedLocation());
+        checkpoint.getSelectedDestination().setLatitude(30.2);
+        checkpoint.getSelectedDestination().setLongitude(120.2);
+        checkpoint.getSelectedDestination().setName("Station");
+        checkpoint.setCompletedSteps(new java.util.ArrayList<>(List.of(
+                completedStep(0, "West Lake"),
+                completedStep(1, "Lingyin Temple")
+        )));
+        checkpoint.setCurrentStepIndex(2);
+        checkpoint.setUsedTimeBudgetMin(260);
+        checkpoint.setProjectedReturnToDestinationMin(30);
+        checkpoint.setPendingInputType("poi_candidate_selection");
+        checkpoint.setSelectionOptions(List.of(selectionOption("branch-1", "nearby_poi")));
+        checkpoint.setRecommendationCandidates(List.of(recommendationCandidate("poi-1", "Cafe")));
+        checkpoint.setLlmConversationHistory(new java.util.ArrayList<>(List.of(Map.of("role", "user", "content", "old"))));
+        return checkpoint;
+    }
+
+    private CompletedStep completedStep(int stepIndex, String name) {
+        CompletedStep step = new CompletedStep();
+        step.setStepIndex(stepIndex);
+        step.setDayNumber(1);
+        step.setAttractionName(name);
+        step.setTrafficTimeFromPrevMin(20);
+        step.setEstimatedVisitDurationMin(90);
+        step.setTravelTimeToDestinationMin(25);
+        return step;
     }
 
     private void stubConfirmSelection(Task task, TaskCheckpoint checkpoint) {

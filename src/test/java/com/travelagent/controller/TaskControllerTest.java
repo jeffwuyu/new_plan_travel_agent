@@ -9,6 +9,8 @@ import com.travelagent.exception.TaskNotFoundException;
 import com.travelagent.filter.JwtAuthInterceptor;
 import com.travelagent.model.dto.ConfirmOriginSelectionRequest;
 import com.travelagent.model.dto.CreateTaskRequest;
+import com.travelagent.model.dto.NodeChatRequest;
+import com.travelagent.model.dto.RewindTaskRequest;
 import com.travelagent.model.dto.TaskResponse;
 import com.travelagent.model.enums.TaskStatus;
 import com.travelagent.service.task.TaskProgressService;
@@ -185,6 +187,40 @@ class TaskControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("resuming"));
+    }
+
+    @Test
+    void rewindTask_validRequest_returns200() throws Exception {
+        when(taskService.rewindTask(eq(TASK_UUID), eq(USER_ID), any(RewindTaskRequest.class)))
+                .thenReturn(buildTaskResponse(TaskStatus.RESUMING.getCode()));
+
+        RewindTaskRequest request = new RewindTaskRequest();
+        request.setTargetStepIndex(1);
+
+        mockMvc.perform(post("/api/tasks/{uuid}/rewind", TASK_UUID)
+                        .requestAttr(JwtAuthInterceptor.ATTR_USER_ID, USER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("resuming"));
+    }
+
+    @Test
+    void refreshNodeSelection_validRequest_returns200() throws Exception {
+        when(taskService.refreshNodeSelection(eq(TASK_UUID), eq(USER_ID), any(NodeChatRequest.class)))
+                .thenReturn(buildTaskResponse(TaskStatus.AWAITING_USER_INPUT.getCode()));
+
+        NodeChatRequest request = new NodeChatRequest();
+        request.setPendingInputType("poi_candidate_selection");
+        request.setSelectionStage("poi_candidate_selection");
+        request.setMessage("室内 少走路");
+
+        mockMvc.perform(post("/api/tasks/{uuid}/node-chat", TASK_UUID)
+                        .requestAttr(JwtAuthInterceptor.ATTR_USER_ID, USER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("awaiting_user_input"));
     }
 
     private TaskResponse buildTaskResponse(String status) {

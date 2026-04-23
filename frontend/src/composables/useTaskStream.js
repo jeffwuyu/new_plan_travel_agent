@@ -30,6 +30,7 @@ export function useTaskStream(taskUuid) {
       'PAUSED',
       'PROGRESS_SNAPSHOT',
       'RETRY',
+      'REWIND',
       'USER_SELECTION_REQUIRED',
       'USER_SELECTION_CONFIRMED'
     ]
@@ -93,12 +94,19 @@ export function useTaskStream(taskUuid) {
       case 'RETRY':
         pushEvent({ eventType: 'RETRY', ...data, createdAt: new Date().toISOString() })
         break
+      case 'REWIND':
+        currentStatus.value = data.status || data.data?.status || 'resuming'
+        currentTokens.value = toNumber(data.totalTokensUsed ?? data.data?.totalTokensUsed ?? currentTokens.value)
+        pushEvent({ eventType: 'REWIND', ...data, createdAt: new Date().toISOString() })
+        break
       case 'USER_SELECTION_REQUIRED':
         currentStatus.value = 'awaiting_user_input'
+        currentTokens.value = toNumber(data.totalTokensUsed ?? data.data?.totalTokensUsed ?? currentTokens.value)
         pushEvent({ eventType: 'USER_SELECTION_REQUIRED', ...data, createdAt: new Date().toISOString() })
         break
       case 'USER_SELECTION_CONFIRMED':
         currentStatus.value = 'resuming'
+        currentTokens.value = toNumber(data.totalTokensUsed ?? data.data?.totalTokensUsed ?? currentTokens.value)
         pushEvent({ eventType: 'USER_SELECTION_CONFIRMED', ...data, createdAt: new Date().toISOString() })
         break
       default:

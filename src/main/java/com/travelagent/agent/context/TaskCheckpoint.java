@@ -22,6 +22,7 @@ public class TaskCheckpoint {
 
     private String schemaVersion = "1.0";
     private Long taskId;
+    private Long userId;
     private String taskUuid;
     private String currentState;
     private String region;

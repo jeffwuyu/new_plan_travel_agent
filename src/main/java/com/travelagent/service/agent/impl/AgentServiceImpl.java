@@ -1,9 +1,6 @@
 package com.travelagent.service.agent.impl;
 
 import com.travelagent.agent.context.CompletedStep;
-import com.travelagent.agent.context.DailyTimeWindow;
-import com.travelagent.agent.context.PendingToolCall;
-import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.RetryState;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.planner.FinalSummaryResult;
@@ -13,17 +10,14 @@ import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
 import com.travelagent.agent.tools.GeocodeTool;
-import com.travelagent.agent.tools.ToolRegistry;
 import com.travelagent.agent.tools.TrafficTimeTool;
 import com.travelagent.agent.tools.WeatherTool;
-import com.travelagent.client.amap.AmapClient;
 import com.travelagent.config.DatabaseSchemaGuard;
 import com.travelagent.exception.AgentErrorCode;
 import com.travelagent.exception.AgentException;
 import com.travelagent.exception.QuotaExhaustedException;
 import com.travelagent.mapper.PlanMapper;
 import com.travelagent.mapper.TaskMapper;
-import com.travelagent.mapper.UserMapper;
 import com.travelagent.model.dto.LocationCandidateItem;
 import com.travelagent.model.entity.Plan;
 import com.travelagent.model.entity.PlanStep;
@@ -31,11 +25,11 @@ import com.travelagent.model.entity.Task;
 import com.travelagent.model.enums.TaskStatus;
 import com.travelagent.monitoring.TaskMetricsService;
 import com.travelagent.service.agent.AgentService;
+import com.travelagent.service.llm.LlmUsageAccountingService;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.task.TaskProgressService;
 import com.travelagent.service.user.QuotaService;
-import com.travelagent.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -44,17 +38,18 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
-import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Agent 主控服务：状态机转换、规划循环、Quota 处理、SSE 通知、计划持久化。
+ * 工具执行委托给 {@link AgentToolExecutor}，Checkpoint 管理委托给 {@link AgentCheckpointHelper}。
+ */
 @Service
 public class AgentServiceImpl implements AgentService {
 
@@ -62,11 +57,8 @@ public class AgentServiceImpl implements AgentService {
     private static final String PAUSE_REASON_DAILY_QUOTA = "daily_quota_exhausted";
     private static final String PAUSE_REASON_AMAP_RATE_LIMITED = "amap_rate_limited";
     private static final int[] AMAP_RATE_LIMIT_BACKOFF_SECONDS = {2, 5, 10};
-    private static final int FALLBACK_RETURN_TO_DESTINATION_MIN = 45;
 
     private static final String EVT_STATE_CHANGE = "STATE_CHANGE";
-    private static final String EVT_TOOL_START = "TOOL_START";
-    private static final String EVT_TOOL_DONE = "TOOL_DONE";
     private static final String EVT_STEP_DONE = "STEP_DONE";
     private static final String EVT_ERROR = "ERROR";
     private static final String EVT_RETRY = "RETRY";
@@ -79,15 +71,14 @@ public class AgentServiceImpl implements AgentService {
     @Autowired private AgentStateMachine stateMachine;
     @Autowired private SseNotificationService sseNotificationService;
     @Autowired private MarkovPlanner markovPlanner;
-    @Autowired private ToolRegistry toolRegistry;
     @Autowired private QuotaService quotaService;
-    @Autowired private JsonUtil jsonUtil;
     @Autowired private PlanMapper planMapper;
-    @Autowired private UserMapper userMapper;
     @Autowired private TaskProgressService taskProgressService;
     @Autowired private TaskMetricsService taskMetricsService;
     @Autowired private DatabaseSchemaGuard schemaGuard;
-    @Autowired private AmapClient amapClient;
+    @Autowired private LlmUsageAccountingService llmUsageAccountingService;
+    @Autowired private AgentCheckpointHelper checkpointHelper;
+    @Autowired private AgentToolExecutor toolExecutor;
 
     @EventListener(ApplicationReadyEvent.class)
     public void recoverStuckTasksOnStartup() {
@@ -143,8 +134,8 @@ public class AgentServiceImpl implements AgentService {
     }
 
     private void runPlanningLoop(Task task, String taskUuid, TaskStatus current) {
-        TaskCheckpoint checkpoint = loadCheckpoint(task);
-        int userLevel = resolveUserLevel(task.getUserId());
+        TaskCheckpoint checkpoint = checkpointHelper.loadCheckpoint(task);
+        int userLevel = checkpointHelper.resolveUserLevel(task.getUserId());
 
         TaskStatus planning = stateMachine.transition(current, AgentEvent.START_PLANNING);
         task.setStatus(planning.getCode());
@@ -170,14 +161,14 @@ public class AgentServiceImpl implements AgentService {
         }
 
         if (checkpoint.getPendingToolCall() != null) {
-            replayPendingToolCall(task, checkpoint, taskUuid);
+            toolExecutor.replayPendingToolCall(task, checkpoint, taskUuid);
         }
 
-        refreshRemainingBudget(checkpoint);
+        checkpointHelper.refreshRemainingBudget(checkpoint);
 
-        while (!checkpoint.isAllStepsDone() && canPlanAnotherStep(checkpoint)) {
+        while (!checkpoint.isAllStepsDone() && checkpointHelper.canPlanAnotherStep(checkpoint)) {
             int stepIndex = checkpoint.getCurrentStepIndex();
-            int dayNumber = resolveDayNumberForOffset(checkpoint, checkpoint.getUsedTimeBudgetMin());
+            int dayNumber = checkpointHelper.resolveDayNumberForOffset(checkpoint, checkpoint.getUsedTimeBudgetMin());
 
             taskProgressService.recordEvent(taskUuid, EVT_STATE_CHANGE, planning.getCode(),
                     stepIndex, checkpoint.totalPlannedSteps(),
@@ -207,12 +198,16 @@ public class AgentServiceImpl implements AgentService {
                     int tokensUsed = planResult.totalTokens();
                     if (tokensUsed > 0) {
                         try {
-                            quotaService.debitTokens(task.getUserId(), userLevel, tokensUsed);
+                            int updatedTotal = llmUsageAccountingService.recordUsage(task.getId(), task.getUserId(), tokensUsed);
+                            task.setTotalTokensUsed(updatedTotal);
                         } catch (QuotaExhaustedException qe) {
+                            Task refreshedTask = taskMapper.findById(task.getId());
+                            if (refreshedTask != null) {
+                                task.setTotalTokensUsed(refreshedTask.getTotalTokensUsed());
+                            }
                             handleQuotaExhaustion(task, checkpoint, taskUuid);
                             return;
                         }
-                        task.setTotalTokensUsed((task.getTotalTokensUsed() == null ? 0 : task.getTotalTokensUsed()) + tokensUsed);
                     }
                     if (planResult.requiresUserSelection()) {
                         handleAwaitingSelection(task, checkpoint, taskUuid, stepIndex, dayNumber, planResult);
@@ -240,18 +235,18 @@ public class AgentServiceImpl implements AgentService {
 
             try {
                 Map<String, Object> geocodeArgs = Map.of("name", attractionName, "region", checkpoint.getRegion());
-                geocodeResult = runToolWithCheckpoint(task, checkpoint, GeocodeTool.NAME, geocodeArgs, taskUuid, stepIndex);
+                geocodeResult = toolExecutor.runToolWithCheckpoint(task, checkpoint, GeocodeTool.NAME, geocodeArgs, taskUuid, stepIndex);
 
                 String adcode = (String) geocodeResult.getOrDefault("adcode", "");
                 if (adcode.isBlank()) {
                     weatherResult = Map.of("weather", "Unknown", "temperature", "", "windDirection", "", "windPower", "", "humidity", "");
                 } else {
-                    weatherResult = runToolWithCheckpoint(task, checkpoint, WeatherTool.NAME, Map.of("adcode", adcode), taskUuid, stepIndex);
+                    weatherResult = toolExecutor.runToolWithCheckpoint(task, checkpoint, WeatherTool.NAME, Map.of("adcode", adcode), taskUuid, stepIndex);
                 }
 
                 if (stepIndex > 0) {
                     CompletedStep prevStep = checkpoint.getCompletedSteps().get(stepIndex - 1);
-                    trafficResult = runToolWithCheckpoint(task, checkpoint, TrafficTimeTool.NAME, Map.of(
+                    trafficResult = toolExecutor.runToolWithCheckpoint(task, checkpoint, TrafficTimeTool.NAME, Map.of(
                             "originLng", prevStep.getLng(),
                             "originLat", prevStep.getLat(),
                             "destLng", geocodeResult.get("lng"),
@@ -261,7 +256,7 @@ public class AgentServiceImpl implements AgentService {
                 } else if (checkpoint.getSelectedOrigin() != null
                         && checkpoint.getSelectedOrigin().getLatitude() != null
                         && checkpoint.getSelectedOrigin().getLongitude() != null) {
-                    trafficResult = runToolWithCheckpoint(task, checkpoint, TrafficTimeTool.NAME, Map.of(
+                    trafficResult = toolExecutor.runToolWithCheckpoint(task, checkpoint, TrafficTimeTool.NAME, Map.of(
                             "originLng", checkpoint.getSelectedOrigin().getLongitude(),
                             "originLat", checkpoint.getSelectedOrigin().getLatitude(),
                             "destLng", geocodeResult.get("lng"),
@@ -289,20 +284,23 @@ public class AgentServiceImpl implements AgentService {
             taskMapper.updateStatus(task.getId(), backToPlanning.getCode());
             sendStateChange(taskUuid, checkpoint, backToPlanning.getCode(), task);
 
-            int trafficMin = trafficResult != null
+            int displayTrafficMin = trafficResult != null
                     ? ((Number) trafficResult.getOrDefault("durationMin", 0)).intValue() : 0;
+            int budgetTrafficMin = checkpointHelper.shouldExcludeOriginTravelFromBudget(stepIndex, checkpoint)
+                    ? 0
+                    : displayTrafficMin;
             int visitDurationMin = checkpoint.getPlanningConfig().getDefaultVisitDurationMin();
-            int usedBeforeStep = valueOrZero(checkpoint.getUsedTimeBudgetMin());
-            int plannedStartOffset = usedBeforeStep + trafficMin;
+            int usedBeforeStep = checkpointHelper.valueOrZero(checkpoint.getUsedTimeBudgetMin());
+            int plannedStartOffset = usedBeforeStep + budgetTrafficMin;
             int plannedEndOffset = plannedStartOffset + visitDurationMin;
-            LocalDateTime plannedStart = resolveDateTimeForOffset(checkpoint, plannedStartOffset);
-            LocalDateTime plannedEnd = resolveDateTimeForOffset(checkpoint, plannedEndOffset);
+            LocalDateTime plannedStart = checkpointHelper.resolveDateTimeForOffset(checkpoint, plannedStartOffset);
+            LocalDateTime plannedEnd = checkpointHelper.resolveDateTimeForOffset(checkpoint, plannedEndOffset);
 
             double lat = ((Number) geocodeResult.get("lat")).doubleValue();
             double lng = ((Number) geocodeResult.get("lng")).doubleValue();
-            int returnToDestinationMin = estimateTravelTimeToDestination(checkpoint, lat, lng);
-            CompletedStep step = buildCompletedStep(stepIndex, dayNumber, attractionName, lat, lng,
-                    geocodeResult, weatherResult, trafficResult, trafficMin, visitDurationMin,
+            int returnToDestinationMin = checkpointHelper.estimateTravelTimeToDestination(checkpoint, lat, lng);
+            CompletedStep step = checkpointHelper.buildCompletedStep(stepIndex, dayNumber, attractionName, lat, lng,
+                    geocodeResult, weatherResult, trafficResult, displayTrafficMin, visitDurationMin,
                     plannedStart, plannedEnd, returnToDestinationMin);
             checkpoint.getCompletedSteps().add(step);
             checkpoint.setCurrentStepIndex(stepIndex + 1);
@@ -316,16 +314,16 @@ public class AgentServiceImpl implements AgentService {
             checkpoint.setRecommendationCandidates(List.of());
             checkpoint.setCurrentContext(Map.of());
             checkpoint.setWeatherContext(Map.of());
-            refreshRemainingBudget(checkpoint);
+            checkpointHelper.refreshRemainingBudget(checkpoint);
             if (checkpoint.getRetryState() != null) {
                 checkpoint.getRetryState().reset();
             }
-            saveCheckpoint(task, checkpoint);
+            checkpointHelper.saveCheckpoint(task, checkpoint);
 
             Map<String, Object> stepPayload = new HashMap<>();
             stepPayload.put("stepIndex", stepIndex);
             stepPayload.put("attractionName", attractionName);
-            stepPayload.put("trafficTimeMin", trafficMin);
+            stepPayload.put("trafficTimeMin", displayTrafficMin);
             stepPayload.put("dayNumber", dayNumber);
             stepPayload.put("plannedStartTime", plannedStart);
             stepPayload.put("plannedEndTime", plannedEnd);
@@ -350,94 +348,15 @@ public class AgentServiceImpl implements AgentService {
         taskMetricsService.recordTaskCompleted();
         taskProgressService.recordEvent(taskUuid, EVT_COMPLETED, completed.getCode(),
                 checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(),
-                "Task completed successfully", Map.of("planId", planId));
-        sseNotificationService.sendEvent(taskUuid, SseEvent.COMPLETED, Map.of("planId", planId));
+                "Task completed successfully", Map.of(
+                        "planId", planId,
+                        "totalTokensUsed", task.getTotalTokensUsed() == null ? 0 : task.getTotalTokensUsed()
+                ));
+        sseNotificationService.sendEvent(taskUuid, SseEvent.COMPLETED, Map.of(
+                "planId", planId,
+                "totalTokensUsed", task.getTotalTokensUsed() == null ? 0 : task.getTotalTokensUsed()
+        ));
         sseNotificationService.completeEmitter(taskUuid);
-    }
-
-    private boolean canPlanAnotherStep(TaskCheckpoint checkpoint) {
-        if (checkpoint.getPlanningConfig() == null) {
-            return false;
-        }
-        if (checkpoint.getCurrentStepIndex() >= checkpoint.totalPlannedSteps()) {
-            return false;
-        }
-        refreshRemainingBudget(checkpoint);
-        return valueOrZero(checkpoint.getRemainingTimeBudgetMin()) >= checkpoint.getPlanningConfig().getMinContinueBudgetMin();
-    }
-
-    private void refreshRemainingBudget(TaskCheckpoint checkpoint) {
-        int totalAvailable = checkpoint.totalAvailableMinutes();
-        int used = valueOrZero(checkpoint.getUsedTimeBudgetMin());
-        int buffer = checkpoint.getPlanningConfig() == null ? 0 : checkpoint.getPlanningConfig().getDestinationBufferMin();
-        int returnReserve = shouldReserveReturnToDestination(checkpoint)
-                ? Math.max(valueOrZero(checkpoint.getProjectedReturnToDestinationMin()), FALLBACK_RETURN_TO_DESTINATION_MIN)
-                : 0;
-        checkpoint.setRemainingTimeBudgetMin(Math.max(0, totalAvailable - used - buffer - returnReserve));
-    }
-
-    private boolean shouldReserveReturnToDestination(TaskCheckpoint checkpoint) {
-        if (checkpoint.getSelectedDestination() == null
-                || checkpoint.getSelectedDestination().getLatitude() == null
-                || checkpoint.getSelectedDestination().getLongitude() == null) {
-            return false;
-        }
-        return resolveDayNumberForOffset(checkpoint, valueOrZero(checkpoint.getUsedTimeBudgetMin()))
-                >= checkpoint.getPlanningConfig().getTotalDays();
-    }
-
-    private int resolveDayNumberForOffset(TaskCheckpoint checkpoint, Integer offsetMin) {
-        int remaining = Math.max(0, valueOrZero(offsetMin));
-        List<DailyTimeWindow> windows = checkpoint.getDailyTimeWindows();
-        if (windows == null || windows.isEmpty()) {
-            return 1;
-        }
-        for (DailyTimeWindow window : windows) {
-            int dayMinutes = window.availableMinutes();
-            if (remaining < dayMinutes) {
-                return window.getDayNumber();
-            }
-            remaining -= dayMinutes;
-        }
-        return windows.get(windows.size() - 1).getDayNumber();
-    }
-
-    private LocalDateTime resolveDateTimeForOffset(TaskCheckpoint checkpoint, int offsetMin) {
-        int remaining = Math.max(0, offsetMin);
-        List<DailyTimeWindow> windows = checkpoint.getDailyTimeWindows();
-        if (windows == null || windows.isEmpty()) {
-            return checkpoint.getTripStartTime();
-        }
-        for (DailyTimeWindow window : windows) {
-            int dayMinutes = window.availableMinutes();
-            if (remaining <= dayMinutes) {
-                return window.getStartTime().plusMinutes(remaining);
-            }
-            remaining -= dayMinutes;
-        }
-        DailyTimeWindow lastWindow = windows.get(windows.size() - 1);
-        return lastWindow.getEndTime();
-    }
-
-    private int estimateTravelTimeToDestination(TaskCheckpoint checkpoint, double originLat, double originLng) {
-        if (!shouldReserveReturnToDestination(checkpoint)) {
-            return 0;
-        }
-        if (checkpoint.getSelectedDestination() == null
-                || checkpoint.getSelectedDestination().getLatitude() == null
-                || checkpoint.getSelectedDestination().getLongitude() == null) {
-            return FALLBACK_RETURN_TO_DESTINATION_MIN;
-        }
-        try {
-            Map<String, Object> duration = amapClient.getTravelDuration(
-                    originLng, originLat,
-                    checkpoint.getSelectedDestination().getLongitude(),
-                    checkpoint.getSelectedDestination().getLatitude(),
-                    checkpoint.getPlanningConfig().getTravelMode());
-            return ((Number) duration.getOrDefault("durationMin", FALLBACK_RETURN_TO_DESTINATION_MIN)).intValue();
-        } catch (Exception e) {
-            return FALLBACK_RETURN_TO_DESTINATION_MIN;
-        }
     }
 
     private void handleAwaitingOriginSelection(Task task, TaskCheckpoint checkpoint, String taskUuid) {
@@ -460,7 +379,7 @@ public class AgentServiceImpl implements AgentService {
         checkpoint.setWeatherContext(Map.of());
         checkpoint.setCurrentState(awaiting.getCode());
         task.setStatus(awaiting.getCode());
-        saveCheckpoint(task, checkpoint);
+        checkpointHelper.saveCheckpoint(task, checkpoint);
         taskMapper.updateStatus(task.getId(), awaiting.getCode());
 
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -474,8 +393,7 @@ public class AgentServiceImpl implements AgentService {
         sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_REQUIRED, payload);
         taskProgressService.recordEvent(taskUuid, EVT_USER_SELECTION_REQUIRED, awaiting.getCode(),
                 checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(),
-                "Waiting for origin selection",
-                payload);
+                "Waiting for origin selection", payload);
     }
 
     private void handleAwaitingSelection(Task task,
@@ -510,7 +428,7 @@ public class AgentServiceImpl implements AgentService {
         checkpoint.setWeatherContext(planResult.weatherContext() == null ? Map.of() : new LinkedHashMap<>(planResult.weatherContext()));
         checkpoint.setCurrentState(awaiting.getCode());
         task.setStatus(awaiting.getCode());
-        saveCheckpoint(task, checkpoint);
+        checkpointHelper.saveCheckpoint(task, checkpoint);
         taskMapper.updateStatus(task.getId(), awaiting.getCode());
 
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -528,87 +446,7 @@ public class AgentServiceImpl implements AgentService {
         sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_REQUIRED, payload);
         taskProgressService.recordEvent(taskUuid, EVT_USER_SELECTION_REQUIRED, awaiting.getCode(),
                 stepIndex, checkpoint.totalPlannedSteps(),
-                "Waiting for user selection",
-                payload);
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> runToolWithCheckpoint(Task task, TaskCheckpoint checkpoint,
-                                                      String toolName, Map<String, Object> arguments,
-                                                      String taskUuid, int stepIndex) {
-        String idempotencyKey = buildToolIdempotencyKey(taskUuid, stepIndex, toolName, arguments);
-        log.debug("[AgentService] tool={} step={} idempotencyKey={} arguments={}",
-                toolName, stepIndex, idempotencyKey, arguments);
-        checkpoint.setPendingToolCall(new PendingToolCall(toolName, arguments, idempotencyKey));
-        saveCheckpoint(task, checkpoint);
-        taskProgressService.recordEvent(taskUuid, EVT_TOOL_START, null, stepIndex, null, "Calling tool: " + toolName, arguments);
-
-        boolean toolSuccess = true;
-        try {
-            Map<String, Object> result = (Map<String, Object>) toolRegistry.getTool(toolName).execute(arguments, idempotencyKey);
-            checkpoint.setPendingToolCall(null);
-            saveCheckpoint(task, checkpoint);
-            taskProgressService.recordEvent(taskUuid, EVT_TOOL_DONE, null, stepIndex, null, "Tool completed: " + toolName, result);
-            return result;
-        } catch (Exception e) {
-            toolSuccess = false;
-            throw e;
-        } finally {
-            taskMetricsService.recordToolCall(toolSuccess);
-        }
-    }
-
-    private String buildToolIdempotencyKey(String taskUuid, int stepIndex, String toolName, Map<String, Object> arguments) {
-        String argsFingerprint = hashArguments(arguments);
-        return taskUuid + "-step" + stepIndex + "-" + toolName + "-" + argsFingerprint;
-    }
-
-    private String hashArguments(Map<String, Object> arguments) {
-        try {
-            String normalizedJson = jsonUtil.toJson(normalizeForFingerprint(arguments == null ? Map.of() : arguments));
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] bytes = digest.digest(normalizedJson.getBytes(StandardCharsets.UTF_8));
-            StringBuilder builder = new StringBuilder();
-            for (int i = 0; i < Math.min(bytes.length, 8); i++) {
-                builder.append(String.format("%02x", bytes[i]));
-            }
-            return builder.toString();
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to build tool idempotency fingerprint", e);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private Object normalizeForFingerprint(Object value) {
-        if (value instanceof Map<?, ?> map) {
-            Map<String, Object> normalized = new LinkedHashMap<>();
-            map.entrySet().stream()
-                    .sorted(Comparator.comparing(entry -> String.valueOf(entry.getKey())))
-                    .forEach(entry -> normalized.put(
-                            String.valueOf(entry.getKey()),
-                            normalizeForFingerprint(entry.getValue())
-                    ));
-            return normalized;
-        }
-        if (value instanceof List<?> list) {
-            List<Object> normalized = new ArrayList<>(list.size());
-            for (Object item : list) {
-                normalized.add(normalizeForFingerprint(item));
-            }
-            return normalized;
-        }
-        return value;
-    }
-
-    private void replayPendingToolCall(Task task, TaskCheckpoint checkpoint, String taskUuid) {
-        PendingToolCall pending = checkpoint.getPendingToolCall();
-        try {
-            toolRegistry.getTool(pending.getToolName()).execute(pending.getArguments(), pending.getIdempotencyKey());
-            checkpoint.setPendingToolCall(null);
-            saveCheckpoint(task, checkpoint);
-        } catch (Exception e) {
-            log.warn("[AgentService] Replay of pending tool {} failed for task={}: {}", pending.getToolName(), taskUuid, e.getMessage());
-        }
+                "Waiting for user selection", payload);
     }
 
     private void handleQuotaExhaustion(Task task, TaskCheckpoint checkpoint, String taskUuid) {
@@ -617,7 +455,7 @@ public class AgentServiceImpl implements AgentService {
         checkpoint.setCurrentState(TaskStatus.PAUSED.getCode());
         checkpoint.setResumableAt(tomorrow);
         checkpoint.setPauseReason(PAUSE_REASON_DAILY_QUOTA);
-        saveCheckpoint(task, checkpoint);
+        checkpointHelper.saveCheckpoint(task, checkpoint);
 
         TaskStatus paused = stateMachine.transition(currentStatus, AgentEvent.QUOTA_EXHAUSTED);
         taskMapper.updateStatus(task.getId(), paused.getCode());
@@ -657,7 +495,7 @@ public class AgentServiceImpl implements AgentService {
             int max = checkpoint.getRetryState().getMaxRetries();
             taskProgressService.recordEvent(taskUuid, EVT_RETRY, null, null, null,
                     "Retrying: " + exception.getMessage(), Map.of("attempt", attempt, "maxAttempts", max));
-            saveCheckpoint(task, checkpoint);
+            checkpointHelper.saveCheckpoint(task, checkpoint);
         }
     }
 
@@ -680,7 +518,7 @@ public class AgentServiceImpl implements AgentService {
             return;
         }
 
-        saveCheckpoint(task, checkpoint);
+        checkpointHelper.saveCheckpoint(task, checkpoint);
         taskProgressService.recordEvent(taskUuid, EVT_RETRY, null, null, null,
                 "地图服务调用过于频繁，系统正在自动重试", retryPayload);
         sseNotificationService.sendEvent(taskUuid, SseEvent.RETRY, retryPayload);
@@ -690,7 +528,7 @@ public class AgentServiceImpl implements AgentService {
         checkpoint.setCurrentState(TaskStatus.RESUMING.getCode());
         checkpoint.setPauseReason(null);
         checkpoint.setResumableAt(null);
-        saveCheckpoint(task, checkpoint);
+        checkpointHelper.saveCheckpoint(task, checkpoint);
         taskMapper.updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
         try {
             executeTask(taskUuid);
@@ -706,7 +544,7 @@ public class AgentServiceImpl implements AgentService {
         checkpoint.setCurrentState(TaskStatus.PAUSED.getCode());
         checkpoint.setPauseReason(PAUSE_REASON_AMAP_RATE_LIMITED);
         checkpoint.setResumableAt(resumableAt);
-        saveCheckpoint(task, checkpoint);
+        checkpointHelper.saveCheckpoint(task, checkpoint);
 
         TaskStatus paused = stateMachine.transition(currentStatus, AgentEvent.QUOTA_EXHAUSTED);
         taskMapper.updateStatus(task.getId(), paused.getCode());
@@ -749,23 +587,6 @@ public class AgentServiceImpl implements AgentService {
         } catch (Exception ex) {
             log.error("[AgentService] Failed to mark task={} as FAILED: {}", taskUuid, ex.getMessage());
         }
-    }
-
-    private TaskCheckpoint loadCheckpoint(Task task) {
-        if (task.getCheckpointJson() == null || task.getCheckpointJson().isBlank()) {
-            return new TaskCheckpoint();
-        }
-        try {
-            return jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
-        } catch (Exception e) {
-            throw new RuntimeException("Checkpoint deserialization failed for task=" + task.getTaskUuid(), e);
-        }
-    }
-
-    private void saveCheckpoint(Task task, TaskCheckpoint checkpoint) {
-        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
-        task.setStatus(checkpoint.getCurrentState());
-        taskMapper.updateCheckpoint(task);
     }
 
     private void sendStateChange(String taskUuid, TaskCheckpoint checkpoint, String status, Task task) {
@@ -862,55 +683,6 @@ public class AgentServiceImpl implements AgentService {
             steps.add(ps);
         }
         return steps;
-    }
-
-    private CompletedStep buildCompletedStep(int stepIndex, int dayNumber, String attractionName,
-                                             double lat, double lng,
-                                             Map<String, Object> geocodeResult,
-                                             Map<String, Object> weatherResult,
-                                             Map<String, Object> trafficResult,
-                                             int trafficMin,
-                                             int visitDurationMin,
-                                             LocalDateTime plannedStart,
-                                             LocalDateTime plannedEnd,
-                                             int returnToDestinationMin) {
-        CompletedStep step = new CompletedStep();
-        step.setStepIndex(stepIndex);
-        step.setDayNumber(dayNumber);
-        step.setAttractionName(attractionName);
-        step.setLat(lat);
-        step.setLng(lng);
-        step.setTrafficTimeFromPrevMin(trafficMin);
-        step.setEstimatedVisitDurationMin(visitDurationMin);
-        step.setTravelTimeToDestinationMin(returnToDestinationMin);
-        step.setPlannedStartTime(plannedStart);
-        step.setPlannedEndTime(plannedEnd);
-
-        Map<String, Object> toolResults = new HashMap<>();
-        if (geocodeResult != null) {
-            toolResults.put(GeocodeTool.NAME, geocodeResult);
-        }
-        if (weatherResult != null) {
-            toolResults.put(WeatherTool.NAME, weatherResult);
-        }
-        if (trafficResult != null) {
-            toolResults.put(TrafficTimeTool.NAME, trafficResult);
-        }
-        step.setToolCallResults(toolResults);
-        return step;
-    }
-
-    private int valueOrZero(Integer value) {
-        return value == null ? 0 : value;
-    }
-
-    private int resolveUserLevel(Long userId) {
-        try {
-            var user = userMapper.findById(userId);
-            return user != null ? user.getUserLevel() : 1;
-        } catch (Exception e) {
-            return 1;
-        }
     }
 
     private Map<String, Object> buildAttractionSelectionContext(TaskCheckpoint checkpoint, int stepIndex, int dayNumber) {

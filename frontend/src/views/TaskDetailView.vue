@@ -70,6 +70,17 @@
               <div class="bubble">
                 <div class="bubble-title">{{ item.title }}</div>
                 <p v-if="item.text">{{ item.text }}</p>
+                <div v-if="canRewindMessage(item)" class="rewind-action">
+                  <el-button
+                    type="warning"
+                    plain
+                    size="small"
+                    :loading="rewindingStepIndex === Number(item.stepIndex)"
+                    @click="handleRewind(item)"
+                  >
+                    回溯到这里
+                  </el-button>
+                </div>
 
                 <div v-if="item.eventType === 'USER_SELECTION_REQUIRED'" class="candidate-list">
                   <el-alert
@@ -184,6 +195,29 @@
                   <el-empty v-else description="暂无可用候选，请稍后重试或切换另一种方式。" />
                 </div>
 
+                <div v-if="canShowNodeChat(item)" class="node-chat-box">
+                  <div class="candidate-section-title">补充当前节点偏好</div>
+                  <p v-if="currentNodePreference(item)" class="node-chat-hint">
+                    最近一次偏好：{{ currentNodePreference(item) }}
+                  </p>
+                  <el-input
+                    v-model="nodeChatText"
+                    type="textarea"
+                    :rows="3"
+                    resize="none"
+                    placeholder="例如：这一步优先室内、少走路，最好带点美食元素"
+                  />
+                  <div class="node-chat-actions">
+                    <el-button
+                      type="primary"
+                      :loading="submittingNodeChat"
+                      @click="handleNodeChat(item)"
+                    >
+                      重新生成当前节点候选
+                    </el-button>
+                  </div>
+                </div>
+
                 <div v-if="item.eventType === 'USER_SELECTION_CONFIRMED'" class="origin-confirmed">
                   {{ selectionConfirmedText(item) }}
                 </div>
@@ -282,7 +316,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { cancelTask, confirmTaskSelection, getProgress, getTask, resumeTask } from '@/api/tasks'
+import { cancelTask, confirmTaskSelection, getProgress, getTask, refreshNodeSelection, resumeTask, rewindTask } from '@/api/tasks'
 import { getPlanByTask } from '@/api/plans'
 import { useAuthStore } from '@/stores/auth'
 import { useTaskStream } from '@/composables/useTaskStream'
@@ -298,6 +332,9 @@ const pollEvents = ref([])
 const planId = ref(null)
 const loading = ref(true)
 const submittingCandidateId = ref('')
+const rewindingStepIndex = ref(null)
+const submittingNodeChat = ref(false)
+const nodeChatText = ref('')
 const bottomAnchor = ref(null)
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled'])
@@ -315,8 +352,8 @@ const {
 const displayStatus = computed(() => liveStatus.value || task.value?.status || 'pending')
 const displayTokens = computed(() => {
   const streamValue = Number(currentTokens.value ?? 0)
-  if (streamValue > 0) return streamValue
-  return Number(task.value?.totalTokensUsed ?? 0)
+  const taskValue = Number(task.value?.totalTokensUsed ?? 0)
+  return Math.max(streamValue, taskValue)
 })
 
 const mergedEvents = computed(() => {
@@ -333,6 +370,12 @@ const displayMessages = computed(() => {
     if (messages[i].eventType === 'STATE_CHANGE') { lastStateChangeIdx = i; break }
   }
   return messages.filter((m, i) => m.eventType !== 'STATE_CHANGE' || i === lastStateChangeIdx)
+})
+
+const latestSelectionMessageKey = computed(() => {
+  const reversed = [...displayMessages.value].reverse()
+  const latest = reversed.find(item => item.eventType === 'USER_SELECTION_REQUIRED')
+  return latest ? `${latest.eventType}-${latest.createdAt}` : ''
 })
 
 const awaitingInputTitle = computed(() => {
@@ -387,6 +430,7 @@ async function fetchAll() {
     ])
     auth.refreshQuota().catch(() => null)
     task.value = taskRes.data
+    nodeChatText.value = taskRes.data?.currentContext?.userPreferencePrompt || nodeChatText.value
     if (progRes.data?.totalTokensUsed != null) {
       task.value.totalTokensUsed = Number(progRes.data.totalTokensUsed || 0)
     }
@@ -411,6 +455,7 @@ function schedulePoll() {
       ])
       auth.refreshQuota().catch(() => null)
       task.value = taskRes.data
+      nodeChatText.value = taskRes.data?.currentContext?.userPreferencePrompt || nodeChatText.value
       if (progRes.data?.totalTokensUsed != null) {
         task.value.totalTokensUsed = Number(progRes.data.totalTokensUsed || 0)
       }
@@ -471,6 +516,48 @@ async function handleSelectOption(pendingInputType, option) {
   }
 }
 
+async function handleRewind(item) {
+  const stepIndex = Number(item.stepIndex)
+  if (!Number.isInteger(stepIndex) || stepIndex < 0) return
+  await ElMessageBox.confirm('确认回溯到这个节点并重新规划后续路线吗？', '提示', { type: 'warning' })
+  rewindingStepIndex.value = stepIndex
+  try {
+    const res = await rewindTask(uuid, { targetStepIndex: stepIndex })
+    task.value = res.data
+    ElMessage.success(`已回溯到节点 ${stepIndex + 1}`)
+    connect()
+    await fetchAll()
+  } catch (err) {
+    ElMessage.error(err.message)
+  } finally {
+    rewindingStepIndex.value = null
+  }
+}
+
+async function handleNodeChat(item) {
+  const message = nodeChatText.value.trim()
+  if (!message) {
+    ElMessage.warning('请输入当前节点偏好')
+    return
+  }
+  submittingNodeChat.value = true
+  try {
+    const res = await refreshNodeSelection(uuid, {
+      pendingInputType: item.pendingInputType || task.value?.pendingInputType || '',
+      selectionStage: item.selectionStage || task.value?.selectionStage || '',
+      message
+    })
+    task.value = res.data
+    ElMessage.success('已根据你的偏好刷新当前节点候选')
+    connect()
+    await fetchAll()
+  } catch (err) {
+    ElMessage.error(err.message)
+  } finally {
+    submittingNodeChat.value = false
+  }
+}
+
 function selectionSuccessText(pendingInputType, optionName) {
   if (pendingInputType === 'selection_branch') return `已选择 ${optionName}`
   if (pendingInputType === 'route_candidate_selection') return `已选择路线：${optionName}`
@@ -505,6 +592,8 @@ function normalizeEvent(ev) {
     weatherContext: ev.weatherContext || details.weatherContext || {},
     selectedOrigin: ev.selectedOrigin || details.selectedOrigin || null,
     selectedCandidate: ev.selectedCandidate || details.selectedCandidate || null,
+    targetStepIndex: ev.targetStepIndex ?? details.targetStepIndex,
+    targetStepName: ev.targetStepName || details.targetStepName || '',
     text: ev.message || details.message || '',
     status: ev.status || details.status || ''
   }
@@ -521,6 +610,12 @@ function toMessage(ev) {
     },
     TOOL_RESULT: { title: '工具结果', text: ev.text || '已补充地理位置、天气或路程信息。' },
     RETRY: { title: '自动重试', text: ev.message || ev.text || '地图服务调用过于频繁，系统正在自动重试。' },
+    REWIND: {
+      title: '已回溯',
+      text: ev.targetStepName
+        ? `已回溯到 ${ev.targetStepName}，系统会从这里继续规划。`
+        : '已回溯到指定节点，系统会继续规划。'
+    },
     PAUSED: { title: '任务暂停', text: pausedText(ev) },
     USER_SELECTION_REQUIRED: {
       title: selectionRequiredTitle(ev),
@@ -540,6 +635,23 @@ function toMessage(ev) {
     title: picked.title,
     text: picked.text
   }
+}
+
+function canRewindMessage(item) {
+  return (displayStatus.value === 'paused' || displayStatus.value === 'awaiting_user_input') &&
+    item.eventType === 'STEP_DONE' &&
+    Number.isInteger(Number(item.stepIndex))
+}
+
+function canShowNodeChat(item) {
+  if (displayStatus.value !== 'awaiting_user_input') return false
+  if (!item || item.eventType !== 'USER_SELECTION_REQUIRED') return false
+  if (item.pendingInputType === 'origin_selection') return false
+  return `${item.eventType}-${item.createdAt}` === latestSelectionMessageKey.value
+}
+
+function currentNodePreference(item) {
+  return item?.currentContext?.userPreferencePrompt || task.value?.currentContext?.userPreferencePrompt || ''
 }
 
 function selectionRequiredTitle(ev) {
@@ -783,6 +895,10 @@ function formatScore(value) {
   color: #274c77;
 }
 
+.rewind-action {
+  margin-top: 10px;
+}
+
 .candidate-list {
   margin-top: 14px;
   display: grid;
@@ -907,6 +1023,26 @@ function formatScore(value) {
   margin-top: 10px;
   color: #0f766e;
   font-weight: 600;
+}
+
+.node-chat-box {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #f7fafc;
+  border: 1px solid #dce7f1;
+}
+
+.node-chat-hint {
+  margin: 0 0 10px;
+  color: #526277;
+  font-size: 13px;
+}
+
+.node-chat-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .streaming {

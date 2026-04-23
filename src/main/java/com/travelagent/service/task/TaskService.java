@@ -2,6 +2,8 @@ package com.travelagent.service.task;
 
 import com.travelagent.model.dto.ConfirmOriginSelectionRequest;
 import com.travelagent.model.dto.CreateTaskRequest;
+import com.travelagent.model.dto.NodeChatRequest;
+import com.travelagent.model.dto.RewindTaskRequest;
 import com.travelagent.model.dto.TaskResponse;
 import com.travelagent.model.entity.Task;
 
@@ -20,6 +22,10 @@ public interface TaskService {
     TaskResponse resumeTask(String taskUuid, Long requestingUserId);
 
     TaskResponse confirmOriginSelection(String taskUuid, Long requestingUserId, ConfirmOriginSelectionRequest request);
+
+    TaskResponse rewindTask(String taskUuid, Long requestingUserId, RewindTaskRequest request);
+
+    TaskResponse refreshNodeSelection(String taskUuid, Long requestingUserId, NodeChatRequest request);
 
     Task getTaskEntity(String taskUuid, Long requestingUserId);
 }

@@ -20,5 +20,6 @@ public class PlanNextAttractionRequest {
     private String travelMode;
     private String currentTime;
     private String selectedBranchType;
+    private String nodePreferencePrompt;
     private Map<String, Object> weatherContext = new LinkedHashMap<>();
 }

@@ -84,7 +84,11 @@ public class SseController {
             try {
                 emitter.send(SseEmitter.event()
                     .name(SseEvent.STATE_CHANGE.name())
-                    .data(Map.of("status", task.getStatus(), "taskUuid", taskUuid),
+                    .data(Map.of(
+                            "status", task.getStatus(),
+                            "taskUuid", taskUuid,
+                            "totalTokensUsed", task.getTotalTokensUsed() == null ? 0 : task.getTotalTokensUsed()
+                    ),
                           MediaType.APPLICATION_JSON));
                 emitter.complete();
             } catch (IOException ignored) {

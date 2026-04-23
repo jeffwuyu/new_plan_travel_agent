@@ -92,8 +92,8 @@ public class DashscopeLlmClient {
     public String call(Long taskId, Long userId, String callType,
                        String systemPrompt, List<Map<String, Object>> history,
                        String userMessage, String idempotencyKey) {
-        return call(taskId, userId, callType, systemPrompt, history, userMessage,
-                idempotencyKey, List.of(), Map.of());
+        return callWithUsage(taskId, userId, callType, systemPrompt, history, userMessage,
+                idempotencyKey, List.of(), Map.of()).content();
     }
 
     public String call(Long taskId, Long userId, String callType,
@@ -101,6 +101,22 @@ public class DashscopeLlmClient {
                        String userMessage, String idempotencyKey,
                        List<String> advisorNames,
                        Map<String, Object> advisorContext) {
+        return callWithUsage(taskId, userId, callType, systemPrompt, history, userMessage,
+                idempotencyKey, advisorNames, advisorContext).content();
+    }
+
+    public LlmCallResult callWithUsage(Long taskId, Long userId, String callType,
+                                       String systemPrompt, List<Map<String, Object>> history,
+                                       String userMessage, String idempotencyKey) {
+        return callWithUsage(taskId, userId, callType, systemPrompt, history, userMessage,
+                idempotencyKey, List.of(), Map.of());
+    }
+
+    public LlmCallResult callWithUsage(Long taskId, Long userId, String callType,
+                                       String systemPrompt, List<Map<String, Object>> history,
+                                       String userMessage, String idempotencyKey,
+                                       List<String> advisorNames,
+                                       Map<String, Object> advisorContext) {
 
         List<Message> messages = buildMessages(systemPrompt, history, userMessage);
         List<Advisor> resolvedAdvisors = resolveAdvisors(advisorNames);
@@ -135,7 +151,7 @@ public class DashscopeLlmClient {
                     auditLog(taskId, userId, callType, promptTokens, completionTokens,
                             latencyMs, status, idempotencyKey);
 
-                    return content;
+                    return new LlmCallResult(content, promptTokens + completionTokens);
                 } catch (Exception e) {
                     long latencyMs = System.currentTimeMillis() - start;
                     auditLog(taskId, userId, callType, 0, 0, latencyMs, "error", idempotencyKey);

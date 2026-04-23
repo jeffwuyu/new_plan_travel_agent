@@ -3,6 +3,8 @@ package com.travelagent.agent.planner;
 import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
+import com.travelagent.client.dashscope.LlmCallResult;
+import com.travelagent.service.llm.LlmUsageAccountingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,9 @@ class HistoryManagerTest {
 
     @Mock
     private DashscopeLlmClient llmClient;
+
+    @Mock
+    private LlmUsageAccountingService llmUsageAccountingService;
 
     @InjectMocks
     private HistoryManager historyManager;
@@ -179,15 +184,15 @@ class HistoryManagerTest {
         // Lower threshold so 20 entries (each 40 chars = 800 chars / 4 = 200 tokens) triggers compression
         ReflectionTestUtils.setField(historyManager, "maxTokens", 50);
 
-        when(llmClient.call(any(), any(), anyString(), anyString(), anyList(), anyString(), any()))
-                .thenReturn("Summary: visited Terracotta Army and Wild Goose Pagoda.");
+        when(llmClient.callWithUsage(any(), any(), anyString(), anyString(), anyList(), anyString(), any()))
+                .thenReturn(new LlmCallResult("Summary: visited Terracotta Army and Wild Goose Pagoda.", 120));
 
         TaskCheckpoint cp = emptyCheckpoint();
         cp.setLlmConversationHistory(buildHistory(20));
 
         List<Map<String, Object>> result = historyManager.prepareForLlm(cp);
 
-        verify(llmClient).call(any(), any(), anyString(), anyString(), anyList(), anyString(), any());
+        verify(llmClient).callWithUsage(any(), any(), anyString(), anyString(), anyList(), anyString(), any());
 
         // After compression: 1 summary + KEEP_ROUNDS_AFTER_COMPRESS*2 recent = 1 + 8 = 9 entries
         // Then sliding window (6*2=12) doesn't cut further (9 < 12)
@@ -202,7 +207,7 @@ class HistoryManagerTest {
     void prepareForLlm_compressionFails_fallsBackToRecentRounds() {
         ReflectionTestUtils.setField(historyManager, "maxTokens", 50);
 
-        when(llmClient.call(any(), any(), anyString(), anyString(), anyList(), anyString(), any()))
+        when(llmClient.callWithUsage(any(), any(), anyString(), anyString(), anyList(), anyString(), any()))
                 .thenThrow(new RuntimeException("LLM unavailable"));
 
         TaskCheckpoint cp = emptyCheckpoint();
@@ -224,6 +229,7 @@ class HistoryManagerTest {
         TaskCheckpoint cp = new TaskCheckpoint();
         cp.setTaskUuid("test-uuid");
         cp.setTaskId(1L);
+        cp.setUserId(2L);
         PlanningConfig config = new PlanningConfig();
         config.setTotalDays(2);
         config.setAttractionsPerDay(2);
