@@ -46,10 +46,25 @@ public class MarkovPlanner {
     @Autowired(required = false) private NearbyPoiRecommendationService nearbyPoiRecommendationService;
     @Autowired(required = false) private AmapClient amapClient;
 
+    /**
+     * 处理planNextAttraction。
+     * @param task 任务实体
+     * @param cp c p 参数
+     * @param taskUuid 任务唯一标识
+     * @return 返回处理结果。
+     */
     public PlanningResult planNextAttraction(Task task, TaskCheckpoint cp, String taskUuid) {
         return planNextAttraction(task, cp, buildPlanRequest(cp), taskUuid);
     }
 
+    /**
+     * 处理planNextAttraction。
+     * @param task 任务实体
+     * @param cp c p 参数
+     * @param request 请求参数
+     * @param taskUuid 任务唯一标识
+     * @return 返回处理结果。
+     */
     public PlanningResult planNextAttraction(Task task, TaskCheckpoint cp,
                                              PlanNextAttractionRequest request,
                                              String taskUuid) {
@@ -100,6 +115,11 @@ public class MarkovPlanner {
         return PlanningResult.forAttraction(attractionName, resolvedTokens);
     }
 
+    /**
+     * 构建planrequest。
+     * @param cp c p 参数
+     * @return 返回处理结果。
+     */
     public PlanNextAttractionRequest buildPlanRequest(TaskCheckpoint cp) {
         PlanNextAttractionRequest request = new PlanNextAttractionRequest();
         if (cp == null || cp.getPlanningConfig() == null) {
@@ -137,6 +157,13 @@ public class MarkovPlanner {
         return request;
     }
 
+    /**
+     * 处理tryRecommendationDrivenSelection。
+     * @param cp c p 参数
+     * @param planningRequest p la nn in gR eq ue st 参数
+     * @param weatherContext w ea th er Co nt ex t 参数
+     * @return 返回处理结果。
+     */
     private PlanningResult tryRecommendationDrivenSelection(TaskCheckpoint cp,
                                                             PlanNextAttractionRequest planningRequest,
                                                             Map<String, Object> weatherContext) {
@@ -183,6 +210,15 @@ public class MarkovPlanner {
                 currentContext, weatherContext);
     }
 
+    /**
+     * 处理tryRoutePlanningSelection。
+     * @param task 任务实体
+     * @param cp c p 参数
+     * @param request 请求参数
+     * @param taskUuid 任务唯一标识
+     * @param weatherContext w ea th er Co nt ex t 参数
+     * @return 返回处理结果。
+     */
     private PlanningResult tryRoutePlanningSelection(Task task,
                                                      TaskCheckpoint cp,
                                                      PlanNextAttractionRequest request,
@@ -212,6 +248,13 @@ public class MarkovPlanner {
                 weatherContext);
     }
 
+    /**
+     * 处理generateFinalSummary。
+     * @param task 任务实体
+     * @param cp c p 参数
+     * @param taskUuid 任务唯一标识
+     * @return 返回处理结果。
+     */
     public FinalSummaryResult generateFinalSummary(Task task, TaskCheckpoint cp, String taskUuid) {
         String idempotencyKey = taskUuid + "-final-summary";
         try {
@@ -228,6 +271,12 @@ public class MarkovPlanner {
         }
     }
 
+    /**
+     * 解析并确定weathercontext。
+     * @param cp c p 参数
+     * @param request 请求参数
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> resolveWeatherContext(TaskCheckpoint cp, PlanNextAttractionRequest request) {
         if (request.getWeatherContext() != null && !request.getWeatherContext().isEmpty()) {
             return request.getWeatherContext();
@@ -255,6 +304,11 @@ public class MarkovPlanner {
         return context;
     }
 
+    /**
+     * 构建weatherconstraintsummary。
+     * @param weather w ea th er 参数
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> buildWeatherConstraintSummary(Map<String, Object> weather) {
         Map<String, Object> summary = new LinkedHashMap<>();
         List<String> hints = new ArrayList<>();
@@ -292,6 +346,13 @@ public class MarkovPlanner {
         return summary;
     }
 
+    /**
+     * 解析并确定planningtokens。
+     * @param taskId 任务ID
+     * @param idempotencyKey i de mp ot en cy Ke y 参数
+     * @param directTokens d ir ec tT ok en s 参数
+     * @return 返回处理结果。
+     */
     private int resolvePlanningTokens(Long taskId, String idempotencyKey, int directTokens) {
         if (directTokens > 0) {
             return directTokens;
@@ -309,6 +370,12 @@ public class MarkovPlanner {
         }
     }
 
+    /**
+     * 提取toolresult。
+     * @param step 步骤数据
+     * @param key 键名
+     * @return 返回处理后的映射结果。
+     */
     @SuppressWarnings("unchecked")
     private Map<String, Object> extractToolResult(CompletedStep step, String key) {
         if (step == null || step.getToolCallResults() == null) {
@@ -318,6 +385,11 @@ public class MarkovPlanner {
         return value instanceof Map<?, ?> map ? (Map<String, Object>) map : null;
     }
 
+    /**
+     * 处理fetchRagChunks。
+     * @param cp c p 参数
+     * @return 返回处理后的列表结果。
+     */
     private List<String> fetchRagChunks(TaskCheckpoint cp) {
         if (ragService == null) {
             return List.of();

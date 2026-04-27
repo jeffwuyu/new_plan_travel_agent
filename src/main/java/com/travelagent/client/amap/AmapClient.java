@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 @Service
 public class AmapClient {
@@ -32,8 +33,13 @@ public class AmapClient {
             "USER_DAILY_QUERY_OVER_LIMIT",
             "IP_QUERY_OVER_LIMIT"
     );
+    private static final List<String> TRANSIENT_ERROR_HINTS = List.of(
+            "ENGINE_RESPONSE_DATA_ERROR"
+    );
 
     private static final Duration CACHE_TTL = Duration.ofHours(1);
+    private int retryMaxAttempts = 3;
+    private long[] retryBackoffMillis = {1000L, 2000L, 5000L};
 
     @Value("${amap.api-key}")
     private String apiKey;
@@ -74,6 +80,12 @@ public class AmapClient {
     @Autowired
     private AmapRateLimiter rateLimiter;
 
+    /**
+     * 处理geocode。
+     * @param attractionName 景点名称
+     * @param region 区域信息
+     * @return 返回处理后的映射结果。
+     */
     public Map<String, Object> geocode(String attractionName, String region) {
         String cacheKey = "amap:geocode:" + attractionName + ":" + region;
         Map<String, Object> cached = getCached(cacheKey);
@@ -86,12 +98,20 @@ public class AmapClient {
             url += "&city=" + encode(region);
         }
 
-        String body = executeGet(url, "geocode");
-        Map<String, Object> result = parseGeocodeResponse(body);
-        putCached(cacheKey, result);
-        return result;
+        String finalUrl = url;
+        return executeWithRetry("geocode", () -> {
+            String body = executeGet(finalUrl, "geocode");
+            Map<String, Object> result = parseGeocodeResponse(body);
+            putCached(cacheKey, result);
+            return result;
+        });
     }
 
+    /**
+     * 获取weather。
+     * @param adcode 行政区划编码
+     * @return 返回处理后的映射结果。
+     */
     public Map<String, Object> getWeather(String adcode) {
         String cacheKey = "amap:weather:" + adcode;
         Map<String, Object> cached = getCached(cacheKey);
@@ -100,17 +120,36 @@ public class AmapClient {
         }
 
         String url = weatherUrl + "?key=" + apiKey + "&city=" + adcode + "&extensions=base";
-        String body = executeGet(url, "weather");
-        Map<String, Object> result = parseWeatherResponse(body);
-        putCached(cacheKey, result);
-        return result;
+        return executeWithRetry("weather", () -> {
+            String body = executeGet(url, "weather");
+            Map<String, Object> result = parseWeatherResponse(body);
+            putCached(cacheKey, result);
+            return result;
+        });
     }
 
+    /**
+     * 获取drivingduration。
+     * @param originLng 起点经度
+     * @param originLat 起点纬度
+     * @param destLng 终点经度
+     * @param destLat 终点纬度
+     * @return 返回处理后的映射结果。
+     */
     public Map<String, Object> getDrivingDuration(double originLng, double originLat,
                                                   double destLng, double destLat) {
         return getTravelDuration(originLng, originLat, destLng, destLat, "driving");
     }
 
+    /**
+     * 获取travelduration。
+     * @param originLng 起点经度
+     * @param originLat 起点纬度
+     * @param destLng 终点经度
+     * @param destLat 终点纬度
+     * @param travelMode 出行方式
+     * @return 返回处理后的映射结果。
+     */
     public Map<String, Object> getTravelDuration(double originLng, double originLat,
                                                  double destLng, double destLat,
                                                  String travelMode) {
@@ -126,8 +165,10 @@ public class AmapClient {
             }
 
             try {
-                String body = executeGet(buildDirectionUrl(routeMode, origin, destination), "direction");
-                Map<String, Object> result = parseDirectionResponse(body, routeMode);
+                Map<String, Object> result = executeWithRetry("direction", () -> {
+                    String body = executeGet(buildDirectionUrl(routeMode, origin, destination), "direction");
+                    return parseDirectionResponse(body, routeMode);
+                });
                 putCached(cacheKey, result);
                 return result;
             } catch (RuntimeException e) {
@@ -143,6 +184,14 @@ public class AmapClient {
                 "No available Amap direction mode for travelMode=" + normalizeTravelMode(travelMode));
     }
 
+    /**
+     * 获取distance。
+     * @param originLng 起点经度
+     * @param originLat 起点纬度
+     * @param destLng 终点经度
+     * @param destLat 终点纬度
+     * @return 返回处理后的映射结果。
+     */
     public Map<String, Object> getDistance(double originLng, double originLat,
                                            double destLng, double destLat) {
         String cacheKey = String.format("amap:distance:%.6f,%.6f:%.6f,%.6f",
@@ -156,12 +205,25 @@ public class AmapClient {
                 + "&origins=" + originLng + "," + originLat
                 + "&destination=" + destLng + "," + destLat
                 + "&type=0";
-        String body = executeGet(url, "distance");
-        Map<String, Object> result = parseDistanceResponse(body);
-        putCached(cacheKey, result);
-        return result;
+        return executeWithRetry("distance", () -> {
+            String body = executeGet(url, "distance");
+            Map<String, Object> result = parseDistanceResponse(body);
+            putCached(cacheKey, result);
+            return result;
+        });
     }
 
+    /**
+     * 搜索nearbypois。
+     * @param lng 经度
+     * @param lat 纬度
+     * @param radius 搜索半径
+     * @param keywords 关键词
+     * @param types POI类型
+     * @param page 页码
+     * @param pageSize 每页数量
+     * @return 返回处理后的列表结果。
+     */
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> searchNearbyPois(double lng, double lat,
                                                       int radius,
@@ -194,19 +256,58 @@ public class AmapClient {
             url.append("&types=").append(encode(types));
         }
 
-        String body = executeGet(url.toString(), "nearby");
-        try {
-            Map<String, Object> root = jsonUtil.fromJson(body, new TypeReference<Map<String, Object>>() {});
-            validateAmapStatus(root, body, "nearby");
-            List<Map<String, Object>> pois = (List<Map<String, Object>>) root.get("pois");
-            List<Map<String, Object>> safePois = pois == null ? List.of() : pois;
-            redisUtil.setString(cacheKey, jsonUtil.toJson(safePois), CACHE_TTL);
-            return safePois;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse Amap nearby POI response: " + e.getMessage(), e);
-        }
+        return executeWithRetry("nearby", () -> {
+            String body = executeGet(url.toString(), "nearby");
+            try {
+                Map<String, Object> root = jsonUtil.fromJson(body, new TypeReference<Map<String, Object>>() {});
+                validateAmapStatus(root, body, "nearby");
+                List<Map<String, Object>> pois = (List<Map<String, Object>>) root.get("pois");
+                List<Map<String, Object>> safePois = pois == null ? List.of() : pois;
+                redisUtil.setString(cacheKey, jsonUtil.toJson(safePois), CACHE_TTL);
+                return safePois;
+            } catch (AgentException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to parse Amap nearby POI response: " + e.getMessage(), e);
+            }
+        });
     }
 
+    /**
+     * 执行withretry。
+     * @param apiName a pi Na me 参数
+     * @param action a ct io n 参数
+     * @return 返回处理结果。
+     */
+    private <T> T executeWithRetry(String apiName, Callable<T> action) {
+        int maxAttempts = Math.max(1, retryMaxAttempts);
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return action.call();
+            } catch (AgentException e) {
+                if (!shouldRetry(e, attempt, maxAttempts)) {
+                    throw e;
+                }
+                long backoffMillis = resolveBackoffMillis(attempt);
+                log.warn("[AmapClient] api={} transient failure on attempt {}/{}: {}. retrying in {} ms",
+                        apiName, attempt, maxAttempts, e.getMessage(), backoffMillis);
+                sleepForRetry(backoffMillis, apiName);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new RuntimeException("Amap call failed for " + apiName + ": " + e.getMessage(), e);
+            }
+        }
+        throw new AgentException(AgentErrorCode.TOOL_AMAP_TRANSIENT,
+                "Amap transient error retry budget exhausted for " + apiName);
+    }
+
+    /**
+     * 执行get。
+     * @param url 请求地址
+     * @param apiName a pi Na me 参数
+     * @return 返回处理结果。
+     */
     private String executeGet(String url, String apiName) {
         if (rateLimiter != null) {
             rateLimiter.acquire(apiName);
@@ -229,6 +330,12 @@ public class AmapClient {
         }
     }
 
+    /**
+     * 处理classifyAmapException。
+     * @param e 异常对象
+     * @param url 请求地址
+     * @return 返回处理结果。
+     */
     private AgentException classifyAmapException(Exception e, String url) {
         String msg = e.getMessage() != null ? e.getMessage().toLowerCase(Locale.ROOT) : "";
         if (msg.contains("timeout") || msg.contains("timed out")
@@ -240,6 +347,11 @@ public class AmapClient {
                 "Amap API error: " + e.getMessage(), e);
     }
 
+    /**
+     * 解析geocoderesponse。
+     * @param json JSON字符串
+     * @return 返回处理后的映射结果。
+     */
     @SuppressWarnings("unchecked")
     private Map<String, Object> parseGeocodeResponse(String json) {
         try {
@@ -268,6 +380,11 @@ public class AmapClient {
         }
     }
 
+    /**
+     * 解析weatherresponse。
+     * @param json JSON字符串
+     * @return 返回处理后的映射结果。
+     */
     @SuppressWarnings("unchecked")
     private Map<String, Object> parseWeatherResponse(String json) {
         try {
@@ -294,6 +411,12 @@ public class AmapClient {
         }
     }
 
+    /**
+     * 解析directionresponse。
+     * @param json JSON字符串
+     * @param routeMode 路线模式
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> parseDirectionResponse(String json, String routeMode) {
         try {
             Map<String, Object> root = jsonUtil.fromJson(json, new TypeReference<Map<String, Object>>() {});
@@ -310,6 +433,13 @@ public class AmapClient {
         }
     }
 
+    /**
+     * 解析standarddirectionresponse。
+     * @param root 根节点数据
+     * @param json JSON字符串
+     * @param routeMode 路线模式
+     * @return 返回处理后的映射结果。
+     */
     @SuppressWarnings("unchecked")
     private Map<String, Object> parseStandardDirectionResponse(Map<String, Object> root,
                                                                String json,
@@ -326,6 +456,12 @@ public class AmapClient {
         return buildDirectionResult(path.get("duration"), path.get("distance"), routeMode);
     }
 
+    /**
+     * 解析bicyclingdirectionresponse。
+     * @param root 根节点数据
+     * @param json JSON字符串
+     * @return 返回处理后的映射结果。
+     */
     @SuppressWarnings("unchecked")
     private Map<String, Object> parseBicyclingDirectionResponse(Map<String, Object> root, String json) {
         Map<String, Object> data = (Map<String, Object>) root.get("data");
@@ -340,6 +476,12 @@ public class AmapClient {
         return buildDirectionResult(path.get("duration"), path.get("distance"), "bicycling");
     }
 
+    /**
+     * 解析transitdirectionresponse。
+     * @param root 根节点数据
+     * @param json JSON字符串
+     * @return 返回处理后的映射结果。
+     */
     @SuppressWarnings("unchecked")
     private Map<String, Object> parseTransitDirectionResponse(Map<String, Object> root, String json) {
         Map<String, Object> route = (Map<String, Object>) root.get("route");
@@ -354,6 +496,11 @@ public class AmapClient {
         return buildDirectionResult(transit.get("duration"), transit.get("distance"), "transit");
     }
 
+    /**
+     * 解析distanceresponse。
+     * @param json JSON字符串
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> parseDistanceResponse(String json) {
         try {
             Map<String, Object> root = jsonUtil.fromJson(json, new TypeReference<Map<String, Object>>() {});
@@ -378,6 +525,13 @@ public class AmapClient {
         }
     }
 
+    /**
+     * 构建directionresult。
+     * @param duration d ur at io n 参数
+     * @param distance d is ta nc e 参数
+     * @param routeMode 路线模式
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> buildDirectionResult(Object duration, Object distance, String routeMode) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("durationMin", toDurationMinutes(duration));
@@ -389,6 +543,12 @@ public class AmapClient {
         return result;
     }
 
+    /**
+     * 校验amapstatus。
+     * @param root 根节点数据
+     * @param rawJson r aw Js on 参数
+     * @param apiName a pi Na me 参数
+     */
     private void validateAmapStatus(Map<String, Object> root, String rawJson, String apiName) {
         Object status = root.get("status");
         if (!"1".equals(String.valueOf(status))) {
@@ -399,11 +559,20 @@ public class AmapClient {
                 throw new AgentException(AgentErrorCode.TOOL_AMAP_RATE_LIMIT,
                         "Amap rate limit exceeded for " + apiName + ": status=" + status + ", info=" + info);
             }
+            if (isTransientError(info)) {
+                throw new AgentException(AgentErrorCode.TOOL_AMAP_TRANSIENT,
+                        "Amap transient error for " + apiName + ": status=" + status + ", info=" + info);
+            }
             throw new AgentException(AgentErrorCode.TOOL_AMAP_ERROR,
                     "Amap API error for " + apiName + ": status=" + status + ", info=" + info);
         }
     }
 
+    /**
+     * 判断ratelimited。
+     * @param info i nf o 参数
+     * @return 是否满足当前条件。
+     */
     private boolean isRateLimited(String info) {
         if (info == null || info.isBlank()) {
             return false;
@@ -412,6 +581,66 @@ public class AmapClient {
         return RATE_LIMIT_HINTS.stream().anyMatch(normalized::contains);
     }
 
+    /**
+     * 判断transienterror。
+     * @param info i nf o 参数
+     * @return 是否满足当前条件。
+     */
+    private boolean isTransientError(String info) {
+        if (info == null || info.isBlank()) {
+            return false;
+        }
+        String normalized = info.toUpperCase(Locale.ROOT);
+        return TRANSIENT_ERROR_HINTS.stream().anyMatch(normalized::contains);
+    }
+
+    /**
+     * 判断是否应执行retry。
+     * @param exception 异常对象
+     * @param attempt a tt em pt 参数
+     * @param maxAttempts m ax At te mp ts 参数
+     * @return 是否满足当前条件。
+     */
+    private boolean shouldRetry(AgentException exception, int attempt, int maxAttempts) {
+        return exception.getErrorCode() == AgentErrorCode.TOOL_AMAP_TRANSIENT && attempt < maxAttempts;
+    }
+
+    /**
+     * 解析并确定backoffmillis。
+     * @param attempt a tt em pt 参数
+     * @return 返回处理结果。
+     */
+    private long resolveBackoffMillis(int attempt) {
+        if (retryBackoffMillis == null || retryBackoffMillis.length == 0) {
+            return 0L;
+        }
+        int index = Math.min(Math.max(0, attempt - 1), retryBackoffMillis.length - 1);
+        return Math.max(0L, retryBackoffMillis[index]);
+    }
+
+    /**
+     * 处理sleepForRetry。
+     * @param millis m il li s 参数
+     * @param apiName a pi Na me 参数
+     */
+    private void sleepForRetry(long millis, String apiName) {
+        if (millis <= 0L) {
+            return;
+        }
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AgentException(AgentErrorCode.TOOL_AMAP_TRANSIENT,
+                    "Interrupted while waiting to retry Amap " + apiName, e);
+        }
+    }
+
+    /**
+     * 处理maskApiKey。
+     * @param text 文本内容
+     * @return 返回处理结果。
+     */
     private String maskApiKey(String text) {
         if (text == null || text.isBlank()) {
             return text;
@@ -422,6 +651,11 @@ public class AmapClient {
         return text.replace(apiKey, "***");
     }
 
+    /**
+     * 获取cached。
+     * @param cacheKey 缓存键
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> getCached(String cacheKey) {
         try {
             String json = redisUtil.getString(cacheKey);
@@ -435,6 +669,11 @@ public class AmapClient {
         return null;
     }
 
+    /**
+     * 处理putCached。
+     * @param cacheKey 缓存键
+     * @param value 键值
+     */
     private void putCached(String cacheKey, Map<String, Object> value) {
         try {
             redisUtil.setString(cacheKey, jsonUtil.toJson(value), CACHE_TTL);
@@ -443,6 +682,13 @@ public class AmapClient {
         }
     }
 
+    /**
+     * 构建directionurl。
+     * @param routeMode 路线模式
+     * @param origin 起点坐标
+     * @param destination 终点坐标
+     * @return 返回处理结果。
+     */
     private String buildDirectionUrl(String routeMode, String origin, String destination) {
         return switch (routeMode) {
             case "walking" -> walkingDirectionUrl + "?key=" + apiKey
@@ -463,6 +709,11 @@ public class AmapClient {
         };
     }
 
+    /**
+     * 解析并确定travelmodesequence。
+     * @param travelMode 出行方式
+     * @return 返回处理后的列表结果。
+     */
     private List<String> resolveTravelModeSequence(String travelMode) {
         String normalized = normalizeTravelMode(travelMode);
         if ("walking".equals(normalized)) {
@@ -474,6 +725,11 @@ public class AmapClient {
         return List.of("driving");
     }
 
+    /**
+     * 规范化travelmode。
+     * @param travelMode 出行方式
+     * @return 返回处理结果。
+     */
     private String normalizeTravelMode(String travelMode) {
         String normalized = travelMode == null ? "driving" : travelMode.trim().toLowerCase(Locale.ROOT);
         return switch (normalized) {
@@ -482,11 +738,23 @@ public class AmapClient {
         };
     }
 
+    /**
+     * 判断是否应执行fallbacktonextmode。
+     * @param attemptedMode a tt em pt ed Mo de 参数
+     * @param requestedMode r eq ue st ed Mo de 参数
+     * @return 是否满足当前条件。
+     */
     private boolean shouldFallbackToNextMode(String attemptedMode, String requestedMode) {
         return "transit".equals(normalizeTravelMode(requestedMode))
                 && ("transit".equals(attemptedMode) || "bicycling".equals(attemptedMode));
     }
 
+    /**
+     * 处理ensureRouteMode。
+     * @param cached c ac he d 参数
+     * @param routeMode 路线模式
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> ensureRouteMode(Map<String, Object> cached, String routeMode) {
         if (cached.get("routeMode") != null) {
             return cached;
@@ -496,6 +764,11 @@ public class AmapClient {
         return adjusted;
     }
 
+    /**
+     * 将数据转换为durationminutes。
+     * @param durationObj d ur at io nO bj 参数
+     * @return 返回处理结果。
+     */
     private int toDurationMinutes(Object durationObj) {
         if (durationObj == null) {
             return 0;
@@ -503,6 +776,11 @@ public class AmapClient {
         return (int) Math.ceil(Double.parseDouble(durationObj.toString()) / 60.0d);
     }
 
+    /**
+     * 将数据转换为integer。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private Integer toInteger(Object value) {
         if (value == null) {
             return null;
@@ -514,10 +792,20 @@ public class AmapClient {
         }
     }
 
+    /**
+     * 处理round。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private double round(double value) {
         return Math.round(value * 1000.0d) / 1000.0d;
     }
 
+    /**
+     * 处理encode。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private String encode(String value) {
         if (value == null) {
             return "";
@@ -529,6 +817,11 @@ public class AmapClient {
         }
     }
 
+    /**
+     * 处理blankToDash。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private String blankToDash(String value) {
         return value == null || value.isBlank() ? "-" : value;
     }

@@ -28,13 +28,10 @@ public class RagServiceImpl implements RagService {
 
     private static final Logger log = LoggerFactory.getLogger(RagServiceImpl.class);
 
-    /** Target chunk size in characters (≈512 tokens × 1.5 chars/token). */
     private static final int CHUNK_SIZE = 768;
 
-    /** Overlap in characters between consecutive chunks. */
     private static final int CHUNK_OVERLAP = 96;
 
-    /** Maximum length of chunkText preview stored as vector metadata field. */
     private static final int FIELD_PREVIEW_LEN = 200;
 
     @Autowired private OssClient ossClient;
@@ -49,6 +46,14 @@ public class RagServiceImpl implements RagService {
     // Register
     // -----------------------------------------------------------------------
 
+    /**
+     * 注册document。
+     * @param ossKey o ss Ke y 参数
+     * @param title t it le 参数
+     * @param region 区域信息
+     * @param docType d oc Ty pe 参数
+     * @return 返回处理结果。
+     */
     @Override
     public RagDocument registerDocument(String ossKey, String title, String region, String docType) {
         RagDocument doc = new RagDocument();
@@ -66,6 +71,10 @@ public class RagServiceImpl implements RagService {
     // Ingest (async)
     // -----------------------------------------------------------------------
 
+    /**
+     * 处理ingestDocument。
+     * @param documentId d oc um en tI d 参数
+     */
     @Override
     @Async("agentTaskExecutor")
     public void ingestDocument(Long documentId) {
@@ -132,6 +141,13 @@ public class RagServiceImpl implements RagService {
     // Query
     // -----------------------------------------------------------------------
 
+    /**
+     * 处理queryChunks。
+     * @param queryText q ue ry Te xt 参数
+     * @param region 区域信息
+     * @param topK t op K 参数
+     * @return 返回处理后的列表结果。
+     */
     @Override
     public List<String> queryChunks(String queryText, String region, int topK) {
         try {
@@ -153,17 +169,10 @@ public class RagServiceImpl implements RagService {
     // -----------------------------------------------------------------------
 
     /**
-     * Routes extraction to the appropriate {@link com.travelagent.service.rag.DocumentTextExtractor}
-     * based on {@code docType}.
-     *
-     * <ul>
-     *   <li>{@code "pdf"} → {@link PdfTextExtractor} (Apache PDFBox 3.x)</li>
-     *   <li>{@code "text"} / {@code "markdown"} / anything else → {@link PlainTextExtractor}</li>
-     * </ul>
-     *
-     * Throws {@link com.travelagent.service.rag.DocumentExtractionException} on parse failure;
-     * the caller's {@code catch (Exception e)} block in {@link #ingestDocument} handles it by
-     * marking the document as {@code "failed"}.
+     * 提取text。
+     * @param rawBytes r aw By te s 参数
+     * @param docType d oc Ty pe 参数
+     * @return 返回处理结果。
      */
     private String extractText(byte[] rawBytes, String docType) {
         if ("pdf".equalsIgnoreCase(docType)) {
@@ -207,7 +216,11 @@ public class RagServiceImpl implements RagService {
         return chunks;
     }
 
-    /** Rough token estimate: characters / 1.5 (Chinese + mixed text heuristic). */
+    /**
+     * 处理estimateTokens。
+     * @param text 文本内容
+     * @return 返回处理结果。
+     */
     private int estimateTokens(String text) {
         return (int) Math.ceil(text.length() / 1.5);
     }

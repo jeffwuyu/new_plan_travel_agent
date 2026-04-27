@@ -25,15 +25,30 @@ public class McpToolExecutionService {
     private final AgentMcpProperties properties;
     private final McpToolInvoker toolInvoker;
 
+    /**
+     * 初始化McpToolExecutionService 实例。
+     * @param properties 配置属性
+     * @param toolInvoker MCP工具调用器
+     */
     public McpToolExecutionService(AgentMcpProperties properties, McpToolInvoker toolInvoker) {
         this.properties = properties;
         this.toolInvoker = toolInvoker;
     }
 
+    /**
+     * 判断enabled。
+     * @return 是否满足当前条件。
+     */
     public boolean isEnabled() {
         return properties.isEnabled();
     }
 
+    /**
+     * 处理execute。
+     * @param internalToolName 内部工具名称
+     * @param arguments 工具调用参数
+     * @return 返回处理后的映射结果。
+     */
     public Map<String, Object> execute(String internalToolName, Map<String, Object> arguments) {
         if (!isEnabled()) {
             throw new McpException("MCP is disabled");
@@ -63,6 +78,12 @@ public class McpToolExecutionService {
         return normalized;
     }
 
+    /**
+     * 构建arguments。
+     * @param internalToolName 内部工具名称
+     * @param arguments 工具调用参数
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> buildArguments(String internalToolName, Map<String, Object> arguments) {
         if (GeocodeTool.NAME.equals(internalToolName)) {
             Map<String, Object> mapped = new LinkedHashMap<>();
@@ -85,6 +106,12 @@ public class McpToolExecutionService {
         return arguments == null ? Map.of() : arguments;
     }
 
+    /**
+     * 解析并确定toolname。
+     * @param internalToolName 内部工具名称
+     * @param arguments 工具调用参数
+     * @return 返回处理结果。
+     */
     private String resolveToolName(String internalToolName, Map<String, Object> arguments) {
         if (TrafficTimeTool.NAME.equals(internalToolName)) {
             String routeMode = normalizeTravelMode(arguments == null ? null : arguments.get("travelMode"));
@@ -96,6 +123,13 @@ public class McpToolExecutionService {
         return properties.getToolMapping().get(internalToolName);
     }
 
+    /**
+     * 规范化result。
+     * @param internalToolName 内部工具名称
+     * @param mcpToolName MCP工具名称
+     * @param result 执行结果
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> normalizeResult(String internalToolName, String mcpToolName, McpToolCallResult result) {
         if (GeocodeTool.NAME.equals(internalToolName)) {
             return normalizeGeocode(result);
@@ -109,6 +143,11 @@ public class McpToolExecutionService {
         return new LinkedHashMap<>(result.structuredContent());
     }
 
+    /**
+     * 规范化geocode。
+     * @param result 执行结果
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> normalizeGeocode(McpToolCallResult result) {
         Map<String, Object> source = mergeResultMaps(result);
         Double lng = extractCoordinate(source, "lng", "longitude");
@@ -135,6 +174,11 @@ public class McpToolExecutionService {
         return normalized;
     }
 
+    /**
+     * 规范化weather。
+     * @param result 执行结果
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> normalizeWeather(McpToolCallResult result) {
         Map<String, Object> source = mergeResultMaps(result);
         Map<String, Object> normalized = new LinkedHashMap<>();
@@ -158,6 +202,12 @@ public class McpToolExecutionService {
         return normalized;
     }
 
+    /**
+     * 规范化traffic。
+     * @param mcpToolName MCP工具名称
+     * @param result 执行结果
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> normalizeTraffic(String mcpToolName, McpToolCallResult result) {
         Map<String, Object> source = mergeResultMaps(result);
         Integer durationMin = extractDurationMinutes(source);
@@ -172,6 +222,11 @@ public class McpToolExecutionService {
         return normalized;
     }
 
+    /**
+     * 合并resultmaps。
+     * @param result 执行结果
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> mergeResultMaps(McpToolCallResult result) {
         Map<String, Object> merged = new LinkedHashMap<>();
         merged.putAll(result.rawResult());
@@ -194,6 +249,12 @@ public class McpToolExecutionService {
         return merged;
     }
 
+    /**
+     * 提取coordinate。
+     * @param source 原始数据源
+     * @param keys 键名集合
+     * @return 返回处理结果。
+     */
     private Double extractCoordinate(Map<String, Object> source, String... keys) {
         Object value = findFirstValue(source, keys);
         if (value instanceof Number number) {
@@ -209,6 +270,11 @@ public class McpToolExecutionService {
         return null;
     }
 
+    /**
+     * 提取durationminutes。
+     * @param source 原始数据源
+     * @return 返回处理结果。
+     */
     private Integer extractDurationMinutes(Map<String, Object> source) {
         Object explicitMinutes = findFirstValue(source, "durationMin");
         if (explicitMinutes instanceof Number number) {
@@ -236,6 +302,11 @@ public class McpToolExecutionService {
         return null;
     }
 
+    /**
+     * 提取integer。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private Integer extractInteger(Object value) {
         if (value instanceof Number number) {
             return number.intValue();
@@ -250,6 +321,12 @@ public class McpToolExecutionService {
         return null;
     }
 
+    /**
+     * 查找firstvalue。
+     * @param source 原始数据源
+     * @param keys 键名集合
+     * @return 返回处理结果。
+     */
     private Object findFirstValue(Map<String, Object> source, String... keys) {
         if (source == null) {
             return null;
@@ -267,6 +344,12 @@ public class McpToolExecutionService {
         return null;
     }
 
+    /**
+     * 查找recursive。
+     * @param current 当前状态
+     * @param key 键名
+     * @return 返回处理结果。
+     */
     private Object findRecursive(Object current, String key) {
         if (current instanceof Map<?, ?> map) {
             for (Map.Entry<?, ?> entry : map.entrySet()) {
@@ -289,6 +372,11 @@ public class McpToolExecutionService {
         return null;
     }
 
+    /**
+     * 解析location。
+     * @param location l oc at io n 参数
+     * @return 返回处理结果。
+     */
     private double[] parseLocation(String location) {
         Matcher matcher = LOCATION_PATTERN.matcher(location == null ? "" : location);
         if (!matcher.find()) {
@@ -300,6 +388,11 @@ public class McpToolExecutionService {
         };
     }
 
+    /**
+     * 处理routeModeFromToolName。
+     * @param toolName t oo lN am e 参数
+     * @return 返回处理结果。
+     */
     private String routeModeFromToolName(String toolName) {
         if (toolName == null) {
             return "driving";
@@ -317,6 +410,11 @@ public class McpToolExecutionService {
         return "driving";
     }
 
+    /**
+     * 规范化travelmode。
+     * @param travelMode 出行方式
+     * @return 返回处理结果。
+     */
     private String normalizeTravelMode(Object travelMode) {
         if (travelMode == null) {
             return "driving";
@@ -328,6 +426,12 @@ public class McpToolExecutionService {
         return "driving";
     }
 
+    /**
+     * 处理stringOrDefault。
+     * @param value 键值
+     * @param defaultValue d ef au lt Va lu e 参数
+     * @return 返回处理结果。
+     */
     private String stringOrDefault(Object value, String defaultValue) {
         if (value == null) {
             return defaultValue;

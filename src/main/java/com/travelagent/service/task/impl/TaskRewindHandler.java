@@ -20,9 +20,10 @@ import java.util.stream.Collectors;
 public class TaskRewindHandler {
 
     /**
-     * Mutates {@code checkpoint} in place to reflect a rewind to {@code targetStepIndex}.
-     * Returns the list of retained steps so the caller can build SSE payloads without
-     * re-reading the checkpoint.
+     * 处理applyRewind。
+     * @param checkpoint 任务检查点数据
+     * @param targetStepIndex t ar ge tS te pI nd ex 参数
+     * @return 返回处理后的列表结果。
      */
     public List<CompletedStep> applyRewind(TaskCheckpoint checkpoint, int targetStepIndex) {
         List<CompletedStep> retainedSteps = checkpoint.getCompletedSteps().stream()
@@ -56,6 +57,11 @@ public class TaskRewindHandler {
         return retainedSteps;
     }
 
+    /**
+     * 处理copyCompletedStep。
+     * @param original o ri gi na l 参数
+     * @return 返回处理结果。
+     */
     private CompletedStep copyCompletedStep(CompletedStep original) {
         CompletedStep copied = new CompletedStep();
         copied.setStepIndex(original.getStepIndex());
@@ -72,6 +78,11 @@ public class TaskRewindHandler {
         return copied;
     }
 
+    /**
+     * 处理calculateUsedTimeBudget。
+     * @param steps 步骤列表
+     * @return 返回处理结果。
+     */
     private int calculateUsedTimeBudget(List<CompletedStep> steps) {
         if (steps == null || steps.isEmpty()) {
             return 0;
@@ -81,6 +92,11 @@ public class TaskRewindHandler {
                 .sum();
     }
 
+    /**
+     * 处理calculateRemainingTimeBudget。
+     * @param checkpoint 任务检查点数据
+     * @return 返回处理结果。
+     */
     private int calculateRemainingTimeBudget(TaskCheckpoint checkpoint) {
         int totalAvailable = checkpoint.totalAvailableMinutes();
         int used = valueOrZero(checkpoint.getUsedTimeBudgetMin());
@@ -91,6 +107,11 @@ public class TaskRewindHandler {
         return Math.max(0, totalAvailable - used - buffer - returnReserve);
     }
 
+    /**
+     * 判断是否应执行reservereturntodestination。
+     * @param checkpoint 任务检查点数据
+     * @return 是否满足当前条件。
+     */
     private boolean shouldReserveReturnToDestination(TaskCheckpoint checkpoint) {
         if (checkpoint.getSelectedDestination() == null
                 || checkpoint.getSelectedDestination().getLatitude() == null
@@ -102,6 +123,12 @@ public class TaskRewindHandler {
                 >= checkpoint.getPlanningConfig().getTotalDays();
     }
 
+    /**
+     * 解析并确定daynumberforoffset。
+     * @param checkpoint 任务检查点数据
+     * @param offsetMin o ff se tM in 参数
+     * @return 返回处理结果。
+     */
     private int resolveDayNumberForOffset(TaskCheckpoint checkpoint, Integer offsetMin) {
         int remaining = Math.max(0, valueOrZero(offsetMin));
         List<DailyTimeWindow> windows = checkpoint.getDailyTimeWindows();
@@ -118,6 +145,11 @@ public class TaskRewindHandler {
         return windows.get(windows.size() - 1).getDayNumber();
     }
 
+    /**
+     * 处理valueOrZero。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private int valueOrZero(Integer value) {
         return value == null ? 0 : value;
     }

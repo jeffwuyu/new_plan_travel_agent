@@ -45,15 +45,17 @@ public class UserQuotaUsage {
     // 构造方法
     // -----------------------------------------------------------------------
 
+    /**
+     * 初始化UserQuotaUsage 实例。
+     */
     public UserQuotaUsage() {}
 
     /**
-     * 全参构造，供 QuotaServiceImpl 中快照写入时使用。
-     *
-     * @param userId     用户 ID
-     * @param periodType "daily" 或 "monthly"
-     * @param periodKey  日期字符串（"2026-04-19" 或 "2026-04"）
-     * @param tokensUsed 本周期已消耗 Token 数
+     * 初始化UserQuotaUsage 实例。
+     * @param userId 用户ID
+     * @param periodType p er io dT yp e 参数
+     * @param periodKey p er io dK ey 参数
+     * @param tokensUsed t ok en sU se d 参数
      */
     public UserQuotaUsage(Long userId, String periodType, String periodKey, int tokensUsed) {
         this.userId = userId;
@@ -66,21 +68,45 @@ public class UserQuotaUsage {
     // Getters / Setters
     // -----------------------------------------------------------------------
 
+    /**
+     * 获取id。
+     * @return 返回处理结果。
+     */
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
+    /**
+     * 获取userid。
+     * @return 返回处理结果。
+     */
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
 
+    /**
+     * 获取periodtype。
+     * @return 返回处理结果。
+     */
     public String getPeriodType() { return periodType; }
     public void setPeriodType(String periodType) { this.periodType = periodType; }
 
+    /**
+     * 获取periodkey。
+     * @return 返回处理结果。
+     */
     public String getPeriodKey() { return periodKey; }
     public void setPeriodKey(String periodKey) { this.periodKey = periodKey; }
 
+    /**
+     * 获取tokensused。
+     * @return 返回处理结果。
+     */
     public int getTokensUsed() { return tokensUsed; }
     public void setTokensUsed(int tokensUsed) { this.tokensUsed = tokensUsed; }
 
+    /**
+     * 获取updatedat。
+     * @return 返回处理结果。
+     */
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

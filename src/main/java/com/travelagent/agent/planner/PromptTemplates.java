@@ -12,42 +12,26 @@ package com.travelagent.agent.planner;
  */
 public final class PromptTemplates {
 
+    /**
+     * 初始化PromptTemplates 实例。
+     */
     private PromptTemplates() {}
 
     // -----------------------------------------------------------------------
     // Per-step planning (attraction selection)
     // -----------------------------------------------------------------------
 
-    /**
-     * Prompt for the FIRST attraction of a new day.
-     * Emphasises choosing a distinct geographic area from the previous day.
-     *
-     * <p>Format args: orderInDay, dayNumber, stepIndex+1, totalSteps, region, travelMode, prevDayArea
-     */
     public static final String STEP_DAY_START =
             "请为第%d天推荐第%d个（总第%d/%d个）景点。\n" +
             "目的地：%s，出行方式：%s。\n" +
             "这是新一天的第一个景点，请选择与前一天景点不同的区域作为全天的地理锚点，避免重复同一地带。\n" +
             "上一天最后一站：%s。";
 
-    /**
-     * Prompt for the FIRST attraction when it is also day 1.
-     * No "previous day" reference needed.
-     *
-     * <p>Format args: orderInDay, dayNumber, stepIndex+1, totalSteps, region, travelMode
-     */
     public static final String STEP_DAY1_START =
             "请为第%d天推荐第%d个（总第%d/%d个）景点。\n" +
             "目的地：%s，出行方式：%s。\n" +
             "这是行程第一站，请选择该区域最具代表性的核心景点作为全天的地理锚点。";
 
-    /**
-     * Prompt for subsequent attractions WITHIN the same day (not the first of the day).
-     * Enforces a tighter geographic radius (15 km) for within-day continuity.
-     *
-     * <p>Format args: orderInDay, dayNumber, stepIndex+1, totalSteps, region, travelMode,
-     *                 lastAttractionName, lat, lng
-     */
     public static final String STEP_WITHIN_DAY =
             "请为第%d天推荐第%d个（总第%d/%d个）景点。\n" +
             "目的地：%s，出行方式：%s。\n" +
@@ -58,11 +42,6 @@ public final class PromptTemplates {
     // Final summary generation
     // -----------------------------------------------------------------------
 
-    /**
-     * System prompt for the final summary LLM call.
-     *
-     * <p>Format args: region, totalDays, userIntent, travelMode, preferenceKeywords
-     */
     public static final String FINAL_SUMMARY_SYSTEM =
             "你是一名专业旅游文案撰写人。用户刚完成了一次前往 %s 的 %d 天旅行规划。\n" +
             "用户出行意图：%s\n" +
@@ -105,12 +84,6 @@ public final class PromptTemplates {
             "同一规划中各景点时长必须有所差异，禁止所有步骤分配相同时长。\n" +
             "时长范围：45-360 分钟。";
 
-    /**
-     * User message for the final summary call.
-     *
-     * <p>The caller appends each completed step in the format:
-     * "步骤N (第K天): 景点名, 天气: XX XY°C\n"
-     */
     public static final String FINAL_SUMMARY_USER_PREFIX =
             "已完成的景点列表：\n";
 
@@ -122,7 +95,13 @@ public final class PromptTemplates {
     // -----------------------------------------------------------------------
 
     /**
-     * Returns a formatted final-summary system prompt.
+     * 构建finalsummarysystem。
+     * @param region 区域信息
+     * @param totalDays t ot al Da ys 参数
+     * @param userIntent u se rI nt en t 参数
+     * @param travelMode 出行方式
+     * @param preferenceKeywords p re fe re nc eK ey wo rd s 参数
+     * @return 返回处理结果。
      */
     public static String buildFinalSummarySystem(
             String region, int totalDays, String userIntent,

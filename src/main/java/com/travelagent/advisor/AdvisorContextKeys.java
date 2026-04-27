@@ -14,6 +14,9 @@ public final class AdvisorContextKeys {
     public static final String SAME_DAY_RADIUS_KM = "sameDayRadiusKm";
     public static final String CURRENT_DAY_NUMBER = "currentDayNumber";
 
+    /**
+     * 初始化AdvisorContextKeys 实例。
+     */
     private AdvisorContextKeys() {
     }
 }

@@ -18,6 +18,12 @@ public class McpStartupValidator implements ApplicationRunner {
     private final McpHandshakeService handshakeService;
     private final McpToolCatalog toolCatalog;
 
+    /**
+     * 初始化McpStartupValidator 实例。
+     * @param properties 配置属性
+     * @param handshakeService h an ds ha ke Se rv ic e 参数
+     * @param toolCatalog t oo lC at al og 参数
+     */
     public McpStartupValidator(AgentMcpProperties properties,
                                McpHandshakeService handshakeService,
                                McpToolCatalog toolCatalog) {
@@ -26,6 +32,10 @@ public class McpStartupValidator implements ApplicationRunner {
         this.toolCatalog = toolCatalog;
     }
 
+    /**
+     * 处理run。
+     * @param args a rg s 参数
+     */
     @Override
     public void run(ApplicationArguments args) {
         if (!properties.isEnabled()) {

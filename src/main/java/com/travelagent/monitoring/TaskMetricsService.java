@@ -22,22 +22,51 @@ public class TaskMetricsService {
     private final AtomicLong tasksFailed    = new AtomicLong();
     private final AtomicLong tasksPaused    = new AtomicLong();
 
+    /**
+     * 处理recordLlmCall。
+     * @param latencyMs l at en cy Ms 参数
+     * @param success s uc ce ss 参数
+     */
     public void recordLlmCall(long latencyMs, boolean success) {
         llmCallsTotal.incrementAndGet();
         llmLatencyMsTotal.addAndGet(latencyMs);
         if (!success) llmErrorsTotal.incrementAndGet();
     }
 
+    /**
+     * 处理recordToolCall。
+     * @param success s uc ce ss 参数
+     */
     public void recordToolCall(boolean success) {
         toolCallsTotal.incrementAndGet();
         if (!success) toolErrorsTotal.incrementAndGet();
     }
 
+    /**
+     * 处理recordTaskStarted。
+     * @param tasksStarted.incrementAndGet( t as ks St ar te d.i nc re me nt An dG et( 参数
+     */
     public void recordTaskStarted()   { tasksStarted.incrementAndGet(); }
+    /**
+     * 处理recordTaskCompleted。
+     * @param tasksCompleted.incrementAndGet( t as ks Co mp le te d.i nc re me nt An dG et( 参数
+     */
     public void recordTaskCompleted() { tasksCompleted.incrementAndGet(); }
+    /**
+     * 处理recordTaskFailed。
+     * @param tasksFailed.incrementAndGet( t as ks Fa il ed.i nc re me nt An dG et( 参数
+     */
     public void recordTaskFailed()    { tasksFailed.incrementAndGet(); }
+    /**
+     * 处理recordTaskPaused。
+     * @param tasksPaused.incrementAndGet( t as ks Pa us ed.i nc re me nt An dG et( 参数
+     */
     public void recordTaskPaused()    { tasksPaused.incrementAndGet(); }
 
+    /**
+     * 获取snapshot。
+     * @return 返回处理后的映射结果。
+     */
     public Map<String, Object> getSnapshot() {
         long calls = llmCallsTotal.get();
         long latencyTotal = llmLatencyMsTotal.get();

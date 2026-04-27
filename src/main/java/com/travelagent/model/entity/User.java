@@ -45,10 +45,18 @@ public class User {
     /** Null if not deleted; set on soft-delete (account cancellation). */
     private LocalDateTime deletedAt;
 
+    /**
+     * 判断deleted。
+     * @return 是否满足当前条件。
+     */
     public boolean isDeleted() {
         return deletedAt != null;
     }
 
+    /**
+     * 判断active。
+     * @return 是否满足当前条件。
+     */
     public boolean isActive() {
         return Integer.valueOf(1).equals(status) && !isDeleted();
     }

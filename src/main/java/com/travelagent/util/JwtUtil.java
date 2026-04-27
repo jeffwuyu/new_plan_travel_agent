@@ -44,6 +44,9 @@ public class JwtUtil {
 
     private SecretKey signingKey;
 
+    /**
+     * 处理init。
+     */
     @PostConstruct
     public void init() {
         // Derive a secure key from the configured secret
@@ -51,7 +54,10 @@ public class JwtUtil {
     }
 
     /**
-     * Generate a JWT token for the given user.
+     * 处理generateToken。
+     * @param userId 用户ID
+     * @param userLevel 用户等级
+     * @return 返回处理结果。
      */
     public String generateToken(Long userId, int userLevel) {
         Date now = new Date();
@@ -66,8 +72,9 @@ public class JwtUtil {
     }
 
     /**
-     * Parse and validate a JWT token. Returns claims if valid.
-     * Throws ExpiredJwtException if expired.
+     * 解析token。
+     * @param token t ok en 参数
+     * @return 返回处理结果。
      */
     public Claims parseToken(String token) {
         return Jwts.parser()
@@ -77,23 +84,48 @@ public class JwtUtil {
             .getPayload();
     }
 
+    /**
+     * 获取useridfromtoken。
+     * @param token t ok en 参数
+     * @return 返回处理结果。
+     */
     public Long getUserIdFromToken(String token) {
         return Long.valueOf(parseToken(token).getSubject());
     }
 
+    /**
+     * 获取userlevelfromtoken。
+     * @param token t ok en 参数
+     * @return 返回处理结果。
+     */
     public int getUserLevelFromToken(String token) {
         return parseToken(token).get("lvl", Integer.class);
     }
 
+    /**
+     * 获取expirationfromtoken。
+     * @param token t ok en 参数
+     * @return 返回处理结果。
+     */
     public Date getExpirationFromToken(String token) {
         return parseToken(token).getExpiration();
     }
 
+    /**
+     * 获取remainingvalidityms。
+     * @param token t ok en 参数
+     * @return 返回处理结果。
+     */
     public long getRemainingValidityMs(String token) {
         Date expiry = getExpirationFromToken(token);
         return Math.max(0, expiry.getTime() - System.currentTimeMillis());
     }
 
+    /**
+     * 判断tokenexpired。
+     * @param token t ok en 参数
+     * @return 是否满足当前条件。
+     */
     public boolean isTokenExpired(String token) {
         try {
             return getExpirationFromToken(token).before(new Date());

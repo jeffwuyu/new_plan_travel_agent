@@ -44,9 +44,8 @@ public class LlmConfig {
     private double dashscopeTemperature;
 
     /**
-     * Dashscope Generation client for Tongyi Qianwen LLM calls.
-     * The API key is set globally via system property before use,
-     * or passed per-call in DashscopeLlmClient.
+     * 处理dashscopeGeneration。
+     * @return 返回处理结果。
      */
     @Bean
     public Generation dashscopeGeneration() {
@@ -54,7 +53,8 @@ public class LlmConfig {
     }
 
     /**
-     * Dashscope TextEmbedding client for text-embedding-v3.
+     * 处理dashscopeTextEmbedding。
+     * @return 返回处理结果。
      */
     @Bean
     public TextEmbedding dashscopeTextEmbedding() {
@@ -62,7 +62,8 @@ public class LlmConfig {
     }
 
     /**
-     * Create the Spring AI chat model explicitly from dashscope.* properties.
+     * 处理dashscopeChatModel。
+     * @return 返回处理结果。
      */
     @Bean
     @ConditionalOnMissingBean(ChatModel.class)
@@ -93,14 +94,19 @@ public class LlmConfig {
                 .build();
     }
 
+    /**
+     * 处理chatClientBuilder。
+     * @param chatModel c ha tM od el 参数
+     * @return 返回处理结果。
+     */
     @Bean
     public ChatClient.Builder chatClientBuilder(ChatModel chatModel) {
         return ChatClient.builder(chatModel);
     }
 
     /**
-     * Shared OkHttpClient for Amap and DashVector REST calls.
-     * Configured with appropriate timeouts.
+     * 处理okHttpClient。
+     * @return 返回处理结果。
      */
     @Bean
     public OkHttpClient okHttpClient() {
@@ -112,6 +118,10 @@ public class LlmConfig {
             .build();
     }
 
+    /**
+     * 获取dashscopeapikey。
+     * @return 返回处理结果。
+     */
     public String getDashscopeApiKey() {
         return dashscopeApiKey;
     }

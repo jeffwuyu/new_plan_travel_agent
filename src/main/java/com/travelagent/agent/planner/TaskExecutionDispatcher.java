@@ -28,6 +28,12 @@ public class TaskExecutionDispatcher {
 
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
 
+    /**
+     * 判断dispatchTask。
+     * @param taskUuid 任务唯一标识
+     * @param trigger t ri gg er 参数
+     * @return 是否满足当前条件。
+     */
     public boolean dispatchTask(String taskUuid, String trigger) {
         if (!inFlight.add(taskUuid)) {
             log.debug("Task {} already in-flight, skipping trigger={}", taskUuid, trigger);
@@ -47,6 +53,11 @@ public class TaskExecutionDispatcher {
         return true;
     }
 
+    /**
+     * 处理dispatchByStatus。
+     * @param statusCode s ta tu sC od e 参数
+     * @param limit 返回数量上限
+     */
     public void dispatchByStatus(String statusCode, int limit) {
         List<Task> tasks = taskMapper.findByStatus(statusCode, limit);
         if (tasks.isEmpty()) {

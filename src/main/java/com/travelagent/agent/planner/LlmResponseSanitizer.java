@@ -19,13 +19,15 @@ package com.travelagent.agent.planner;
  */
 public final class LlmResponseSanitizer {
 
+    /**
+     * 初始化LlmResponseSanitizer 实例。
+     */
     private LlmResponseSanitizer() {}
 
     /**
-     * Extracts the first complete JSON object from a raw LLM response string.
-     *
-     * @param raw the raw LLM output (may be null, blank, or contain surrounding prose)
-     * @return the extracted JSON substring, or the trimmed raw string if no JSON found
+     * 处理sanitize。
+     * @param raw r aw 参数
+     * @return 返回处理结果。
      */
     public static String sanitize(String raw) {
         if (raw == null || raw.isBlank()) {
@@ -44,6 +46,11 @@ public final class LlmResponseSanitizer {
     // Internals
     // -----------------------------------------------------------------------
 
+    /**
+     * 处理stripMarkdownFences。
+     * @param s s 参数
+     * @return 返回处理结果。
+     */
     private static String stripMarkdownFences(String s) {
         if (!s.startsWith("```")) {
             return s;
@@ -63,8 +70,9 @@ public final class LlmResponseSanitizer {
     }
 
     /**
-     * Scans {@code s} to find and extract the first complete JSON object.
-     * Returns {@code null} if no complete JSON object is found.
+     * 提取firstjsonobject。
+     * @param s s 参数
+     * @return 返回处理结果。
      */
     static String extractFirstJsonObject(String s) {
         int start = -1;

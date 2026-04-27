@@ -58,18 +58,35 @@ public class TaskCheckpoint {
     private LocationCandidateItem selectedAttractionCandidate;
     private boolean originConfirmed;
 
+    /**
+     * 处理completedStepCount。
+     * @return 返回处理结果。
+     */
     public int completedStepCount() {
         return completedSteps == null ? 0 : completedSteps.size();
     }
 
+    /**
+     * 处理totalPlannedSteps。
+     * @return 返回处理结果。
+     */
     public int totalPlannedSteps() {
         return planningConfig == null ? 0 : planningConfig.totalSteps();
     }
 
+    /**
+     * 判断allstepsdone。
+     * @return 是否满足当前条件。
+     */
     public boolean isAllStepsDone() {
         return planningConfig != null && completedStepCount() >= planningConfig.totalSteps();
     }
 
+    /**
+     * 获取dailywindow。
+     * @param dayNumber d ay Nu mb er 参数
+     * @return 返回处理结果。
+     */
     public DailyTimeWindow getDailyWindow(int dayNumber) {
         if (dailyTimeWindows == null || dailyTimeWindows.isEmpty()) {
             return null;
@@ -80,6 +97,10 @@ public class TaskCheckpoint {
                 .orElse(null);
     }
 
+    /**
+     * 处理totalAvailableMinutes。
+     * @return 返回处理结果。
+     */
     public int totalAvailableMinutes() {
         if (dailyTimeWindows == null || dailyTimeWindows.isEmpty()) {
             return 0;

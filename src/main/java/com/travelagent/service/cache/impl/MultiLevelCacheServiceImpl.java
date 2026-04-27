@@ -37,6 +37,12 @@ public class MultiLevelCacheServiceImpl implements MultiLevelCacheService {
 
     private final ObjectMapper objectMapper;
 
+    /**
+     * 初始化MultiLevelCacheServiceImpl 实例。
+     * @param cacheManager c ac he Ma na ge r 参数
+     * @param redisTemplate r ed is Te mp la te 参数
+     * @param objectMapper o bj ec tM ap pe r 参数
+     */
     public MultiLevelCacheServiceImpl(
             CacheManager cacheManager,
             RedisTemplate<String, Object> redisTemplate,
@@ -51,6 +57,14 @@ public class MultiLevelCacheServiceImpl implements MultiLevelCacheService {
     // Public API
     // -----------------------------------------------------------------------
 
+    /**
+     * 处理get。
+     * @param cacheName c ac he Na me 参数
+     * @param key 键名
+     * @param type t yp e 参数
+     * @param loader l oa de r 参数
+     * @return 返回处理结果。
+     */
     @Override
     public <T> T get(String cacheName, String key, Class<T> type, Supplier<T> loader) {
         // L1 — Caffeine
@@ -90,6 +104,13 @@ public class MultiLevelCacheServiceImpl implements MultiLevelCacheService {
         return loaded;
     }
 
+    /**
+     * 处理put。
+     * @param cacheName c ac he Na me 参数
+     * @param key 键名
+     * @param value 键值
+     * @param ttl 缓存有效期
+     */
     @Override
     public void put(String cacheName, String key, Object value, Duration ttl) {
         putToL1(cacheName, key, value);
@@ -101,6 +122,11 @@ public class MultiLevelCacheServiceImpl implements MultiLevelCacheService {
         }
     }
 
+    /**
+     * 处理evict。
+     * @param cacheName c ac he Na me 参数
+     * @param key 键名
+     */
     @Override
     public void evict(String cacheName, String key) {
         Cache cache = cacheManager.getCache(cacheName);
@@ -119,6 +145,13 @@ public class MultiLevelCacheServiceImpl implements MultiLevelCacheService {
     // Private helpers
     // -----------------------------------------------------------------------
 
+    /**
+     * 获取froml1。
+     * @param cacheName c ac he Na me 参数
+     * @param key 键名
+     * @param type t yp e 参数
+     * @return 返回处理结果。
+     */
     private <T> T getFromL1(String cacheName, String key, Class<T> type) {
         try {
             Cache cache = cacheManager.getCache(cacheName);
@@ -130,6 +163,12 @@ public class MultiLevelCacheServiceImpl implements MultiLevelCacheService {
         }
     }
 
+    /**
+     * 处理putToL1。
+     * @param cacheName c ac he Na me 参数
+     * @param key 键名
+     * @param value 键值
+     */
     private void putToL1(String cacheName, String key, Object value) {
         try {
             Cache cache = cacheManager.getCache(cacheName);
@@ -141,13 +180,20 @@ public class MultiLevelCacheServiceImpl implements MultiLevelCacheService {
         }
     }
 
+    /**
+     * 处理redisKey。
+     * @param cacheName c ac he Na me 参数
+     * @param key 键名
+     * @return 返回处理结果。
+     */
     private String redisKey(String cacheName, String key) {
         return "cache:" + cacheName + ":" + key;
     }
 
     /**
-     * Returns the default Redis TTL for a known cache region.
-     * These values mirror the Caffeine region TTLs in {@link CacheConfig}.
+     * 获取defaultttl。
+     * @param cacheName c ac he Na me 参数
+     * @return 返回处理结果。
      */
     private Duration getDefaultTtl(String cacheName) {
         return switch (cacheName) {

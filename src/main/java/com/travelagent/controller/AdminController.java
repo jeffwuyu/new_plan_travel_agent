@@ -69,10 +69,8 @@ public class AdminController {
     // -----------------------------------------------------------------------
 
     /**
-     * 校验当前请求来自管理员（userLevel == 3）。
-     * JwtAuthInterceptor 已将 userLevel 写入 request 属性。
-     *
-     * @throws BusinessException HTTP 403 若不是管理员
+     * 处理requireAdmin。
+     * @param request 请求参数
      */
     private void requireAdmin(HttpServletRequest request) {
         int userLevel = JwtAuthInterceptor.getUserLevel(request);
@@ -100,6 +98,13 @@ public class AdminController {
      */
     @Operation(summary = "分页查询所有用户",
                description = "管理员查看用户列表，支持分页。password_hash 不在返回字段中。")
+    /**
+     * 获取。
+     * @param page 页码
+     * @param size s iz e 参数
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @GetMapping("/users")
     public Result<PageInfo<User>> listUsers(
             @RequestParam(defaultValue = "1") int page,
@@ -129,6 +134,13 @@ public class AdminController {
      */
     @Operation(summary = "修改用户等级（REGULAR / VIP / ADMIN）",
                description = "合法值：1=普通, 2=VIP, 3=管理员。本期 VIP 升级由管理员手动操作。")
+    /**
+     * 更新userlevel。
+     * @param userId 用户ID
+     * @param body 原始响应体
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @PutMapping("/users/{userId}/level")
     public Result<Void> updateUserLevel(
             @PathVariable Long userId,
@@ -161,6 +173,13 @@ public class AdminController {
      */
     @Operation(summary = "启用/禁用用户账号",
                description = "status=1 启用，status=0 禁用。禁用后已签发的 JWT 仍有效，如需立即失效请调用 /auth/logout。")
+    /**
+     * 更新userstatus。
+     * @param userId 用户ID
+     * @param body 原始响应体
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @PutMapping("/users/{userId}/status")
     public Result<Void> updateUserStatus(
             @PathVariable Long userId,
@@ -188,10 +207,9 @@ public class AdminController {
     // -----------------------------------------------------------------------
 
     /**
-     * 查询所有用户等级的配额配置（REGULAR / VIP / ADMIN 三条记录）。
-     *
-     * <p>返回数据包含：daily_token_limit、monthly_token_limit、
-     * max_concurrent_tasks、max_plan_steps。
+     * 获取。
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
      */
     @Operation(summary = "查询所有等级的配额配置")
     @GetMapping("/quota-configs")
@@ -230,6 +248,13 @@ public class AdminController {
     @Operation(summary = "修改指定等级的配额配置",
                description = "可部分更新 dailyTokenLimit/monthlyTokenLimit/maxConcurrentTasks/maxPlanSteps。"
                            + "Redis 缓存 10 分钟内自动过期刷新。")
+    /**
+     * 更新quotaconfig。
+     * @param level l ev el 参数
+     * @param config 配置对象
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @PutMapping("/quota-configs/{level}")
     public Result<Void> updateQuotaConfig(
             @PathVariable int level,
@@ -265,6 +290,11 @@ public class AdminController {
 
     @Operation(summary = "查询运行时指标快照",
                description = "返回 LLM 调用次数/延迟/错误率、工具调用统计、任务状态计数。JVM 重启后归零。")
+    /**
+     * 获取metrics。
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @GetMapping("/metrics")
     public Result<Map<String, Object>> getMetrics(HttpServletRequest request) {
         requireAdmin(request);
@@ -290,6 +320,14 @@ public class AdminController {
      */
     @Operation(summary = "分页查询任务列表（管理员视角）",
                description = "可按 status 过滤，不传则返回全部状态。checkpoint_json 不暴露。支持分页（page/size）。")
+    /**
+     * 获取。
+     * @param status 状态值
+     * @param page 页码
+     * @param size s iz e 参数
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @GetMapping("/tasks")
     public Result<PageInfo<Task>> listTasks(
             @RequestParam(required = false) String status,

@@ -19,6 +19,12 @@ public class OriginCandidateServiceImpl implements OriginCandidateService {
     @Autowired private AttractionMapper attractionMapper;
     @Autowired private AmapClient amapClient;
 
+    /**
+     * 处理generateCandidates。
+     * @param region 区域信息
+     * @param currentLocationQuery c ur re nt Lo ca ti on Qu er y 参数
+     * @return 返回处理后的列表结果。
+     */
     @Override
     public List<LocationCandidateItem> generateCandidates(String region, String currentLocationQuery) {
         Map<String, LocationCandidateItem> merged = new LinkedHashMap<>();

@@ -20,23 +20,29 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class RetryState {
 
-    /** Number of times the current step has been retried after a transient error. */
     private int currentStepRetryCount = 0;
 
-    /** Maximum allowed retries before the step (and the task) is marked FAILED. */
     private int maxRetries = 3;
 
-    /** Returns true if no more retries are allowed for the current step. */
+    /**
+     * 判断exhausted。
+     * @return 是否满足当前条件。
+     */
     public boolean isExhausted() {
         return currentStepRetryCount >= maxRetries;
     }
 
-    /** Increment the retry counter and return the new count. */
+    /**
+     * 处理increment。
+     * @return 返回处理结果。
+     */
     public int increment() {
         return ++currentStepRetryCount;
     }
 
-    /** Reset to 0 when moving to the next step. */
+    /**
+     * 处理reset。
+     */
     public void reset() {
         currentStepRetryCount = 0;
     }

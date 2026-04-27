@@ -68,6 +68,12 @@ public class DashscopeLlmClient {
     @Autowired
     private TaskMetricsService taskMetricsService;
 
+    /**
+     * 初始化DashscopeLlmClient 实例。
+     * @param chatClientBuilder c ha tC li en tB ui ld er 参数
+     * @param llmCallLogMapper l lm Ca ll Lo gM ap pe r 参数
+     * @param advisors a dv is or s 参数
+     */
     @Autowired
     public DashscopeLlmClient(ChatClient.Builder chatClientBuilder,
                               LlmCallLogMapper llmCallLogMapper,
@@ -78,16 +84,15 @@ public class DashscopeLlmClient {
     }
 
     /**
-     * Synchronous LLM call with automatic retry.
-     *
-     * @param taskId DB task primary key (for audit log, may be null during tests)
-     * @param userId user primary key (for audit log)
-     * @param callType one of: {@code planning}, {@code tool_call}, {@code history_compress}
-     * @param systemPrompt system message text
-     * @param history conversation history from checkpoint
-     * @param userMessage current user turn
-     * @param idempotencyKey used in the audit log for deduplication queries
-     * @return LLM response text
+     * 处理call。
+     * @param taskId 任务ID
+     * @param userId 用户ID
+     * @param callType c al lT yp e 参数
+     * @param systemPrompt s ys te mP ro mp t 参数
+     * @param history h is to ry 参数
+     * @param userMessage u se rM es sa ge 参数
+     * @param idempotencyKey i de mp ot en cy Ke y 参数
+     * @return 返回处理结果。
      */
     public String call(Long taskId, Long userId, String callType,
                        String systemPrompt, List<Map<String, Object>> history,
@@ -96,6 +101,19 @@ public class DashscopeLlmClient {
                 idempotencyKey, List.of(), Map.of()).content();
     }
 
+    /**
+     * 处理call。
+     * @param taskId 任务ID
+     * @param userId 用户ID
+     * @param callType c al lT yp e 参数
+     * @param systemPrompt s ys te mP ro mp t 参数
+     * @param history h is to ry 参数
+     * @param userMessage u se rM es sa ge 参数
+     * @param idempotencyKey i de mp ot en cy Ke y 参数
+     * @param advisorNames a dv is or Na me s 参数
+     * @param advisorContext a dv is or Co nt ex t 参数
+     * @return 返回处理结果。
+     */
     public String call(Long taskId, Long userId, String callType,
                        String systemPrompt, List<Map<String, Object>> history,
                        String userMessage, String idempotencyKey,
@@ -105,6 +123,17 @@ public class DashscopeLlmClient {
                 idempotencyKey, advisorNames, advisorContext).content();
     }
 
+    /**
+     * 处理callWithUsage。
+     * @param taskId 任务ID
+     * @param userId 用户ID
+     * @param callType c al lT yp e 参数
+     * @param systemPrompt s ys te mP ro mp t 参数
+     * @param history h is to ry 参数
+     * @param userMessage u se rM es sa ge 参数
+     * @param idempotencyKey i de mp ot en cy Ke y 参数
+     * @return 返回处理结果。
+     */
     public LlmCallResult callWithUsage(Long taskId, Long userId, String callType,
                                        String systemPrompt, List<Map<String, Object>> history,
                                        String userMessage, String idempotencyKey) {
@@ -112,6 +141,19 @@ public class DashscopeLlmClient {
                 idempotencyKey, List.of(), Map.of());
     }
 
+    /**
+     * 处理callWithUsage。
+     * @param taskId 任务ID
+     * @param userId 用户ID
+     * @param callType c al lT yp e 参数
+     * @param systemPrompt s ys te mP ro mp t 参数
+     * @param history h is to ry 参数
+     * @param userMessage u se rM es sa ge 参数
+     * @param idempotencyKey i de mp ot en cy Ke y 参数
+     * @param advisorNames a dv is or Na me s 参数
+     * @param advisorContext a dv is or Co nt ex t 参数
+     * @return 返回处理结果。
+     */
     public LlmCallResult callWithUsage(Long taskId, Long userId, String callType,
                                        String systemPrompt, List<Map<String, Object>> history,
                                        String userMessage, String idempotencyKey,
@@ -167,13 +209,16 @@ public class DashscopeLlmClient {
     }
 
     /**
-     * Streaming LLM call; each token is delivered to {@code tokenConsumer} as it arrives.
-     *
-     * <p>The method blocks until the stream is exhausted and returns the full assembled response.
-     * Token counts are not available in streaming mode; the audit log records 0.
-     *
-     * @param tokenConsumer receives each token string as it streams
-     * @return full assembled response text
+     * 处理callStreaming。
+     * @param taskId 任务ID
+     * @param userId 用户ID
+     * @param callType c al lT yp e 参数
+     * @param systemPrompt s ys te mP ro mp t 参数
+     * @param history h is to ry 参数
+     * @param userMessage u se rM es sa ge 参数
+     * @param idempotencyKey i de mp ot en cy Ke y 参数
+     * @param tokenConsumer t ok en Co ns um er 参数
+     * @return 返回处理结果。
      */
     public LlmCallResult callStreaming(Long taskId, Long userId, String callType,
                                        String systemPrompt, List<Map<String, Object>> history,
@@ -183,6 +228,20 @@ public class DashscopeLlmClient {
                 idempotencyKey, tokenConsumer, List.of(), Map.of());
     }
 
+    /**
+     * 处理callStreaming。
+     * @param taskId 任务ID
+     * @param userId 用户ID
+     * @param callType c al lT yp e 参数
+     * @param systemPrompt s ys te mP ro mp t 参数
+     * @param history h is to ry 参数
+     * @param userMessage u se rM es sa ge 参数
+     * @param idempotencyKey i de mp ot en cy Ke y 参数
+     * @param tokenConsumer t ok en Co ns um er 参数
+     * @param advisorNames a dv is or Na me s 参数
+     * @param advisorContext a dv is or Co nt ex t 参数
+     * @return 返回处理结果。
+     */
     public LlmCallResult callStreaming(Long taskId, Long userId, String callType,
                                        String systemPrompt, List<Map<String, Object>> history,
                                        String userMessage, String idempotencyKey,
@@ -244,6 +303,13 @@ public class DashscopeLlmClient {
         }
     }
 
+    /**
+     * 构建messages。
+     * @param systemPrompt s ys te mP ro mp t 参数
+     * @param history h is to ry 参数
+     * @param userMessage u se rM es sa ge 参数
+     * @return 返回处理后的列表结果。
+     */
     private List<Message> buildMessages(String systemPrompt,
                                         List<Map<String, Object>> history,
                                         String userMessage) {
@@ -269,6 +335,13 @@ public class DashscopeLlmClient {
         return messages;
     }
 
+    /**
+     * 处理applyAdvisors。
+     * @param spec s pe c 参数
+     * @param advisors a dv is or s 参数
+     * @param advisorContext a dv is or Co nt ex t 参数
+     * @return 返回处理结果。
+     */
     private ChatClient.ChatClientRequestSpec applyAdvisors(ChatClient.ChatClientRequestSpec spec,
                                                            List<Advisor> advisors,
                                                            Map<String, Object> advisorContext) {
@@ -285,6 +358,11 @@ public class DashscopeLlmClient {
         });
     }
 
+    /**
+     * 构建advisorregistry。
+     * @param advisors a dv is or s 参数
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Advisor> buildAdvisorRegistry(List<Advisor> advisors) {
         Map<String, Advisor> registry = new LinkedHashMap<>();
         if (advisors == null) {
@@ -296,6 +374,11 @@ public class DashscopeLlmClient {
         return Collections.unmodifiableMap(registry);
     }
 
+    /**
+     * 解析并确定advisors。
+     * @param advisorNames a dv is or Na me s 参数
+     * @return 返回处理后的列表结果。
+     */
     private List<Advisor> resolveAdvisors(List<String> advisorNames) {
         if (advisorNames == null || advisorNames.isEmpty()) {
             return List.of();
@@ -311,6 +394,10 @@ public class DashscopeLlmClient {
         return resolved;
     }
 
+    /**
+     * 处理defaultPlanningAdvisors。
+     * @return 返回处理后的列表结果。
+     */
     public List<String> defaultPlanningAdvisors() {
         return List.of(
                 TravelPlanningAdvisor.NAME,
@@ -319,6 +406,17 @@ public class DashscopeLlmClient {
         );
     }
 
+    /**
+     * 处理auditLog。
+     * @param taskId 任务ID
+     * @param userId 用户ID
+     * @param callType c al lT yp e 参数
+     * @param promptTokens p ro mp tT ok en s 参数
+     * @param completionTokens c om pl et io nT ok en s 参数
+     * @param latencyMs l at en cy Ms 参数
+     * @param status 状态值
+     * @param idempotencyKey i de mp ot en cy Ke y 参数
+     */
     private void auditLog(Long taskId, Long userId, String callType,
                           int promptTokens, int completionTokens,
                           long latencyMs, String status, String idempotencyKey) {
@@ -341,6 +439,12 @@ public class DashscopeLlmClient {
         }
     }
 
+    /**
+     * 处理withRetry。
+     * @param action a ct io n 参数
+     * @param operationName o pe ra ti on Na me 参数
+     * @return 返回处理结果。
+     */
     private <T> T withRetry(Callable<T> action, String operationName) {
         AgentException lastException = null;
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
@@ -373,6 +477,11 @@ public class DashscopeLlmClient {
                 operationName + " failed after " + maxRetries + " attempts");
     }
 
+    /**
+     * 处理classifyLlmException。
+     * @param e 异常对象
+     * @return 返回处理结果。
+     */
     private AgentException classifyLlmException(Exception e) {
         String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
         Throwable cause = e.getCause();

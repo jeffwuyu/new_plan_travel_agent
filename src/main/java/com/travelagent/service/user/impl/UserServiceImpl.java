@@ -26,12 +26,23 @@ public class UserServiceImpl implements UserService {
     private final JwtUtil jwtUtil;
     private final RedisUtil redisUtil;
 
+    /**
+     * 初始化UserServiceImpl 实例。
+     * @param userMapper u se rM ap pe r 参数
+     * @param jwtUtil j wt Ut il 参数
+     * @param redisUtil r ed is Ut il 参数
+     */
     public UserServiceImpl(UserMapper userMapper, JwtUtil jwtUtil, RedisUtil redisUtil) {
         this.userMapper = userMapper;
         this.jwtUtil = jwtUtil;
         this.redisUtil = redisUtil;
     }
 
+    /**
+     * 处理register。
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     @Override
     @Transactional
     public User register(RegisterRequest request) {
@@ -66,6 +77,11 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    /**
+     * 处理login。
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     @Override
     public LoginResponse login(LoginRequest request) {
         User user = userMapper.findByUsername(request.getUsername());
@@ -84,6 +100,10 @@ public class UserServiceImpl implements UserService {
             user.getUserLevel(), expiresAt);
     }
 
+    /**
+     * 处理logout。
+     * @param token t ok en 参数
+     */
     @Override
     public void logout(String token) {
         if (token == null || token.isBlank()) {
@@ -97,6 +117,10 @@ public class UserServiceImpl implements UserService {
         log.info("Token blacklisted (logout), remaining validity: {}ms", remainingMs);
     }
 
+    /**
+     * 取消account。
+     * @param userId 用户ID
+     */
     @Override
     @Transactional
     public void cancelAccount(Long userId) {
@@ -108,6 +132,11 @@ public class UserServiceImpl implements UserService {
         log.info("Account cancelled (soft-deleted): userId={}", userId);
     }
 
+    /**
+     * 查找byid。
+     * @param userId 用户ID
+     * @return 返回处理结果。
+     */
     @Override
     public User findById(Long userId) {
         User user = userMapper.findById(userId);
@@ -117,6 +146,11 @@ public class UserServiceImpl implements UserService {
         return user;
     }
 
+    /**
+     * 更新userlevel。
+     * @param userId 用户ID
+     * @param newLevel n ew Le ve l 参数
+     */
     @Override
     @Transactional
     public void updateUserLevel(Long userId, int newLevel) {

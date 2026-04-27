@@ -40,6 +40,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Autowired
     private JwtAuthInterceptor jwtAuthInterceptor;
 
+    /**
+     * 处理addInterceptors。
+     * @param registry r eg is tr y 参数
+     */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(jwtAuthInterceptor)
@@ -57,6 +61,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
             );
     }
 
+    /**
+     * 处理addCorsMappings。
+     * @param registry r eg is tr y 参数
+     */
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
@@ -67,6 +75,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
             .maxAge(3600);
     }
 
+    /**
+     * 处理configureMessageConverters。
+     * @param converters c on ve rt er s 参数
+     */
     @Override
     public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
         MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();
@@ -78,12 +90,20 @@ public class WebMvcConfig implements WebMvcConfigurer {
         converters.add(converter);
     }
 
+    /**
+     * 处理configureAsyncSupport。
+     * @param configurer c on fi gu re r 参数
+     */
     @Override
     public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
         // 10 minutes timeout for SSE connections (long-running planning tasks)
         configurer.setDefaultTimeout(600_000L);
     }
 
+    /**
+     * 处理objectMapper。
+     * @return 返回处理结果。
+     */
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();

@@ -36,12 +36,18 @@ public class OssClient {
 
     private OSS ossClient;
 
+    /**
+     * 处理init。
+     */
     @PostConstruct
     public void init() {
         ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
         log.info("OSS client initialized, bucket={}", bucketName);
     }
 
+    /**
+     * 处理destroy。
+     */
     @PreDestroy
     public void destroy() {
         if (ossClient != null) {
@@ -50,11 +56,10 @@ public class OssClient {
     }
 
     /**
-     * Uploads a document to OSS.
-     *
-     * @param ossKey      full OSS object key (e.g. "rag/documents/xian-guide.txt")
-     * @param content     file bytes
-     * @param contentType MIME type (e.g. "text/plain", "application/pdf")
+     * 处理uploadDocument。
+     * @param ossKey o ss Ke y 参数
+     * @param content 内容
+     * @param contentType c on te nt Ty pe 参数
      */
     public void uploadDocument(String ossKey, byte[] content, String contentType) {
         log.debug("Uploading to OSS: key={}, size={}", ossKey, content.length);
@@ -66,10 +71,9 @@ public class OssClient {
     }
 
     /**
-     * Downloads a document from OSS and returns its raw bytes.
-     *
-     * @param ossKey full OSS object key
-     * @return file bytes
+     * 处理downloadDocument。
+     * @param ossKey o ss Ke y 参数
+     * @return 返回处理结果。
      */
     public byte[] downloadDocument(String ossKey) {
         log.debug("Downloading from OSS: key={}", ossKey);
@@ -84,9 +88,8 @@ public class OssClient {
     }
 
     /**
-     * Deletes a document from OSS. Silently ignores non-existent keys.
-     *
-     * @param ossKey full OSS object key
+     * 删除document。
+     * @param ossKey o ss Ke y 参数
      */
     public void deleteDocument(String ossKey) {
         log.debug("Deleting from OSS: key={}", ossKey);

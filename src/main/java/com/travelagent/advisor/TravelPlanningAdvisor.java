@@ -27,6 +27,12 @@ public class TravelPlanningAdvisor implements BaseAdvisor {
 
     private static final int ORDER = 100;
 
+    /**
+     * 处理before。
+     * @param request 请求参数
+     * @param advisorChain a dv is or Ch ai n 参数
+     * @return 返回处理结果。
+     */
     @Override
     public ChatClientRequest before(ChatClientRequest request, AdvisorChain advisorChain) {
         String addition = buildPlanningInstructions(request.context());
@@ -38,16 +44,30 @@ public class TravelPlanningAdvisor implements BaseAdvisor {
                 .build();
     }
 
+    /**
+     * 处理after。
+     * @param response 响应参数
+     * @param advisorChain a dv is or Ch ai n 参数
+     * @return 返回处理结果。
+     */
     @Override
     public ChatClientResponse after(ChatClientResponse response, AdvisorChain advisorChain) {
         return response;
     }
 
+    /**
+     * 获取name。
+     * @return 返回处理结果。
+     */
     @Override
     public String getName() {
         return NAME;
     }
 
+    /**
+     * 获取order。
+     * @return 返回处理结果。
+     */
     @Override
     public int getOrder() {
         return ORDER;
@@ -112,6 +132,12 @@ public class TravelPlanningAdvisor implements BaseAdvisor {
         return sb.toString();
     }
 
+    /**
+     * 处理appendSystemText。
+     * @param prompt p ro mp t 参数
+     * @param addition a dd it io n 参数
+     * @return 返回处理结果。
+     */
     private Prompt appendSystemText(Prompt prompt, String addition) {
         List<Message> messages = new ArrayList<>(prompt.getInstructions());
         int systemIndex = findSystemMessageIndex(messages);
@@ -125,6 +151,11 @@ public class TravelPlanningAdvisor implements BaseAdvisor {
         return new Prompt(messages, prompt.getOptions());
     }
 
+    /**
+     * 查找systemmessageindex。
+     * @param messages m es sa ge s 参数
+     * @return 返回处理结果。
+     */
     private int findSystemMessageIndex(List<Message> messages) {
         for (int i = 0; i < messages.size(); i++) {
             if (messages.get(i) instanceof SystemMessage) {
@@ -134,6 +165,11 @@ public class TravelPlanningAdvisor implements BaseAdvisor {
         return -1;
     }
 
+    /**
+     * 获取completedsteps。
+     * @param context 上下文数据
+     * @return 返回处理后的列表结果。
+     */
     @SuppressWarnings("unchecked")
     private List<CompletedStep> getCompletedSteps(Map<String, Object> context) {
         Object value = context.get(AdvisorContextKeys.COMPLETED_STEPS);
@@ -146,11 +182,21 @@ public class TravelPlanningAdvisor implements BaseAdvisor {
         return List.of();
     }
 
+    /**
+     * 获取planningconfig。
+     * @param context 上下文数据
+     * @return 返回处理结果。
+     */
     private PlanningConfig getPlanningConfig(Map<String, Object> context) {
         Object value = context.get(AdvisorContextKeys.PLANNING_CONFIG);
         return value instanceof PlanningConfig config ? config : null;
     }
 
+    /**
+     * 处理asInteger。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private Integer asInteger(Object value) {
         if (value instanceof Number number) {
             return number.intValue();
@@ -158,14 +204,30 @@ public class TravelPlanningAdvisor implements BaseAdvisor {
         return null;
     }
 
+    /**
+     * 处理asString。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private String asString(Object value) {
         return value == null ? "" : value.toString().trim();
     }
 
+    /**
+     * 处理nullToEmpty。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
     }
 
+    /**
+     * 合并text。
+     * @param existing e xi st in g 参数
+     * @param addition a dd it io n 参数
+     * @return 返回处理结果。
+     */
     private String mergeText(String existing, String addition) {
         if (existing == null || existing.isBlank()) {
             return addition;

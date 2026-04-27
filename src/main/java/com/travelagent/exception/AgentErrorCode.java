@@ -11,6 +11,7 @@ public enum AgentErrorCode {
     // Tool errors
     TOOL_AMAP_TIMEOUT(true),
     TOOL_AMAP_RATE_LIMIT(true),
+    TOOL_AMAP_TRANSIENT(true),
     TOOL_AMAP_ERROR(false),
     TOOL_DASHVECTOR_TIMEOUT(true),
     TOOL_DASHVECTOR_ERROR(false),
@@ -25,6 +26,10 @@ public enum AgentErrorCode {
         this.retryable = retryable;
     }
 
+    /**
+     * 判断retryable。
+     * @return 是否满足当前条件。
+     */
     public boolean isRetryable() {
         return retryable;
     }

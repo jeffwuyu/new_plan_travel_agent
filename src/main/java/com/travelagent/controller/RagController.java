@@ -51,6 +51,10 @@ public class RagController {
     // Admin guard
     // -----------------------------------------------------------------------
 
+    /**
+     * 处理requireAdmin。
+     * @param request 请求参数
+     */
     private void requireAdmin(HttpServletRequest request) {
         int userLevel = JwtAuthInterceptor.getUserLevel(request);
         if (userLevel != 3) {
@@ -68,6 +72,16 @@ public class RagController {
      */
     @Operation(summary = "上传 RAG 文档文件",
                description = "multipart/form-data 上传，验证后写入 OSS，注册 DB，触发异步入库。最大 50MB。")
+    /**
+     * 处理uploadDocument。
+     * @param file 文件对象
+     * @param title t it le 参数
+     * @param "region" "r eg io n" 参数
+     * @param region 区域信息
+     * @param docType d oc Ty pe 参数
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @PostMapping(value = "/documents/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Result<UploadRagDocumentResponse> uploadDocument(
             @RequestParam("file") MultipartFile file,
@@ -109,6 +123,11 @@ public class RagController {
                 doc.getId(), ossKey, title, region, docType));
     }
 
+    /**
+     * 解析并确定contenttype。
+     * @param docType d oc Ty pe 参数
+     * @return 返回处理结果。
+     */
     private String resolveContentType(String docType) {
         return switch (docType) {
             case "pdf"      -> "application/pdf";
@@ -123,6 +142,12 @@ public class RagController {
      */
     @Operation(summary = "注册 RAG 文档元信息",
                description = "将文档元信息写入 rag_documents 表（status=pending），不触发入库。")
+    /**
+     * 注册document。
+     * @param body 原始响应体
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @PostMapping("/documents")
     public Result<RagDocument> registerDocument(
             @RequestBody Map<String, String> body,
@@ -154,6 +179,12 @@ public class RagController {
      */
     @Operation(summary = "触发 RAG 文档异步入库",
                description = "立即返回，后台线程执行：OSS下载→分块→向量化→DashVector→MySQL。")
+    /**
+     * 处理ingestDocument。
+     * @param id 主键ID
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @PostMapping("/documents/{id}/ingest")
     public Result<Void> ingestDocument(
             @PathVariable Long id,
@@ -174,6 +205,12 @@ public class RagController {
      */
     @Operation(summary = "查询 RAG 文档状态",
                description = "返回 rag_documents 记录，通过 status 字段判断入库进度（pending/indexed/failed）。")
+    /**
+     * 获取document。
+     * @param id 主键ID
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @GetMapping("/documents/{id}")
     public Result<RagDocument> getDocument(
             @PathVariable Long id,
@@ -192,6 +229,11 @@ public class RagController {
      */
     @Operation(summary = "列出所有 RAG 文档",
                description = "返回 rag_documents 全量列表，按创建时间倒序（管理员用）。")
+    /**
+     * 获取。
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @GetMapping("/documents")
     public Result<List<RagDocument>> listDocuments(HttpServletRequest request) {
         requireAdmin(request);
@@ -204,6 +246,14 @@ public class RagController {
      */
     @Operation(summary = "手动测试 RAG 检索",
                description = "用指定文本查询 DashVector，返回最相关的 chunk 文本列表（管理员调试用）。")
+    /**
+     * 处理queryChunks。
+     * @param text 文本内容
+     * @param region 区域信息
+     * @param topK t op K 参数
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @GetMapping("/query")
     public Result<List<String>> queryChunks(
             @RequestParam String text,

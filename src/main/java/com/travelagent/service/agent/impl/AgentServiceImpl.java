@@ -80,6 +80,9 @@ public class AgentServiceImpl implements AgentService {
     @Autowired private AgentCheckpointHelper checkpointHelper;
     @Autowired private AgentToolExecutor toolExecutor;
 
+    /**
+     * 处理recoverStuckTasksOnStartup。
+     */
     @EventListener(ApplicationReadyEvent.class)
     public void recoverStuckTasksOnStartup() {
         if (!schemaGuard.isCoreSchemaReady()) {
@@ -92,6 +95,9 @@ public class AgentServiceImpl implements AgentService {
         }
     }
 
+    /**
+     * 处理recoverStuckTasks。
+     */
     public void recoverStuckTasks() {
         List<String> stuckStatuses = List.of(
                 TaskStatus.PLANNING.getCode(),
@@ -107,6 +113,10 @@ public class AgentServiceImpl implements AgentService {
         }
     }
 
+    /**
+     * 执行task。
+     * @param taskUuid 任务唯一标识
+     */
     @Override
     public void executeTask(String taskUuid) {
         Task task = taskMapper.findByUuid(taskUuid);
@@ -133,6 +143,12 @@ public class AgentServiceImpl implements AgentService {
         }
     }
 
+    /**
+     * 处理runPlanningLoop。
+     * @param task 任务实体
+     * @param taskUuid 任务唯一标识
+     * @param current 当前状态
+     */
     private void runPlanningLoop(Task task, String taskUuid, TaskStatus current) {
         TaskCheckpoint checkpoint = checkpointHelper.loadCheckpoint(task);
         int userLevel = checkpointHelper.resolveUserLevel(task.getUserId());
@@ -359,6 +375,12 @@ public class AgentServiceImpl implements AgentService {
         sseNotificationService.completeEmitter(taskUuid);
     }
 
+    /**
+     * 处理awaitingoriginselection。
+     * @param task 任务实体
+     * @param checkpoint 任务检查点数据
+     * @param taskUuid 任务唯一标识
+     */
     private void handleAwaitingOriginSelection(Task task, TaskCheckpoint checkpoint, String taskUuid) {
         List<LocationCandidateItem> candidates = checkpoint.getLocationCandidates() == null
                 ? List.of()
@@ -396,6 +418,15 @@ public class AgentServiceImpl implements AgentService {
                 "Waiting for origin selection", payload);
     }
 
+    /**
+     * 处理awaitingselection。
+     * @param task 任务实体
+     * @param checkpoint 任务检查点数据
+     * @param taskUuid 任务唯一标识
+     * @param stepIndex s te pI nd ex 参数
+     * @param dayNumber d ay Nu mb er 参数
+     * @param planResult p la nR es ul t 参数
+     */
     private void handleAwaitingSelection(Task task,
                                          TaskCheckpoint checkpoint,
                                          String taskUuid,
@@ -449,6 +480,12 @@ public class AgentServiceImpl implements AgentService {
                 "Waiting for user selection", payload);
     }
 
+    /**
+     * 处理quotaexhaustion。
+     * @param task 任务实体
+     * @param checkpoint 任务检查点数据
+     * @param taskUuid 任务唯一标识
+     */
     private void handleQuotaExhaustion(Task task, TaskCheckpoint checkpoint, String taskUuid) {
         LocalDateTime tomorrow = LocalDateTime.now().plusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
         TaskStatus currentStatus = TaskStatus.fromCode(checkpoint.getCurrentState());
@@ -467,6 +504,13 @@ public class AgentServiceImpl implements AgentService {
                 Map.of("reason", PAUSE_REASON_DAILY_QUOTA, "resumableAt", tomorrow.toString()));
     }
 
+    /**
+     * 处理retryorfail。
+     * @param task 任务实体
+     * @param checkpoint 任务检查点数据
+     * @param taskUuid 任务唯一标识
+     * @param exception 异常对象
+     */
     private void handleRetryOrFail(Task task, TaskCheckpoint checkpoint, String taskUuid, Exception exception) {
         if (exception instanceof AgentException agentException
                 && agentException.getErrorCode() == AgentErrorCode.TOOL_AMAP_RATE_LIMIT) {
@@ -499,6 +543,13 @@ public class AgentServiceImpl implements AgentService {
         }
     }
 
+    /**
+     * 处理amapratelimit。
+     * @param task 任务实体
+     * @param checkpoint 任务检查点数据
+     * @param taskUuid 任务唯一标识
+     * @param exception 异常对象
+     */
     private void handleAmapRateLimit(Task task, TaskCheckpoint checkpoint, String taskUuid, AgentException exception) {
         if (checkpoint.getRetryState() == null) {
             checkpoint.setRetryState(new RetryState());
@@ -537,6 +588,14 @@ public class AgentServiceImpl implements AgentService {
         }
     }
 
+    /**
+     * 处理pauseForAmapRateLimit。
+     * @param task 任务实体
+     * @param checkpoint 任务检查点数据
+     * @param taskUuid 任务唯一标识
+     * @param exception 异常对象
+     * @param retryPayload r et ry Pa yl oa d 参数
+     */
     private void pauseForAmapRateLimit(Task task, TaskCheckpoint checkpoint, String taskUuid,
                                        AgentException exception, Map<String, Object> retryPayload) {
         LocalDateTime resumableAt = LocalDateTime.now().plusMinutes(2);
@@ -562,6 +621,11 @@ public class AgentServiceImpl implements AgentService {
         sseNotificationService.sendEvent(taskUuid, SseEvent.PAUSED, pausePayload);
     }
 
+    /**
+     * 处理sleepForRateLimitBackoff。
+     * @param seconds s ec on ds 参数
+     * @param taskUuid 任务唯一标识
+     */
     private void sleepForRateLimitBackoff(int seconds, String taskUuid) {
         try {
             Thread.sleep(seconds * 1000L);
@@ -571,6 +635,13 @@ public class AgentServiceImpl implements AgentService {
         }
     }
 
+    /**
+     * 处理markFailed。
+     * @param task 任务实体
+     * @param taskUuid 任务唯一标识
+     * @param errorMsg e rr or Ms g 参数
+     * @param errorPayload e rr or Pa yl oa d 参数
+     */
     private void markFailed(Task task, String taskUuid, String errorMsg, Map<String, Object> errorPayload) {
         try {
             Task fresh = taskMapper.findByUuid(taskUuid);
@@ -589,6 +660,13 @@ public class AgentServiceImpl implements AgentService {
         }
     }
 
+    /**
+     * 处理sendStateChange。
+     * @param taskUuid 任务唯一标识
+     * @param checkpoint 任务检查点数据
+     * @param status 状态值
+     * @param task 任务实体
+     */
     private void sendStateChange(String taskUuid, TaskCheckpoint checkpoint, String status, Task task) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("status", status);
@@ -602,6 +680,12 @@ public class AgentServiceImpl implements AgentService {
         sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE, payload);
     }
 
+    /**
+     * 处理persistPlan。
+     * @param task 任务实体
+     * @param checkpoint 任务检查点数据
+     * @return 返回处理结果。
+     */
     private Long persistPlan(Task task, TaskCheckpoint checkpoint) {
         FinalSummaryResult summary;
         try {
@@ -639,6 +723,13 @@ public class AgentServiceImpl implements AgentService {
         return plan.getId();
     }
 
+    /**
+     * 构建plansteps。
+     * @param planId 计划ID
+     * @param completedSteps 已完成步骤
+     * @param stepSummaries s te pS um ma ri es 参数
+     * @return 返回处理后的列表结果。
+     */
     private List<PlanStep> buildPlanSteps(Long planId, List<CompletedStep> completedSteps,
                                           List<FinalSummaryResult.StepSummary> stepSummaries) {
         Map<Integer, FinalSummaryResult.StepSummary> summaryByOrder = new LinkedHashMap<>();
@@ -685,6 +776,13 @@ public class AgentServiceImpl implements AgentService {
         return steps;
     }
 
+    /**
+     * 构建attractionselectioncontext。
+     * @param checkpoint 任务检查点数据
+     * @param stepIndex s te pI nd ex 参数
+     * @param dayNumber d ay Nu mb er 参数
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> buildAttractionSelectionContext(TaskCheckpoint checkpoint, int stepIndex, int dayNumber) {
         Map<String, Object> context = new LinkedHashMap<>();
         context.put("stepIndex", stepIndex);
@@ -701,6 +799,11 @@ public class AgentServiceImpl implements AgentService {
         return context;
     }
 
+    /**
+     * 解析并确定currentpositionname。
+     * @param checkpoint 任务检查点数据
+     * @return 返回处理结果。
+     */
     private String resolveCurrentPositionName(TaskCheckpoint checkpoint) {
         if (checkpoint.getCompletedSteps() != null && !checkpoint.getCompletedSteps().isEmpty()) {
             return checkpoint.getCompletedSteps().get(checkpoint.getCompletedSteps().size() - 1).getAttractionName();

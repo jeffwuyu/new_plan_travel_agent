@@ -24,6 +24,13 @@ public class McpToolCatalog {
     private volatile Map<String, McpToolDefinition> toolsByName = Map.of();
     private volatile long loadedRevision = -1;
 
+    /**
+     * 初始化McpToolCatalog 实例。
+     * @param properties 配置属性
+     * @param handshakeService h an ds ha ke Se rv ic e 参数
+     * @param sessionClient s es si on Cl ie nt 参数
+     * @param objectMapper o bj ec tM ap pe r 参数
+     */
     public McpToolCatalog(AgentMcpProperties properties,
                           McpHandshakeService handshakeService,
                           McpSessionClient sessionClient,
@@ -34,6 +41,10 @@ public class McpToolCatalog {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * 处理ensureLoaded。
+     * @return 返回处理后的映射结果。
+     */
     public synchronized Map<String, McpToolDefinition> ensureLoaded() {
         long currentRevision = sessionClient.currentRevision();
         if (!toolsByName.isEmpty() && loadedRevision == currentRevision) {
@@ -73,6 +84,11 @@ public class McpToolCatalog {
         return loaded;
     }
 
+    /**
+     * 处理requireTool。
+     * @param name n am e 参数
+     * @return 返回处理结果。
+     */
     public McpToolDefinition requireTool(String name) {
         McpToolDefinition tool = ensureLoaded().get(name);
         if (tool == null) {
@@ -81,17 +97,31 @@ public class McpToolCatalog {
         return tool;
     }
 
+    /**
+     * 处理invalidate。
+     */
     public synchronized void invalidate() {
         toolsByName = Map.of();
         loadedRevision = -1;
         handshakeService.invalidate();
     }
 
+    /**
+     * 处理readText。
+     * @param node n od e 参数
+     * @param field f ie ld 参数
+     * @return 返回处理结果。
+     */
     private String readText(JsonNode node, String field) {
         JsonNode value = node == null ? null : node.get(field);
         return value == null || value.isNull() ? null : value.asText();
     }
 
+    /**
+     * 处理nodeToMap。
+     * @param node n od e 参数
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> nodeToMap(JsonNode node) {
         if (node == null || node.isNull()) {
             return Map.of();

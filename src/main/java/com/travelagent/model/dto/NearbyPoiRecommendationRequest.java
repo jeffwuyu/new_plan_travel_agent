@@ -55,9 +55,6 @@ public class NearbyPoiRecommendationRequest {
 
     private String weatherSummary;
 
-    /**
-     * nearby | similar_style | itinerary_fill
-     */
     private String queryType = "nearby";
 
     @Min(1)

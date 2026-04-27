@@ -33,11 +33,23 @@ public class McpSessionClient {
     private final Object sessionLock = new Object();
     private volatile SessionState sessionState;
 
+    /**
+     * 初始化McpSessionClient 实例。
+     * @param processManager p ro ce ss Ma na ge r 参数
+     * @param objectMapper o bj ec tM ap pe r 参数
+     */
     public McpSessionClient(McpProcessManager processManager, ObjectMapper objectMapper) {
         this.processManager = processManager;
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * 处理sendRequest。
+     * @param method m et ho d 参数
+     * @param params p ar am s 参数
+     * @param timeout t im eo ut 参数
+     * @return 返回处理结果。
+     */
     public JsonNode sendRequest(String method, Map<String, Object> params, Duration timeout) {
         SessionState state = ensureReady();
         String id = "req-" + requestIds.getAndIncrement();
@@ -65,6 +77,11 @@ public class McpSessionClient {
         }
     }
 
+    /**
+     * 处理sendNotification。
+     * @param method m et ho d 参数
+     * @param params p ar am s 参数
+     */
     public void sendNotification(String method, Map<String, Object> params) {
         SessionState state = ensureReady();
         writeMessage(state, Map.of(
@@ -74,16 +91,27 @@ public class McpSessionClient {
         ));
     }
 
+    /**
+     * 处理resetSession。
+     */
     public void resetSession() {
         synchronized (sessionLock) {
             shutdownCurrentSession();
         }
     }
 
+    /**
+     * 处理currentRevision。
+     * @return 返回处理结果。
+     */
     public long currentRevision() {
         return sessionRevision.get();
     }
 
+    /**
+     * 处理ensureReady。
+     * @return 返回处理结果。
+     */
     private SessionState ensureReady() {
         synchronized (sessionLock) {
             if (sessionState != null && sessionState.isAlive()) {
@@ -100,12 +128,20 @@ public class McpSessionClient {
         }
     }
 
+    /**
+     * 处理startReaders。
+     * @param state s ta te 参数
+     */
     private void startReaders(SessionState state) {
         state.ioExecutor.submit(() -> readStdout(state));
         state.ioExecutor.submit(() -> readStderr(state));
         state.handle.process().onExit().thenRun(() -> handleProcessExit(state));
     }
 
+    /**
+     * 处理readStdout。
+     * @param state s ta te 参数
+     */
     private void readStdout(SessionState state) {
         try {
             String line;
@@ -129,6 +165,10 @@ public class McpSessionClient {
         }
     }
 
+    /**
+     * 处理readStderr。
+     * @param state s ta te 参数
+     */
     private void readStderr(SessionState state) {
         try {
             String line;
@@ -144,6 +184,11 @@ public class McpSessionClient {
         }
     }
 
+    /**
+     * 处理processIncomingMessage。
+     * @param state s ta te 参数
+     * @param node n od e 参数
+     */
     private void processIncomingMessage(SessionState state, JsonNode node) {
         JsonNode idNode = node.get("id");
         if (idNode != null && (node.has("result") || node.has("error"))) {
@@ -164,6 +209,10 @@ public class McpSessionClient {
         }
     }
 
+    /**
+     * 处理processexit。
+     * @param state s ta te 参数
+     */
     private void handleProcessExit(SessionState state) {
         state.closed = true;
         for (CompletableFuture<JsonNode> future : state.pendingResponses.values()) {
@@ -179,6 +228,11 @@ public class McpSessionClient {
         }
     }
 
+    /**
+     * 处理writeMessage。
+     * @param state s ta te 参数
+     * @param message 提示信息
+     */
     private void writeMessage(SessionState state, Map<String, Object> message) {
         try {
             synchronized (state.writeLock) {
@@ -191,6 +245,9 @@ public class McpSessionClient {
         }
     }
 
+    /**
+     * 处理shutdownCurrentSession。
+     */
     private void shutdownCurrentSession() {
         SessionState current = sessionState;
         if (current == null) {
@@ -206,6 +263,9 @@ public class McpSessionClient {
         sessionState = null;
     }
 
+    /**
+     * 处理shutdown。
+     */
     @PreDestroy
     public void shutdown() {
         resetSession();
@@ -227,10 +287,18 @@ public class McpSessionClient {
         });
         private volatile boolean closed = false;
 
+        /**
+         * 处理SessionState。
+         * @param handle h an dl e 参数
+         */
         private SessionState(McpProcessHandle handle) {
             this.handle = Objects.requireNonNull(handle);
         }
 
+        /**
+         * 判断alive。
+         * @return 是否满足当前条件。
+         */
         private boolean isAlive() {
             return !closed && handle.process() != null && handle.process().isAlive();
         }

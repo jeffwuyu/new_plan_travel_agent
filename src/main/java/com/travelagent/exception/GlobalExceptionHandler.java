@@ -24,6 +24,11 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    /**
+     * 处理businessexception。
+     * @param ex e x 参数
+     * @return 返回处理结果。
+     */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Result<Void>> handleBusinessException(BusinessException ex) {
         log.warn("Business exception: [{}] {}", ex.getHttpStatus(), ex.getMessage());
@@ -32,6 +37,11 @@ public class GlobalExceptionHandler {
             .body(Result.error(ex.getHttpStatus(), ex.getMessage()));
     }
 
+    /**
+     * 处理validationexception。
+     * @param ex e x 参数
+     * @return 返回处理结果。
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Result<Void>> handleValidationException(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
@@ -41,6 +51,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(Result.badRequest(message));
     }
 
+    /**
+     * 处理bindexception。
+     * @param ex e x 参数
+     * @return 返回处理结果。
+     */
     @ExceptionHandler(BindException.class)
     public ResponseEntity<Result<Void>> handleBindException(BindException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
@@ -49,6 +64,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(Result.badRequest(message));
     }
 
+    /**
+     * 处理genericexception。
+     * @param ex e x 参数
+     * @return 返回处理结果。
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Result<Void>> handleGenericException(Exception ex) {
         Throwable rootCause = findRootCause(ex);
@@ -63,6 +83,12 @@ public class GlobalExceptionHandler {
             .body(Result.serverError("系统异常，请稍后重试"));
     }
 
+    /**
+     * 判断schemaissue。
+     * @param ex e x 参数
+     * @param rootCause r oo tC au se 参数
+     * @return 是否满足当前条件。
+     */
     private boolean isSchemaIssue(Exception ex, Throwable rootCause) {
         if (ex instanceof BadSqlGrammarException || rootCause instanceof SQLSyntaxErrorException) {
             String message = rootCause != null ? rootCause.getMessage() : ex.getMessage();
@@ -78,6 +104,11 @@ public class GlobalExceptionHandler {
         return false;
     }
 
+    /**
+     * 查找rootcause。
+     * @param throwable 异常对象
+     * @return 返回处理结果。
+     */
     private Throwable findRootCause(Throwable throwable) {
         Throwable current = throwable;
         while (current.getCause() != null && current.getCause() != current) {
@@ -86,6 +117,11 @@ public class GlobalExceptionHandler {
         return current;
     }
 
+    /**
+     * 处理summarizeException。
+     * @param throwable 异常对象
+     * @return 返回处理结果。
+     */
     private String summarizeException(Throwable throwable) {
         if (throwable == null) {
             return "unknown root cause";

@@ -36,10 +36,18 @@ public class DatabaseSchemaGuard {
     private final AtomicBoolean schemaReady = new AtomicBoolean(false);
     private volatile List<String> lastMissingTables = List.of();
 
+    /**
+     * 初始化DatabaseSchemaGuard 实例。
+     * @param dataSource d at aS ou rc e 参数
+     */
     public DatabaseSchemaGuard(DataSource dataSource) {
         this.dataSource = dataSource;
     }
 
+    /**
+     * 判断coreschemaready。
+     * @return 是否满足当前条件。
+     */
     public boolean isCoreSchemaReady() {
         if (schemaReady.get()) {
             return true;
@@ -47,6 +55,10 @@ public class DatabaseSchemaGuard {
         return refreshCoreSchemaReady();
     }
 
+    /**
+     * 刷新coreschemaready。
+     * @return 是否满足当前条件。
+     */
     public synchronized boolean refreshCoreSchemaReady() {
         try (Connection connection = dataSource.getConnection()) {
             List<String> missingTables = findMissingTables(connection, CORE_TABLES);
@@ -72,22 +84,43 @@ public class DatabaseSchemaGuard {
         }
     }
 
+    /**
+     * 获取lastmissingtables。
+     * @return 返回处理后的列表结果。
+     */
     public List<String> getLastMissingTables() {
         return lastMissingTables;
     }
 
+    /**
+     * 判断tableExists。
+     * @param tableName t ab le Na me 参数
+     * @return 是否满足当前条件。
+     */
     public boolean tableExists(String tableName) throws SQLException {
         try (Connection connection = dataSource.getConnection()) {
             return tableExists(connection, tableName);
         }
     }
 
+    /**
+     * 判断columnExists。
+     * @param tableName t ab le Na me 参数
+     * @param columnName c ol um nN am e 参数
+     * @return 是否满足当前条件。
+     */
     public boolean columnExists(String tableName, String columnName) throws SQLException {
         try (Connection connection = dataSource.getConnection()) {
             return columnExists(connection, tableName, columnName);
         }
     }
 
+    /**
+     * 查找missingtables。
+     * @param connection c on ne ct io n 参数
+     * @param tableNames t ab le Na me s 参数
+     * @return 返回处理后的列表结果。
+     */
     private List<String> findMissingTables(Connection connection, List<String> tableNames) throws SQLException {
         List<String> missingTables = new ArrayList<>();
         for (String tableName : tableNames) {
@@ -98,6 +131,12 @@ public class DatabaseSchemaGuard {
         return missingTables;
     }
 
+    /**
+     * 判断tableExists。
+     * @param connection c on ne ct io n 参数
+     * @param tableName t ab le Na me 参数
+     * @return 是否满足当前条件。
+     */
     private boolean tableExists(Connection connection, String tableName) throws SQLException {
         DatabaseMetaData metaData = connection.getMetaData();
         String catalog = connection.getCatalog();
@@ -113,6 +152,13 @@ public class DatabaseSchemaGuard {
         }
     }
 
+    /**
+     * 判断columnExists。
+     * @param connection c on ne ct io n 参数
+     * @param tableName t ab le Na me 参数
+     * @param columnName c ol um nN am e 参数
+     * @return 是否满足当前条件。
+     */
     private boolean columnExists(Connection connection, String tableName, String columnName) throws SQLException {
         DatabaseMetaData metaData = connection.getMetaData();
         String catalog = connection.getCatalog();
@@ -128,6 +174,11 @@ public class DatabaseSchemaGuard {
         }
     }
 
+    /**
+     * 解析并确定schema。
+     * @param connection c on ne ct io n 参数
+     * @return 返回处理结果。
+     */
     private String resolveSchema(Connection connection) throws SQLException {
         String schema = connection.getSchema();
         if (schema != null && !schema.isBlank()) {

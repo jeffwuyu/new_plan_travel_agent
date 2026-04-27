@@ -53,11 +53,21 @@ public class GeocodeTool implements AgentTool {
     @Autowired
     private McpToolExecutionService mcpToolExecutionService;
 
+    /**
+     * 获取name。
+     * @return 返回处理结果。
+     */
     @Override
     public String getName() {
         return NAME;
     }
 
+    /**
+     * 处理execute。
+     * @param arguments 工具调用参数
+     * @param idempotencyKey i de mp ot en cy Ke y 参数
+     * @return 返回处理后的映射结果。
+     */
     @Override
     @IdempotentTool(ttl = "24h")
     public Map<String, Object> execute(Map<String, Object> arguments, String idempotencyKey) {
@@ -111,6 +121,13 @@ public class GeocodeTool implements AgentTool {
         return result;
     }
 
+    /**
+     * 处理callProvider。
+     * @param arguments 工具调用参数
+     * @param name n am e 参数
+     * @param region 区域信息
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> callProvider(Map<String, Object> arguments, String name, String region) {
         if (mcpToolExecutionService.isEnabled()) {
             try {

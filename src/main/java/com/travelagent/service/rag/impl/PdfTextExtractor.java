@@ -22,6 +22,11 @@ import java.io.IOException;
 @Component
 public class PdfTextExtractor implements DocumentTextExtractor {
 
+    /**
+     * 处理extract。
+     * @param rawBytes r aw By te s 参数
+     * @return 返回处理结果。
+     */
     @Override
     public String extract(byte[] rawBytes) {
         try (PDDocument doc = Loader.loadPDF(rawBytes)) {

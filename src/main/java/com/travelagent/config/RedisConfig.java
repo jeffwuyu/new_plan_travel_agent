@@ -64,6 +64,10 @@ public class RedisConfig {
     @Value("${redis.pool.maxWait:3000}")
     private long maxWait;
 
+    /**
+     * 处理redisConnectionFactory。
+     * @return 返回处理结果。
+     */
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
         RedisStandaloneConfiguration standaloneConfig = new RedisStandaloneConfiguration(host, port);
@@ -93,6 +97,11 @@ public class RedisConfig {
         return new LettuceConnectionFactory(standaloneConfig, clientConfig);
     }
 
+    /**
+     * 处理redisTemplate。
+     * @param connectionFactory c on ne ct io nF ac to ry 参数
+     * @return 返回处理结果。
+     */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
@@ -119,6 +128,11 @@ public class RedisConfig {
         return template;
     }
 
+    /**
+     * 处理stringRedisTemplate。
+     * @param connectionFactory c on ne ct io nF ac to ry 参数
+     * @return 返回处理结果。
+     */
     @Bean
     public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory connectionFactory) {
         return new StringRedisTemplate(connectionFactory);

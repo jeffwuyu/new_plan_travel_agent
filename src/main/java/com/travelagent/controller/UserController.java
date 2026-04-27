@@ -33,6 +33,11 @@ public class UserController {
     @Autowired
     private QuotaService quotaService;
 
+    /**
+     * 处理profile。
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @Operation(summary ="获取当前用户信息")
     @GetMapping("/profile")
     public Result<UserProfileResponse> profile(HttpServletRequest request) {
@@ -51,6 +56,11 @@ public class UserController {
         return Result.success(resp);
     }
 
+    /**
+     * 处理quota。
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @Operation(summary ="获取当前用户配额使用情况")
     @GetMapping("/quota")
     public Result<Map<String, Object>> quota(HttpServletRequest request) {
@@ -77,6 +87,12 @@ public class UserController {
         return Result.success(data);
     }
 
+    /**
+     * 处理remaining。
+     * @param limit 返回数量上限
+     * @param used u se d 参数
+     * @return 返回处理结果。
+     */
     private long remaining(long limit, long used) {
         if (limit <= 0) {
             return 0;

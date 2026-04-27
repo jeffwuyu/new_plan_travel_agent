@@ -40,6 +40,11 @@ public class HistoryManager {
     @Autowired
     private LlmUsageAccountingService llmUsageAccountingService;
 
+    /**
+     * 处理prepareForLlm。
+     * @param checkpoint 任务检查点数据
+     * @return 返回处理后的列表结果。
+     */
     public List<Map<String, Object>> prepareForLlm(TaskCheckpoint checkpoint) {
         List<Map<String, Object>> history = checkpoint.getLlmConversationHistory();
         if (history == null) {
@@ -59,6 +64,12 @@ public class HistoryManager {
         return trimWindow(history, slidingWindow);
     }
 
+    /**
+     * 处理appendExchange。
+     * @param checkpoint 任务检查点数据
+     * @param userMessage u se rM es sa ge 参数
+     * @param assistantResponse a ss is ta nt Re sp on se 参数
+     */
     public void appendExchange(TaskCheckpoint checkpoint, String userMessage, String assistantResponse) {
         List<Map<String, Object>> history = checkpoint.getLlmConversationHistory();
         if (history == null) {
@@ -78,6 +89,11 @@ public class HistoryManager {
         history.add(assistantEntry);
     }
 
+    /**
+     * 处理estimateTokens。
+     * @param history h is to ry 参数
+     * @return 返回处理结果。
+     */
     public int estimateTokens(List<Map<String, Object>> history) {
         if (history == null || history.isEmpty()) {
             return 0;
@@ -91,6 +107,12 @@ public class HistoryManager {
         return totalChars / CHARS_PER_TOKEN;
     }
 
+    /**
+     * 处理trimWindow。
+     * @param history h is to ry 参数
+     * @param windowSize w in do wS iz e 参数
+     * @return 返回处理后的列表结果。
+     */
     public List<Map<String, Object>> trimWindow(List<Map<String, Object>> history, int windowSize) {
         if (history == null) {
             return new ArrayList<>();
@@ -102,6 +124,12 @@ public class HistoryManager {
         return new ArrayList<>(history.subList(history.size() - maxEntries, history.size()));
     }
 
+    /**
+     * 处理compress。
+     * @param checkpoint 任务检查点数据
+     * @param history h is to ry 参数
+     * @return 返回处理后的列表结果。
+     */
     private List<Map<String, Object>> compress(TaskCheckpoint checkpoint,
                                                List<Map<String, Object>> history) {
         int keepCount = KEEP_ROUNDS_AFTER_COMPRESS * 2;

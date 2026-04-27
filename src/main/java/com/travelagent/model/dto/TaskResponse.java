@@ -52,6 +52,11 @@ public class TaskResponse {
     private ResolvedLocation selectedOrigin;
     private ResolvedLocation selectedDestination;
 
+    /**
+     * 处理from。
+     * @param task 任务实体
+     * @return 返回处理结果。
+     */
     public static TaskResponse from(Task task) {
         TaskResponse r = new TaskResponse();
         r.taskUuid = task.getTaskUuid();
@@ -67,6 +72,12 @@ public class TaskResponse {
         return r;
     }
 
+    /**
+     * 处理from。
+     * @param task 任务实体
+     * @param checkpoint 任务检查点数据
+     * @return 返回处理结果。
+     */
     public static TaskResponse from(Task task, TaskCheckpoint checkpoint) {
         TaskResponse r = from(task);
         if (checkpoint != null) {

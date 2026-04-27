@@ -20,6 +20,11 @@ public class JsonUtil {
     @Autowired
     private ObjectMapper objectMapper;
 
+    /**
+     * 将数据转换为json。
+     * @param obj o bj 参数
+     * @return 返回处理结果。
+     */
     public String toJson(Object obj) {
         try {
             return objectMapper.writeValueAsString(obj);
@@ -28,6 +33,12 @@ public class JsonUtil {
         }
     }
 
+    /**
+     * 将。
+     * @param json JSON字符串
+     * @param clazz 目标类型
+     * @return 返回处理结果。
+     */
     public <T> T fromJson(String json, Class<T> clazz) {
         try {
             return objectMapper.readValue(json, clazz);
@@ -36,6 +47,12 @@ public class JsonUtil {
         }
     }
 
+    /**
+     * 将。
+     * @param json JSON字符串
+     * @param typeRef t yp eR ef 参数
+     * @return 返回处理结果。
+     */
     public <T> T fromJson(String json, TypeReference<T> typeRef) {
         try {
             return objectMapper.readValue(json, typeRef);

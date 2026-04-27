@@ -62,7 +62,9 @@ public class RateLimitAspect {
     private JwtUtil jwtUtil;
 
     /**
-     * 中文注释：在目标方法执行前检查匿名请求是否超过当前 IP 的小时限流阈值。
+     * 处理enforceRateLimit。
+     * @param jp j p 参数
+     * @param rateLimit r at eL im it 参数
      */
     @Before("@annotation(rateLimit)")
     public void enforceRateLimit(JoinPoint jp, RateLimit rateLimit) {
@@ -104,10 +106,9 @@ public class RateLimitAspect {
     }
 
     /**
-     * 中文注释：做一次“可选鉴权”判断。
-     *
-     * <p>这里只决定当前请求是否应被视为已登录，不负责返回 401。
-     * 黑名单 token、过期 token、非法 token 都会回退为匿名请求。
+     * 判断authenticatedrequest。
+     * @param request 请求参数
+     * @return 是否满足当前条件。
      */
     private boolean isAuthenticatedRequest(HttpServletRequest request) {
         String header = request.getHeader(headerName);
@@ -135,9 +136,9 @@ public class RateLimitAspect {
     }
 
     /**
-     * 中文注释：解析客户端真实 IP。
-     *
-     * <p>优先取反向代理头中的首个 IP，最后兜底为 Servlet 容器看到的远端地址。
+     * 解析并确定clientip。
+     * @param request 请求参数
+     * @return 返回处理结果。
      */
     private String resolveClientIp(HttpServletRequest request) {
         String forwarded = request.getHeader("X-Forwarded-For");

@@ -27,6 +27,10 @@ public class ThreadPoolConfig {
     @Value("${agent.task.queue-size:100}")
     private int agentQueueSize;
 
+    /**
+     * 处理agentTaskExecutor。
+     * @return 返回处理结果。
+     */
     @Bean(name = "agentTaskExecutor")
     public ThreadPoolTaskExecutor agentTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
@@ -41,6 +45,10 @@ public class ThreadPoolConfig {
         return executor;
     }
 
+    /**
+     * 处理ragIngestionExecutor。
+     * @return 返回处理结果。
+     */
     @Bean(name = "ragIngestionExecutor")
     public ThreadPoolTaskExecutor ragIngestionExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();

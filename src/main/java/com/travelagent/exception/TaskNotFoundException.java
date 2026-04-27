@@ -6,6 +6,10 @@ package com.travelagent.exception;
 
 public class TaskNotFoundException extends BusinessException {
 
+    /**
+     * 初始化TaskNotFoundException 实例。
+     * @param taskUuid 任务唯一标识
+     */
     public TaskNotFoundException(String taskUuid) {
         super(404, "任务不存在: " + taskUuid);
     }

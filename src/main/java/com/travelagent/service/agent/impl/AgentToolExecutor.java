@@ -37,6 +37,16 @@ public class AgentToolExecutor {
     @Autowired private TaskMetricsService taskMetricsService;
     @Autowired private JsonUtil jsonUtil;
 
+    /**
+     * 处理runToolWithCheckpoint。
+     * @param task 任务实体
+     * @param checkpoint 任务检查点数据
+     * @param toolName t oo lN am e 参数
+     * @param arguments 工具调用参数
+     * @param taskUuid 任务唯一标识
+     * @param stepIndex s te pI nd ex 参数
+     * @return 返回处理后的映射结果。
+     */
     @SuppressWarnings("unchecked")
     public Map<String, Object> runToolWithCheckpoint(Task task, TaskCheckpoint checkpoint,
                                                       String toolName, Map<String, Object> arguments,
@@ -63,6 +73,12 @@ public class AgentToolExecutor {
         }
     }
 
+    /**
+     * 处理replayPendingToolCall。
+     * @param task 任务实体
+     * @param checkpoint 任务检查点数据
+     * @param taskUuid 任务唯一标识
+     */
     public void replayPendingToolCall(Task task, TaskCheckpoint checkpoint, String taskUuid) {
         PendingToolCall pending = checkpoint.getPendingToolCall();
         try {
@@ -75,11 +91,24 @@ public class AgentToolExecutor {
         }
     }
 
+    /**
+     * 构建toolidempotencykey。
+     * @param taskUuid 任务唯一标识
+     * @param stepIndex s te pI nd ex 参数
+     * @param toolName t oo lN am e 参数
+     * @param arguments 工具调用参数
+     * @return 返回处理结果。
+     */
     private String buildToolIdempotencyKey(String taskUuid, int stepIndex, String toolName, Map<String, Object> arguments) {
         String argsFingerprint = hashArguments(arguments);
         return taskUuid + "-step" + stepIndex + "-" + toolName + "-" + argsFingerprint;
     }
 
+    /**
+     * 判断hashArguments。
+     * @param arguments 工具调用参数
+     * @return 返回处理结果。
+     */
     private String hashArguments(Map<String, Object> arguments) {
         try {
             String normalizedJson = jsonUtil.toJson(normalizeForFingerprint(arguments == null ? Map.of() : arguments));
@@ -95,6 +124,11 @@ public class AgentToolExecutor {
         }
     }
 
+    /**
+     * 规范化forfingerprint。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     @SuppressWarnings("unchecked")
     private Object normalizeForFingerprint(Object value) {
         if (value instanceof Map<?, ?> map) {

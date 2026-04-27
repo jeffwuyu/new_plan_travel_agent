@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -59,6 +60,7 @@ class AmapClientTest {
         ReflectionTestUtils.setField(jsonUtil, "objectMapper", new ObjectMapper());
         ReflectionTestUtils.setField(amapClient, "jsonUtil", jsonUtil);
         ReflectionTestUtils.setField(amapClient, "rateLimiter", new AmapRateLimiter());
+        ReflectionTestUtils.setField(amapClient, "retryBackoffMillis", new long[]{0L, 0L, 0L});
     }
 
     @Test
@@ -171,6 +173,7 @@ class AmapClientTest {
         assertThatThrownBy(() -> amapClient.geocode("兵马俑", "西安市"))
                 .isInstanceOf(AgentException.class)
                 .satisfies(ex -> assertThat(((AgentException) ex).getErrorCode()).isEqualTo(AgentErrorCode.TOOL_AMAP_ERROR));
+        verify(okHttpClient, times(1)).newCall(any());
     }
 
     @Test
@@ -186,6 +189,70 @@ class AmapClientTest {
                     assertThat(agentException.getErrorCode()).isEqualTo(AgentErrorCode.TOOL_AMAP_RATE_LIMIT);
                     assertThat(agentException.isRetryable()).isTrue();
                 });
+        verify(okHttpClient, times(1)).newCall(any());
+    }
+
+    @Test
+    @DisplayName("geocode retries transient ENGINE_RESPONSE_DATA_ERROR and eventually succeeds")
+    void geocode_transientError_retriesAndSucceeds() throws IOException {
+        when(redisUtil.getString(any())).thenReturn(null);
+        when(okHttpClient.newCall(any())).thenReturn(okHttpCall);
+        when(okHttpCall.execute())
+                .thenReturn(httpResponse("{\"status\":\"0\",\"info\":\"ENGINE_RESPONSE_DATA_ERROR\"}"))
+                .thenReturn(httpResponse("""
+                        {
+                          "status": "1",
+                          "geocodes": [
+                            { "location": "120.155070,30.274085", "adcode": "330100" }
+                          ]
+                        }
+                        """));
+
+        Map<String, Object> result = amapClient.geocode("西湖", "杭州");
+
+        assertThat(result.get("lat")).isEqualTo(30.274085);
+        assertThat(result.get("lng")).isEqualTo(120.15507);
+        assertThat(result.get("adcode")).isEqualTo("330100");
+        verify(okHttpClient, times(2)).newCall(any());
+    }
+
+    @Test
+    @DisplayName("geocode exhausts transient retries and throws retryable transient error")
+    void geocode_transientError_exhausted_throwsRetryableAgentException() throws IOException {
+        when(redisUtil.getString(any())).thenReturn(null);
+        mockHttpResponse("{\"status\":\"0\",\"info\":\"ENGINE_RESPONSE_DATA_ERROR\"}");
+
+        assertThatThrownBy(() -> amapClient.geocode("西湖", "杭州"))
+                .isInstanceOf(AgentException.class)
+                .satisfies(ex -> {
+                    AgentException agentException = (AgentException) ex;
+                    assertThat(agentException.getErrorCode()).isEqualTo(AgentErrorCode.TOOL_AMAP_TRANSIENT);
+                    assertThat(agentException.isRetryable()).isTrue();
+                });
+        verify(okHttpClient, times(3)).newCall(any());
+    }
+
+    @Test
+    @DisplayName("distance retries transient ENGINE_RESPONSE_DATA_ERROR across non-geocode APIs")
+    void distance_transientError_retriesAndSucceeds() throws IOException {
+        when(redisUtil.getString(any())).thenReturn(null);
+        when(okHttpClient.newCall(any())).thenReturn(okHttpCall);
+        when(okHttpCall.execute())
+                .thenReturn(httpResponse("{\"status\":\"0\",\"info\":\"ENGINE_RESPONSE_DATA_ERROR\"}"))
+                .thenReturn(httpResponse("""
+                        {
+                          "status": "1",
+                          "results": [
+                            { "distance": "4567" }
+                          ]
+                        }
+                        """));
+
+        Map<String, Object> result = amapClient.getDistance(109.28, 34.38, 109.00, 34.26);
+
+        assertThat(result.get("distanceMeters")).isEqualTo(4567);
+        assertThat(((Number) result.get("distanceKm")).doubleValue()).isCloseTo(4.567, within(0.001));
+        verify(okHttpClient, times(2)).newCall(any());
     }
 
     @Test

@@ -62,8 +62,7 @@ public class TaskDispatcher {
     // -----------------------------------------------------------------------
 
     /**
-     * Poll for PENDING and RESUMING tasks and dispatch them to the executor.
-     * Uses {@code fixedDelay} so back-pressure from a slow DB is respected.
+     * 处理pollAndDispatch。
      */
     @Scheduled(fixedDelayString = "${agent.task.poll-interval-ms:2000}")
     public void pollAndDispatch() {

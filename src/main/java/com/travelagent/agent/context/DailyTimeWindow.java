@@ -18,6 +18,10 @@ public class DailyTimeWindow {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
+    /**
+     * 处理availableMinutes。
+     * @return 返回处理结果。
+     */
     public int availableMinutes() {
         if (startTime == null || endTime == null || !endTime.isAfter(startTime)) {
             return 0;

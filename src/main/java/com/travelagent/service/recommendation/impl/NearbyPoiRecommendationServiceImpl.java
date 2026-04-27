@@ -18,6 +18,11 @@ public class NearbyPoiRecommendationServiceImpl implements NearbyPoiRecommendati
     @Autowired private CandidateRecallService candidateRecallService;
     @Autowired private CandidateRankingService candidateRankingService;
 
+    /**
+     * 处理recommend。
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     @Override
     public NearbyPoiRecommendationResponse recommend(NearbyPoiRecommendationRequest request) {
         NearbyPoiRecommendationResponse response = new NearbyPoiRecommendationResponse();

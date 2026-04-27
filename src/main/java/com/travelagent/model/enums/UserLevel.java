@@ -25,6 +25,11 @@ public enum UserLevel {
         this.label = label;
     }
 
+    /**
+     * 将。
+     * @param code 状态码
+     * @return 返回处理结果。
+     */
     public static UserLevel fromCode(int code) {
         for (UserLevel level : values()) {
             if (level.code == code) return level;

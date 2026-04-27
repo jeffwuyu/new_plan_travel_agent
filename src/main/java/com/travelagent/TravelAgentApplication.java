@@ -27,6 +27,10 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @MapperScan("com.travelagent.mapper")
 public class TravelAgentApplication {
 
+    /**
+     * 处理main。
+     * @param args a rg s 参数
+     */
     public static void main(String[] args) {
         SpringApplication.run(TravelAgentApplication.class, args);
     }

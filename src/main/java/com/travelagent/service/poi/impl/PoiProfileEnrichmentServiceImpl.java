@@ -21,6 +21,11 @@ public class PoiProfileEnrichmentServiceImpl implements PoiProfileEnrichmentServ
     @Autowired private AttractionMapper attractionMapper;
     @Autowired private JsonUtil jsonUtil;
 
+    /**
+     * 保存orupdatefromamappoi。
+     * @param amapPoi a ma pP oi 参数
+     * @return 返回处理结果。
+     */
     @Override
     public Attraction saveOrUpdateFromAmapPoi(Map<String, Object> amapPoi) {
         Attraction attraction = toAttraction(amapPoi);
@@ -28,6 +33,11 @@ public class PoiProfileEnrichmentServiceImpl implements PoiProfileEnrichmentServ
         return attraction;
     }
 
+    /**
+     * 保存orupdateall。
+     * @param amapPois a ma pP oi s 参数
+     * @return 返回处理后的列表结果。
+     */
     @Override
     public List<Attraction> saveOrUpdateAll(List<Map<String, Object>> amapPois) {
         List<Attraction> attractions = new ArrayList<>();
@@ -37,6 +47,11 @@ public class PoiProfileEnrichmentServiceImpl implements PoiProfileEnrichmentServ
         return attractions;
     }
 
+    /**
+     * 将数据转换为attraction。
+     * @param amapPoi a ma pP oi 参数
+     * @return 返回处理结果。
+     */
     private Attraction toAttraction(Map<String, Object> amapPoi) {
         Attraction attraction = new Attraction();
         attraction.setAmapPoiId(stringValue(amapPoi.get("id")));
@@ -72,6 +87,11 @@ public class PoiProfileEnrichmentServiceImpl implements PoiProfileEnrichmentServ
         return attraction;
     }
 
+    /**
+     * 提取tags。
+     * @param amapPoi a ma pP oi 参数
+     * @return 返回处理后的列表结果。
+     */
     private List<String> extractTags(Map<String, Object> amapPoi) {
         Set<String> tags = new LinkedHashSet<>();
         String type = stringValue(amapPoi.get("type"));
@@ -90,6 +110,11 @@ public class PoiProfileEnrichmentServiceImpl implements PoiProfileEnrichmentServ
         return new ArrayList<>(tags);
     }
 
+    /**
+     * 处理firstToken。
+     * @param raw r aw 参数
+     * @return 返回处理结果。
+     */
     private String firstToken(String raw) {
         if (raw == null || raw.isBlank()) {
             return null;
@@ -97,6 +122,11 @@ public class PoiProfileEnrichmentServiceImpl implements PoiProfileEnrichmentServ
         return raw.split(";")[0].trim();
     }
 
+    /**
+     * 处理secondToken。
+     * @param raw r aw 参数
+     * @return 返回处理结果。
+     */
     private String secondToken(String raw) {
         if (raw == null || raw.isBlank()) {
             return null;
@@ -105,6 +135,11 @@ public class PoiProfileEnrichmentServiceImpl implements PoiProfileEnrichmentServ
         return parts.length > 1 ? parts[1].trim() : null;
     }
 
+    /**
+     * 处理firstNonBlank。
+     * @param values v al ue s 参数
+     * @return 返回处理结果。
+     */
     private String firstNonBlank(String... values) {
         for (String value : values) {
             if (value != null && !value.isBlank()) {
@@ -114,10 +149,20 @@ public class PoiProfileEnrichmentServiceImpl implements PoiProfileEnrichmentServ
         return null;
     }
 
+    /**
+     * 处理stringValue。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private String stringValue(Object value) {
         return value == null ? "" : value.toString().trim();
     }
 
+    /**
+     * 处理decimalValue。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private BigDecimal decimalValue(Object value) {
         if (value == null || value.toString().isBlank()) {
             return null;

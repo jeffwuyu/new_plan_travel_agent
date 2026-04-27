@@ -14,11 +14,19 @@ public class QuotaExhaustedException extends BusinessException {
 
     private final String periodType;  // daily | monthly
 
+    /**
+     * 初始化QuotaExhaustedException 实例。
+     * @param periodType p er io dT yp e 参数
+     */
     public QuotaExhaustedException(String periodType) {
         super(429, "Token配额已耗尽(" + periodType + ")，任务已暂停，配额补充后可继续");
         this.periodType = periodType;
     }
 
+    /**
+     * 获取periodtype。
+     * @return 返回处理结果。
+     */
     public String getPeriodType() {
         return periodType;
     }

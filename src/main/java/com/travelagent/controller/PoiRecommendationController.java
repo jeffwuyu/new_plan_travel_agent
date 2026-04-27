@@ -22,6 +22,12 @@ public class PoiRecommendationController {
 
     @Autowired private NearbyPoiRecommendationService nearbyPoiRecommendationService;
 
+    /**
+     * 处理recommendNearby。
+     * @param request 请求参数
+     * @param httpRequest HTTP请求对象
+     * @return 返回统一封装后的响应结果。
+     */
     @Operation(summary = "推荐相近景点")
     @PostMapping("/nearby")
     public Result<NearbyPoiRecommendationResponse> recommendNearby(@Valid @RequestBody NearbyPoiRecommendationRequest request,

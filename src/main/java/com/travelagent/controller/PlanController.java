@@ -48,8 +48,9 @@ public class PlanController {
     // -----------------------------------------------------------------------
 
     /**
-     * 查询当前登录用户的所有规划（不含 steps，轻量列表）。
-     * 按创建时间倒序排列，最新规划在前。
+     * 获取。
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
      */
     @Operation(summary = "获取当前用户的所有旅行规划列表")
     @GetMapping
@@ -71,6 +72,12 @@ public class PlanController {
      */
     @Operation(summary = "按规划 ID 获取规划详情",
                description = "返回规划的元信息（标题、地区、总天数、摘要）。步骤列表请使用 /steps 端点。")
+    /**
+     * 获取plan。
+     * @param planId 计划ID
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @GetMapping("/{planId}")
     public Result<Plan> getPlan(@PathVariable Long planId, HttpServletRequest request) {
         Long userId = JwtAuthInterceptor.getUserId(request);
@@ -94,6 +101,12 @@ public class PlanController {
      */
     @Operation(summary = "获取规划的所有景点步骤",
                description = "返回按 step_order 升序排列的景点列表，包含坐标、天气备注和交通时长。")
+    /**
+     * 获取steps。
+     * @param planId 计划ID
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @GetMapping("/{planId}/steps")
     public Result<List<PlanStep>> getSteps(@PathVariable Long planId, HttpServletRequest request) {
         Long userId = JwtAuthInterceptor.getUserId(request);
@@ -123,6 +136,12 @@ public class PlanController {
      */
     @Operation(summary = "按任务 UUID 获取规划（含步骤数量）",
                description = "任务完成后调用，返回规划基本信息和步骤数量。完整步骤请调用 /{planId}/steps。")
+    /**
+     * 获取planbytask。
+     * @param taskUuid 任务唯一标识
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @GetMapping("/by-task/{taskUuid}")
     public Result<Map<String, Object>> getPlanByTask(@PathVariable String taskUuid,
                                                       HttpServletRequest request) {

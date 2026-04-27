@@ -40,6 +40,10 @@ public class CacheConfig {
     public static final String TASK_STATUS      = "taskStatus";
     public static final String RAG_CHUNK        = "ragChunk";
 
+    /**
+     * 处理cacheManager。
+     * @return 返回处理结果。
+     */
     @Bean
     public CacheManager cacheManager() {
         SimpleCacheManager cacheManager = new SimpleCacheManager();
@@ -53,6 +57,14 @@ public class CacheConfig {
         return cacheManager;
     }
 
+    /**
+     * 构建cache。
+     * @param name n am e 参数
+     * @param ttl 缓存有效期
+     * @param unit u ni t 参数
+     * @param maxSize m ax Si ze 参数
+     * @return 返回处理结果。
+     */
     private CaffeineCache buildCache(String name, long ttl, TimeUnit unit, int maxSize) {
         return new CaffeineCache(name,
             Caffeine.newBuilder()

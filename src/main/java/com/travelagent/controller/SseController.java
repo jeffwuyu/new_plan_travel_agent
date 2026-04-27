@@ -61,6 +61,12 @@ public class SseController {
 
     @Operation(summary = "订阅任务实时进展 (SSE)",
                description = "返回 text/event-stream。需要 JWT，仅任务所有者可订阅。")
+    /**
+     * 处理stream。
+     * @param taskUuid 任务唯一标识
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     @GetMapping(value = "/{taskUuid}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public ResponseEntity<?> stream(@PathVariable String taskUuid, HttpServletRequest request) {
         Long requestUserId = JwtAuthInterceptor.getUserId(request);

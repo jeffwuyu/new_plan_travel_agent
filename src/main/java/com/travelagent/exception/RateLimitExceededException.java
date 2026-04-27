@@ -8,10 +8,17 @@ public class RateLimitExceededException extends BusinessException {
     private static final int HTTP_STATUS = 429;
     private static final String DEFAULT_MESSAGE = "请求过于频繁，请稍后再试";
 
+    /**
+     * 初始化RateLimitExceededException 实例。
+     */
     public RateLimitExceededException() {
         super(HTTP_STATUS, DEFAULT_MESSAGE);
     }
 
+    /**
+     * 初始化RateLimitExceededException 实例。
+     * @param message 提示信息
+     */
     public RateLimitExceededException(String message) {
         super(HTTP_STATUS, message);
     }

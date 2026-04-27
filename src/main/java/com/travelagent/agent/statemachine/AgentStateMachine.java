@@ -53,6 +53,12 @@ public class AgentStateMachine {
         TARGET_STATE.put(AgentEvent.CANCEL, TaskStatus.CANCELLED);
     }
 
+    /**
+     * 处理transition。
+     * @param fromStatus f ro mS ta tu s 参数
+     * @param event 触发事件
+     * @return 返回处理结果。
+     */
     public TaskStatus transition(TaskStatus fromStatus, AgentEvent event) {
         Set<AgentEvent> allowed = ALLOWED.getOrDefault(fromStatus, EnumSet.noneOf(AgentEvent.class));
         if (!allowed.contains(event)) {
@@ -62,6 +68,12 @@ public class AgentStateMachine {
         return TARGET_STATE.get(event);
     }
 
+    /**
+     * 判断是否可以执行transition。
+     * @param fromStatus f ro mS ta tu s 参数
+     * @param event 触发事件
+     * @return 是否满足当前条件。
+     */
     public boolean canTransition(TaskStatus fromStatus, AgentEvent event) {
         return ALLOWED.getOrDefault(fromStatus, EnumSet.noneOf(AgentEvent.class)).contains(event);
     }

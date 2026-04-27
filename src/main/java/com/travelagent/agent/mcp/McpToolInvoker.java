@@ -18,6 +18,13 @@ public class McpToolInvoker {
     private final McpSessionClient sessionClient;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 初始化McpToolInvoker 实例。
+     * @param properties 配置属性
+     * @param toolCatalog t oo lC at al og 参数
+     * @param sessionClient s es si on Cl ie nt 参数
+     * @param objectMapper o bj ec tM ap pe r 参数
+     */
     public McpToolInvoker(AgentMcpProperties properties,
                           McpToolCatalog toolCatalog,
                           McpSessionClient sessionClient,
@@ -28,6 +35,12 @@ public class McpToolInvoker {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * 处理callTool。
+     * @param toolName t oo lN am e 参数
+     * @param arguments 工具调用参数
+     * @return 返回处理结果。
+     */
     public McpToolCallResult callTool(String toolName, Map<String, Object> arguments) {
         toolCatalog.requireTool(toolName);
         JsonNode resultNode = sessionClient.sendRequest("tools/call", Map.of(
@@ -42,6 +55,11 @@ public class McpToolInvoker {
         return new McpToolCallResult(isError, structuredContent, content, raw);
     }
 
+    /**
+     * 处理nodeToMap。
+     * @param node n od e 参数
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> nodeToMap(JsonNode node) {
         if (node == null || node.isNull()) {
             return Map.of();
@@ -49,6 +67,11 @@ public class McpToolInvoker {
         return objectMapper.convertValue(node, new TypeReference<>() {});
     }
 
+    /**
+     * 处理nodeToList。
+     * @param node n od e 参数
+     * @return 返回处理后的列表结果。
+     */
     private List<Map<String, Object>> nodeToList(JsonNode node) {
         if (node == null || node.isNull()) {
             return List.of();

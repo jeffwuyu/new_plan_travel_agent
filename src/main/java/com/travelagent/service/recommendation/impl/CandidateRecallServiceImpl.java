@@ -29,6 +29,11 @@ public class CandidateRecallServiceImpl implements CandidateRecallService {
     @Autowired private PoiProfileEnrichmentService poiProfileEnrichmentService;
     @Autowired private JsonUtil jsonUtil;
 
+    /**
+     * 处理recallCandidates。
+     * @param request 请求参数
+     * @return 返回处理后的列表结果。
+     */
     @Override
     public List<Attraction> recallCandidates(NearbyPoiRecommendationRequest request) {
         int desired = Math.max(safeTopK(request) * 4, 20);
@@ -76,6 +81,11 @@ public class CandidateRecallServiceImpl implements CandidateRecallService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 解析并确定currentpoi。
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     private Attraction resolveCurrentPoi(NearbyPoiRecommendationRequest request) {
         if (request.getCurrentPoiId() != null && !request.getCurrentPoiId().isBlank()) {
             Attraction byId = attractionMapper.findByAmapPoiId(request.getCurrentPoiId());
@@ -89,6 +99,12 @@ public class CandidateRecallServiceImpl implements CandidateRecallService {
         return null;
     }
 
+    /**
+     * 判断excluded。
+     * @param attraction a tt ra ct io n 参数
+     * @param request 请求参数
+     * @return 是否满足当前条件。
+     */
     private boolean isExcluded(Attraction attraction, NearbyPoiRecommendationRequest request) {
         if (attraction == null || attraction.getName() == null) {
             return true;
@@ -103,6 +119,11 @@ public class CandidateRecallServiceImpl implements CandidateRecallService {
         return excludedNames.contains(attraction.getName().toLowerCase());
     }
 
+    /**
+     * 将数据转换为lowerset。
+     * @param values v al ue s 参数
+     * @return 返回处理结果。
+     */
     private Set<String> toLowerSet(Collection<String> values) {
         if (values == null) {
             return Set.of();
@@ -114,6 +135,12 @@ public class CandidateRecallServiceImpl implements CandidateRecallService {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * 判断是否具备tagoverlap。
+     * @param left l ef t 参数
+     * @param right r ig ht 参数
+     * @return 是否满足当前条件。
+     */
     private boolean hasTagOverlap(List<String> left, List<String> right) {
         Set<String> normalized = left.stream()
                 .map(String::toLowerCase)
@@ -126,6 +153,11 @@ public class CandidateRecallServiceImpl implements CandidateRecallService {
         return false;
     }
 
+    /**
+     * 解析stringlist。
+     * @param json JSON字符串
+     * @return 返回处理后的列表结果。
+     */
     private List<String> parseStringList(String json) {
         if (json == null || json.isBlank()) {
             return List.of();
@@ -137,12 +169,22 @@ public class CandidateRecallServiceImpl implements CandidateRecallService {
         }
     }
 
+    /**
+     * 处理keyOf。
+     * @param attraction a tt ra ct io n 参数
+     * @return 返回处理结果。
+     */
     private String keyOf(Attraction attraction) {
         return attraction.getAmapPoiId() != null && !attraction.getAmapPoiId().isBlank()
                 ? attraction.getAmapPoiId()
                 : attraction.getName() + "|" + attraction.getRegion();
     }
 
+    /**
+     * 处理safeTopK。
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     private int safeTopK(NearbyPoiRecommendationRequest request) {
         return request.getTopK() == null ? 5 : request.getTopK();
     }

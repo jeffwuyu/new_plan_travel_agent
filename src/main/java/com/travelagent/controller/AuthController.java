@@ -35,6 +35,11 @@ public class AuthController {
     @Value("${jwt.prefix:Bearer}")
     private String tokenPrefix;
 
+    /**
+     * 处理register。
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @Operation(summary ="用户注册")
     @PostMapping("/register")
     public Result<User> register(@Valid @RequestBody RegisterRequest request) {
@@ -42,6 +47,11 @@ public class AuthController {
         return Result.success(user);
     }
 
+    /**
+     * 处理login。
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @Operation(summary ="用户登录")
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
@@ -49,6 +59,11 @@ public class AuthController {
         return Result.success(response);
     }
 
+    /**
+     * 处理logout。
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @Operation(summary ="用户登出（使当前 Token 失效）")
     @PostMapping("/logout")
     public Result<Void> logout(HttpServletRequest request) {
@@ -57,6 +72,11 @@ public class AuthController {
         return Result.success();
     }
 
+    /**
+     * 取消account。
+     * @param request 请求参数
+     * @return 返回统一封装后的响应结果。
+     */
     @Operation(summary ="注销账户（软删除，不可恢复）")
     @DeleteMapping("/account")
     public Result<Void> cancelAccount(HttpServletRequest request) {
@@ -68,6 +88,11 @@ public class AuthController {
         return Result.success();
     }
 
+    /**
+     * 提取token。
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     private String extractToken(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith(tokenPrefix + " ")) {

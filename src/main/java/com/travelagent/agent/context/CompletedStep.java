@@ -26,6 +26,15 @@ public class CompletedStep {
     private LocalDateTime plannedEndTime;
     private Map<String, Object> toolCallResults;
 
+    /**
+     * 初始化CompletedStep 实例。
+     * @param stepIndex s te pI nd ex 参数
+     * @param dayNumber d ay Nu mb er 参数
+     * @param attractionName 景点名称
+     * @param lat 纬度
+     * @param lng 经度
+     * @param toolCallResults t oo lC al lR es ul ts 参数
+     */
     public CompletedStep(int stepIndex, int dayNumber, String attractionName,
                          Double lat, Double lng, Map<String, Object> toolCallResults) {
         this.stepIndex = stepIndex;

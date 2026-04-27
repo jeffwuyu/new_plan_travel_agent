@@ -38,8 +38,9 @@ public class QuotaInterceptor {
     private QuotaService quotaService;
 
     /**
-     * Intercepts any method annotated with {@link QuotaGuarded} and enforces the daily
-     * token quota before execution proceeds.
+     * 检查quota。
+     * @param jp j p 参数
+     * @param quotaGuarded q uo ta Gu ar de d 参数
      */
     @Before("@annotation(quotaGuarded)")
     public void checkQuota(JoinPoint jp, QuotaGuarded quotaGuarded) {

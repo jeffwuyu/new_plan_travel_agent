@@ -29,6 +29,12 @@ public class IdempotencyAspect {
     @Autowired
     private JsonUtil jsonUtil;
 
+    /**
+     * 处理around。
+     * @param pjp p jp 参数
+     * @param idempotentTool i de mp ot en tT oo l 参数
+     * @return 返回处理结果。
+     */
     @Around("@annotation(idempotentTool)")
     public Object around(ProceedingJoinPoint pjp, IdempotentTool idempotentTool) throws Throwable {
         String methodName = resolveMethodName(pjp);
@@ -69,6 +75,11 @@ public class IdempotencyAspect {
         return result;
     }
 
+    /**
+     * 解析并确定methodname。
+     * @param pjp p jp 参数
+     * @return 返回处理结果。
+     */
     private String resolveMethodName(ProceedingJoinPoint pjp) {
         if (pjp == null || pjp.getSignature() == null || pjp.getSignature().getName() == null) {
             return "unknown";

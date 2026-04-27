@@ -12,6 +12,13 @@ import java.util.List;
 @Service
 public class RecommendationExplanationServiceImpl implements RecommendationExplanationService {
 
+    /**
+     * 构建explanations。
+     * @param request 请求参数
+     * @param attraction a tt ra ct io n 参数
+     * @param item i te m 参数
+     * @return 返回处理后的列表结果。
+     */
     @Override
     public List<String> buildExplanations(NearbyPoiRecommendationRequest request,
                                           Attraction attraction,
@@ -48,6 +55,11 @@ public class RecommendationExplanationServiceImpl implements RecommendationExpla
         return explanations;
     }
 
+    /**
+     * 规范化travelmode。
+     * @param travelMode 出行方式
+     * @return 返回处理结果。
+     */
     private String normalizeTravelMode(String travelMode) {
         if ("walking".equalsIgnoreCase(travelMode)) {
             return "步行";

@@ -32,6 +32,11 @@ public class AgentCheckpointHelper {
     @Autowired private JsonUtil jsonUtil;
     @Autowired(required = false) private AmapClient amapClient;
 
+    /**
+     * 加载checkpoint。
+     * @param task 任务实体
+     * @return 返回处理结果。
+     */
     public TaskCheckpoint loadCheckpoint(Task task) {
         if (task.getCheckpointJson() == null || task.getCheckpointJson().isBlank()) {
             return new TaskCheckpoint();
@@ -43,12 +48,34 @@ public class AgentCheckpointHelper {
         }
     }
 
+    /**
+     * 保存checkpoint。
+     * @param task 任务实体
+     * @param checkpoint 任务检查点数据
+     */
     public void saveCheckpoint(Task task, TaskCheckpoint checkpoint) {
         task.setCheckpointJson(jsonUtil.toJson(checkpoint));
         task.setStatus(checkpoint.getCurrentState());
         taskMapper.updateCheckpoint(task);
     }
 
+    /**
+     * 构建completedstep。
+     * @param stepIndex s te pI nd ex 参数
+     * @param dayNumber d ay Nu mb er 参数
+     * @param attractionName 景点名称
+     * @param lat 纬度
+     * @param lng 经度
+     * @param geocodeResult g eo co de Re su lt 参数
+     * @param weatherResult w ea th er Re su lt 参数
+     * @param trafficResult t ra ff ic Re su lt 参数
+     * @param trafficMin t ra ff ic Mi n 参数
+     * @param visitDurationMin v is it Du ra ti on Mi n 参数
+     * @param plannedStart p la nn ed St ar t 参数
+     * @param plannedEnd p la nn ed En d 参数
+     * @param returnToDestinationMin r et ur nT oD es ti na ti on Mi n 参数
+     * @return 返回处理结果。
+     */
     public CompletedStep buildCompletedStep(int stepIndex, int dayNumber, String attractionName,
                                              double lat, double lng,
                                              Map<String, Object> geocodeResult,
@@ -85,6 +112,10 @@ public class AgentCheckpointHelper {
         return step;
     }
 
+    /**
+     * 刷新remainingbudget。
+     * @param checkpoint 任务检查点数据
+     */
     public void refreshRemainingBudget(TaskCheckpoint checkpoint) {
         int totalAvailable = checkpoint.totalAvailableMinutes();
         int used = valueOrZero(checkpoint.getUsedTimeBudgetMin());
@@ -95,6 +126,11 @@ public class AgentCheckpointHelper {
         checkpoint.setRemainingTimeBudgetMin(Math.max(0, totalAvailable - used - buffer - returnReserve));
     }
 
+    /**
+     * 判断是否可以执行plananotherstep。
+     * @param checkpoint 任务检查点数据
+     * @return 是否满足当前条件。
+     */
     public boolean canPlanAnotherStep(TaskCheckpoint checkpoint) {
         if (checkpoint.getPlanningConfig() == null) {
             return false;
@@ -106,6 +142,12 @@ public class AgentCheckpointHelper {
         return valueOrZero(checkpoint.getRemainingTimeBudgetMin()) >= checkpoint.getPlanningConfig().getMinContinueBudgetMin();
     }
 
+    /**
+     * 解析并确定daynumberforoffset。
+     * @param checkpoint 任务检查点数据
+     * @param offsetMin o ff se tM in 参数
+     * @return 返回处理结果。
+     */
     public int resolveDayNumberForOffset(TaskCheckpoint checkpoint, Integer offsetMin) {
         int remaining = Math.max(0, valueOrZero(offsetMin));
         List<DailyTimeWindow> windows = checkpoint.getDailyTimeWindows();
@@ -122,6 +164,12 @@ public class AgentCheckpointHelper {
         return windows.get(windows.size() - 1).getDayNumber();
     }
 
+    /**
+     * 解析并确定datetimeforoffset。
+     * @param checkpoint 任务检查点数据
+     * @param offsetMin o ff se tM in 参数
+     * @return 返回处理结果。
+     */
     public LocalDateTime resolveDateTimeForOffset(TaskCheckpoint checkpoint, int offsetMin) {
         int remaining = Math.max(0, offsetMin);
         List<DailyTimeWindow> windows = checkpoint.getDailyTimeWindows();
@@ -138,6 +186,13 @@ public class AgentCheckpointHelper {
         return windows.get(windows.size() - 1).getEndTime();
     }
 
+    /**
+     * 处理estimateTravelTimeToDestination。
+     * @param checkpoint 任务检查点数据
+     * @param originLat 起点纬度
+     * @param originLng 起点经度
+     * @return 返回处理结果。
+     */
     public int estimateTravelTimeToDestination(TaskCheckpoint checkpoint, double originLat, double originLng) {
         if (!shouldReserveReturnToDestination(checkpoint)) {
             return 0;
@@ -159,6 +214,12 @@ public class AgentCheckpointHelper {
         }
     }
 
+    /**
+     * 判断是否应执行excludeorigintravelfrombudget。
+     * @param stepIndex s te pI nd ex 参数
+     * @param checkpoint 任务检查点数据
+     * @return 是否满足当前条件。
+     */
     public boolean shouldExcludeOriginTravelFromBudget(int stepIndex, TaskCheckpoint checkpoint) {
         return stepIndex == 0
                 && checkpoint.getSelectedOrigin() != null
@@ -166,6 +227,11 @@ public class AgentCheckpointHelper {
                 && checkpoint.getSelectedOrigin().getLongitude() != null;
     }
 
+    /**
+     * 解析并确定userlevel。
+     * @param userId 用户ID
+     * @return 返回处理结果。
+     */
     public int resolveUserLevel(Long userId) {
         try {
             var user = userMapper.findById(userId);
@@ -179,6 +245,11 @@ public class AgentCheckpointHelper {
         return value == null ? 0 : value;
     }
 
+    /**
+     * 判断是否应执行reservereturntodestination。
+     * @param checkpoint 任务检查点数据
+     * @return 是否满足当前条件。
+     */
     private boolean shouldReserveReturnToDestination(TaskCheckpoint checkpoint) {
         if (checkpoint.getSelectedDestination() == null
                 || checkpoint.getSelectedDestination().getLatitude() == null

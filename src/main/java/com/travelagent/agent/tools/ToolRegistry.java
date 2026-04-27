@@ -29,6 +29,10 @@ public class ToolRegistry {
 
     private final Map<String, AgentTool> registry = new HashMap<>();
 
+    /**
+     * 初始化ToolRegistry 实例。
+     * @param tools t oo ls 参数
+     */
     @Autowired
     public ToolRegistry(List<AgentTool> tools) {
         for (AgentTool tool : tools) {
@@ -38,9 +42,9 @@ public class ToolRegistry {
     }
 
     /**
-     * Retrieve a tool by name.
-     *
-     * @throws IllegalArgumentException if no tool is registered under {@code name}
+     * 获取tool。
+     * @param name n am e 参数
+     * @return 返回处理结果。
      */
     public AgentTool getTool(String name) {
         AgentTool tool = registry.get(name);
@@ -52,14 +56,17 @@ public class ToolRegistry {
     }
 
     /**
-     * Returns {@code true} if a tool with the given name is registered.
+     * 判断是否具备tool。
+     * @param name n am e 参数
+     * @return 是否满足当前条件。
      */
     public boolean hasTool(String name) {
         return registry.containsKey(name);
     }
 
     /**
-     * Returns the set of all registered tool names.
+     * 获取toolnames。
+     * @return 返回处理结果。
      */
     public Set<String> getToolNames() {
         return registry.keySet();

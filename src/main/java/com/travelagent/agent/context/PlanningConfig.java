@@ -33,12 +33,25 @@ public class PlanningConfig {
     private int destinationBufferMin = 30;
     private int minContinueBudgetMin = 90;
 
+    /**
+     * 初始化PlanningConfig 实例。
+     * @param totalDays t ot al Da ys 参数
+     * @param preferenceKeywords p re fe re nc eK ey wo rd s 参数
+     * @param travelMode 出行方式
+     */
     public PlanningConfig(int totalDays, List<String> preferenceKeywords, String travelMode) {
         this.totalDays = totalDays;
         this.preferenceKeywords = preferenceKeywords;
         this.travelMode = travelMode;
     }
 
+    /**
+     * 初始化PlanningConfig 实例。
+     * @param totalDays t ot al Da ys 参数
+     * @param attractionsPerDay a tt ra ct io ns Pe rD ay 参数
+     * @param preferenceKeywords p re fe re nc eK ey wo rd s 参数
+     * @param travelMode 出行方式
+     */
     public PlanningConfig(int totalDays, int attractionsPerDay, List<String> preferenceKeywords, String travelMode) {
         this.totalDays = totalDays;
         this.attractionsPerDay = attractionsPerDay;
@@ -47,18 +60,34 @@ public class PlanningConfig {
         this.travelMode = travelMode;
     }
 
+    /**
+     * 处理totalSteps。
+     * @return 返回处理结果。
+     */
     public int totalSteps() {
         return Math.max(1, dynamicTargetSteps);
     }
 
+    /**
+     * 解析并确定fulldaystarttime。
+     * @return 返回处理结果。
+     */
     public LocalTime resolveFullDayStartTime() {
         return fullDayStartTime != null ? fullDayStartTime : DEFAULT_FULL_DAY_START;
     }
 
+    /**
+     * 解析并确定fulldayendtime。
+     * @return 返回处理结果。
+     */
     public LocalTime resolveFullDayEndTime() {
         return fullDayEndTime != null ? fullDayEndTime : DEFAULT_FULL_DAY_END;
     }
 
+    /**
+     * 判断是否具备customfulldaywindow。
+     * @return 是否满足当前条件。
+     */
     public boolean hasCustomFullDayWindow() {
         return fullDayStartTime != null && fullDayEndTime != null;
     }

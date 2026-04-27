@@ -25,6 +25,16 @@ public class TaskProgressServiceImpl implements TaskProgressService {
     @Autowired private TaskMapper taskMapper;
     @Autowired private JsonUtil jsonUtil;
 
+    /**
+     * 处理recordEvent。
+     * @param taskUuid 任务唯一标识
+     * @param eventType e ve nt Ty pe 参数
+     * @param status 状态值
+     * @param stepIndex s te pI nd ex 参数
+     * @param totalSteps t ot al St ep s 参数
+     * @param message 提示信息
+     * @param detailsPayload d et ai ls Pa yl oa d 参数
+     */
     @Override
     public void recordEvent(String taskUuid, String eventType, String status,
                             Integer stepIndex, Integer totalSteps,
@@ -50,6 +60,12 @@ public class TaskProgressServiceImpl implements TaskProgressService {
         }
     }
 
+    /**
+     * 获取progress。
+     * @param taskUuid 任务唯一标识
+     * @param limit 返回数量上限
+     * @return 返回处理结果。
+     */
     @Override
     public TaskExecutionProgressResponse getProgress(String taskUuid, int limit) {
         TaskExecutionProgressResponse resp = new TaskExecutionProgressResponse();
@@ -95,11 +111,21 @@ public class TaskProgressServiceImpl implements TaskProgressService {
         return resp;
     }
 
+    /**
+     * 获取latestevent。
+     * @param taskUuid 任务唯一标识
+     * @return 返回处理结果。
+     */
     @Override
     public TaskExecutionEvent getLatestEvent(String taskUuid) {
         return eventMapper.findLatestByTaskUuid(taskUuid);
     }
 
+    /**
+     * 解析checkpoint。
+     * @param task 任务实体
+     * @return 返回处理结果。
+     */
     private TaskCheckpoint parseCheckpoint(Task task) {
         if (task == null || task.getCheckpointJson() == null || task.getCheckpointJson().isBlank()) {
             return null;

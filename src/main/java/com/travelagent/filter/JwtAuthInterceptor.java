@@ -58,6 +58,13 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     @Value("${jwt.prefix:Bearer}")
     private String tokenPrefix;
 
+    /**
+     * 判断preHandle。
+     * @param request 请求参数
+     * @param response 响应参数
+     * @param handler h an dl er 参数
+     * @return 是否满足当前条件。
+     */
     @Override
     public boolean preHandle(HttpServletRequest request,
                              HttpServletResponse response,
@@ -107,6 +114,11 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         }
     }
 
+    /**
+     * 处理sendUnauthorized。
+     * @param response 响应参数
+     * @param message 提示信息
+     */
     private void sendUnauthorized(HttpServletResponse response, String message) throws Exception {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json;charset=UTF-8");
@@ -115,12 +127,20 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         );
     }
 
-    /** Convenience method to get userId from request attributes (set by this interceptor). */
+    /**
+     * 获取userid。
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     public static Long getUserId(HttpServletRequest request) {
         return (Long) request.getAttribute(ATTR_USER_ID);
     }
 
-    /** Convenience method to get userLevel from request attributes. */
+    /**
+     * 获取userlevel。
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     public static int getUserLevel(HttpServletRequest request) {
         Integer level = (Integer) request.getAttribute(ATTR_USER_LEVEL);
         return level != null ? level : 0;

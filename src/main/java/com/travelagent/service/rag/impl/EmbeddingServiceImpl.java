@@ -32,12 +32,22 @@ public class EmbeddingServiceImpl implements EmbeddingService {
     @Value("${dashscope.embedding.model:text-embedding-v3}")
     private String embeddingModel;
 
+    /**
+     * 处理embed。
+     * @param text 文本内容
+     * @return 返回处理结果。
+     */
     @Override
     public float[] embed(String text) {
         List<float[]> results = embedBatch(List.of(text));
         return results.get(0);
     }
 
+    /**
+     * 处理embedBatch。
+     * @param texts t ex ts 参数
+     * @return 返回处理后的列表结果。
+     */
     @Override
     public List<float[]> embedBatch(List<String> texts) {
         List<float[]> allVectors = new ArrayList<>(texts.size());

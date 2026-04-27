@@ -32,30 +32,67 @@ public class RedisUtil {
 
     // ===================== String operations =====================
 
+    /**
+     * 处理set。
+     * @param key 键名
+     * @param value 键值
+     * @param ttl 缓存有效期
+     */
     public void set(String key, Object value, Duration ttl) {
         redisTemplate.opsForValue().set(key, value, ttl);
     }
 
+    /**
+     * 处理set。
+     * @param key 键名
+     * @param value 键值
+     */
     public void set(String key, Object value) {
         redisTemplate.opsForValue().set(key, value);
     }
 
+    /**
+     * 处理get。
+     * @param key 键名
+     * @return 返回处理结果。
+     */
     public Object get(String key) {
         return redisTemplate.opsForValue().get(key);
     }
 
+    /**
+     * 判断delete。
+     * @param key 键名
+     * @return 是否满足当前条件。
+     */
     public boolean delete(String key) {
         return Boolean.TRUE.equals(redisTemplate.delete(key));
     }
 
+    /**
+     * 判断是否具备key。
+     * @param key 键名
+     * @return 是否满足当前条件。
+     */
     public boolean hasKey(String key) {
         return Boolean.TRUE.equals(redisTemplate.hasKey(key));
     }
 
+    /**
+     * 判断expire。
+     * @param key 键名
+     * @param seconds s ec on ds 参数
+     * @return 是否满足当前条件。
+     */
     public boolean expire(String key, long seconds) {
         return Boolean.TRUE.equals(redisTemplate.expire(key, seconds, TimeUnit.SECONDS));
     }
 
+    /**
+     * 获取expire。
+     * @param key 键名
+     * @return 返回处理结果。
+     */
     public Long getExpire(String key) {
         return redisTemplate.getExpire(key, TimeUnit.SECONDS);
     }
@@ -63,8 +100,11 @@ public class RedisUtil {
     // ===================== Atomic counter (for quota) =====================
 
     /**
-     * Atomically increment a string counter and set TTL if the key is new.
-     * Returns the value after increment.
+     * 处理incrementWithTtl。
+     * @param key 键名
+     * @param delta d el ta 参数
+     * @param ttl 缓存有效期
+     * @return 返回处理结果。
      */
     public Long incrementWithTtl(String key, long delta, Duration ttl) {
         Long value = stringRedisTemplate.opsForValue().increment(key, delta);
@@ -75,14 +115,31 @@ public class RedisUtil {
         return value;
     }
 
+    /**
+     * 处理increment。
+     * @param key 键名
+     * @param delta d el ta 参数
+     * @return 返回处理结果。
+     */
     public Long increment(String key, long delta) {
         return stringRedisTemplate.opsForValue().increment(key, delta);
     }
 
+    /**
+     * 获取string。
+     * @param key 键名
+     * @return 返回处理结果。
+     */
     public String getString(String key) {
         return stringRedisTemplate.opsForValue().get(key);
     }
 
+    /**
+     * 处理setString。
+     * @param key 键名
+     * @param value 键值
+     * @param ttl 缓存有效期
+     */
     public void setString(String key, String value, Duration ttl) {
         stringRedisTemplate.opsForValue().set(key, value, ttl);
     }
@@ -90,8 +147,11 @@ public class RedisUtil {
     // ===================== SET NX (for idempotency and locks) =====================
 
     /**
-     * Set key=value only if it doesn't exist (SETNX).
-     * Returns true if set successfully (lock acquired).
+     * 判断setIfAbsent。
+     * @param key 键名
+     * @param value 键值
+     * @param ttl 缓存有效期
+     * @return 是否满足当前条件。
      */
     public boolean setIfAbsent(String key, String value, Duration ttl) {
         return Boolean.TRUE.equals(
@@ -114,7 +174,10 @@ public class RedisUtil {
         "return new_val";
 
     /**
-     * Atomically check if quota is available (1=available, 0=exhausted).
+     * 检查quota。
+     * @param key 键名
+     * @param limit 返回数量上限
+     * @return 是否满足当前条件。
      */
     public boolean checkQuota(String key, long limit) {
         DefaultRedisScript<Long> script = new DefaultRedisScript<>(QUOTA_CHECK_SCRIPT, Long.class);
@@ -124,7 +187,11 @@ public class RedisUtil {
     }
 
     /**
-     * Atomically debit tokens. Returns new total, or -1 if over limit.
+     * 处理debitQuota。
+     * @param key 键名
+     * @param cost c os t 参数
+     * @param limit 返回数量上限
+     * @return 返回处理结果。
      */
     public Long debitQuota(String key, long cost, long limit) {
         DefaultRedisScript<Long> script = new DefaultRedisScript<>(QUOTA_DEBIT_SCRIPT, Long.class);

@@ -29,6 +29,12 @@ public class PlannerResponseParser {
 
     @Autowired private JsonUtil jsonUtil;
 
+    /**
+     * 解析llmattractionname。
+     * @param llmResponse l lm Re sp on se 参数
+     * @param stepIndex s te pI nd ex 参数
+     * @return 返回处理结果。
+     */
     public String parseLlmAttractionName(String llmResponse, int stepIndex) {
         if (llmResponse == null || llmResponse.isBlank()) {
             log.warn("[PlannerResponseParser] Received blank LLM response at step={}", stepIndex);
@@ -47,6 +53,12 @@ public class PlannerResponseParser {
         return llmResponse.length() > 50 ? llmResponse.substring(0, 50).trim() : llmResponse.trim();
     }
 
+    /**
+     * 解析routecandidates。
+     * @param llmResponse l lm Re sp on se 参数
+     * @param weatherContext w ea th er Co nt ex t 参数
+     * @return 返回处理后的列表结果。
+     */
     @SuppressWarnings("unchecked")
     public List<LocationCandidateItem> parseRouteCandidates(String llmResponse, Map<String, Object> weatherContext) {
         if (llmResponse == null || llmResponse.isBlank()) {
@@ -88,6 +100,12 @@ public class PlannerResponseParser {
         }
     }
 
+    /**
+     * 解析finalsummary。
+     * @param llmResponse l lm Re sp on se 参数
+     * @param cp c p 参数
+     * @return 返回处理结果。
+     */
     @SuppressWarnings("unchecked")
     public FinalSummaryResult parseFinalSummary(String llmResponse, TaskCheckpoint cp) {
         if (llmResponse == null || llmResponse.isBlank()) {
@@ -121,6 +139,12 @@ public class PlannerResponseParser {
         }
     }
 
+    /**
+     * 解析并确定weathersuitability。
+     * @param features f ea tu re s 参数
+     * @param weatherContext w ea th er Co nt ex t 参数
+     * @return 返回处理结果。
+     */
     public String resolveWeatherSuitability(RecommendationFeatureBreakdown features,
                                              Map<String, Object> weatherContext) {
         if (features != null && Boolean.TRUE.equals(features.getWeatherFriendly())) {
@@ -129,6 +153,11 @@ public class PlannerResponseParser {
         return firstNonBlank(stringValue(weatherContext.get("summary")), "常规适配");
     }
 
+    /**
+     * 构建defaultsummary。
+     * @param cp c p 参数
+     * @return 返回处理结果。
+     */
     private FinalSummaryResult buildDefaultSummary(TaskCheckpoint cp) {
         String title = cp.getRegion() + " " + cp.getPlanningConfig().getTotalDays() + "-Day Trip";
         List<FinalSummaryResult.StepSummary> steps = new ArrayList<>();
@@ -142,6 +171,12 @@ public class PlannerResponseParser {
         return new FinalSummaryResult(title, cp.getUserIntent(), steps);
     }
 
+    /**
+     * 解析并确定routehighlights。
+     * @param route r ou te 参数
+     * @param candidate 候选项
+     * @return 返回处理后的列表结果。
+     */
     private List<String> resolveRouteHighlights(Map<?, ?> route, LocationCandidateItem candidate) {
         List<String> llmHighlights = sanitizeRouteHighlights(toStringList(route.get("reasonHighlights")));
         if (!llmHighlights.isEmpty()) {
@@ -150,6 +185,12 @@ public class PlannerResponseParser {
         return buildFallbackRouteHighlights(route, candidate);
     }
 
+    /**
+     * 构建fallbackroutehighlights。
+     * @param route r ou te 参数
+     * @param candidate 候选项
+     * @return 返回处理后的列表结果。
+     */
     private List<String> buildFallbackRouteHighlights(Map<?, ?> route, LocationCandidateItem candidate) {
         LinkedHashSet<String> values = new LinkedHashSet<>();
         values.addAll(extractHighlightFragments(stringValue(route.get("title"))));
@@ -160,6 +201,11 @@ public class PlannerResponseParser {
         return sanitized.isEmpty() ? List.of("city icon", "visit experience", "cultural feel") : sanitized;
     }
 
+    /**
+     * 处理sanitizeRouteHighlights。
+     * @param rawHighlights r aw Hi gh li gh ts 参数
+     * @return 返回处理后的列表结果。
+     */
     private List<String> sanitizeRouteHighlights(List<String> rawHighlights) {
         if (rawHighlights == null || rawHighlights.isEmpty()) {
             return List.of();
@@ -185,6 +231,11 @@ public class PlannerResponseParser {
         return List.copyOf(normalized);
     }
 
+    /**
+     * 提取highlightfragments。
+     * @param source 原始数据源
+     * @return 返回处理后的列表结果。
+     */
     private List<String> extractHighlightFragments(String source) {
         if (source == null || source.isBlank()) {
             return List.of();
@@ -201,6 +252,11 @@ public class PlannerResponseParser {
         return fragments;
     }
 
+    /**
+     * 判断containsRouteProcessTerms。
+     * @param value 键值
+     * @return 是否满足当前条件。
+     */
     private boolean containsRouteProcessTerms(String value) {
         String normalized = value.toLowerCase(Locale.ROOT);
         return normalized.contains("顺路") || normalized.contains("天气") || normalized.contains("路线")
@@ -209,6 +265,12 @@ public class PlannerResponseParser {
                 || normalized.contains("weather") || normalized.contains("budget");
     }
 
+    /**
+     * 处理stringOrDefault。
+     * @param value 键值
+     * @param defaultVal d ef au lt Va l 参数
+     * @return 返回处理结果。
+     */
     private static String stringOrDefault(Object value, String defaultVal) {
         if (value == null) {
             return defaultVal;
@@ -217,6 +279,12 @@ public class PlannerResponseParser {
         return s.isBlank() ? defaultVal : s;
     }
 
+    /**
+     * 将数据转换为int。
+     * @param value 键值
+     * @param defaultVal d ef au lt Va l 参数
+     * @return 返回处理结果。
+     */
     private static int toInt(Object value, int defaultVal) {
         if (value == null) {
             return defaultVal;

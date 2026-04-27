@@ -55,6 +55,12 @@ public class DashVectorClient {
         public final float score;
         public final Map<String, String> fields;
 
+        /**
+         * 处理DashVectorResult。
+         * @param id 主键ID
+         * @param score s co re 参数
+         * @param fields f ie ld s 参数
+         */
         public DashVectorResult(String id, float score, Map<String, String> fields) {
             this.id = id;
             this.score = score;
@@ -63,11 +69,10 @@ public class DashVectorClient {
     }
 
     /**
-     * Upserts a single vector with metadata into DashVector.
-     *
-     * @param id     unique vector ID (e.g. "doc1-chunk0")
-     * @param vector embedding float array (must match collection dimension)
-     * @param fields string metadata (e.g. {"region": "西安市", "chunkText": "..."})
+     * 处理upsert。
+     * @param id 主键ID
+     * @param vector v ec to r 参数
+     * @param fields f ie ld s 参数
      */
     public void upsert(String id, float[] vector, Map<String, String> fields) {
         try {
@@ -100,12 +105,11 @@ public class DashVectorClient {
     }
 
     /**
-     * Performs an ANN search against the collection.
-     *
-     * @param queryVector  query embedding
-     * @param topK         number of results to return
-     * @param regionFilter if non-null, adds a filter "region = '<value>'" to the request
-     * @return list of results ordered by descending score
+     * 处理search。
+     * @param queryVector q ue ry Ve ct or 参数
+     * @param topK t op K 参数
+     * @param regionFilter r eg io nF il te r 参数
+     * @return 返回处理后的列表结果。
      */
     public List<DashVectorResult> search(float[] queryVector, int topK, String regionFilter) {
         try {
@@ -148,9 +152,8 @@ public class DashVectorClient {
     }
 
     /**
-     * Deletes vectors by ID list from the collection.
-     *
-     * @param ids list of vector IDs to delete
+     * 处理delete。
+     * @param ids 主键ID集合
      */
     public void delete(List<String> ids) {
         if (ids == null || ids.isEmpty()) return;
@@ -173,6 +176,12 @@ public class DashVectorClient {
     // HTTP helpers
     // -----------------------------------------------------------------------
 
+    /**
+     * 执行post。
+     * @param url 请求地址
+     * @param jsonBody j so nB od y 参数
+     * @return 返回处理结果。
+     */
     private String executePost(String url, String jsonBody) throws IOException {
         RequestBody rb = RequestBody.create(jsonBody, JSON);
         Request request = new Request.Builder()
@@ -191,6 +200,11 @@ public class DashVectorClient {
         }
     }
 
+    /**
+     * 执行delete。
+     * @param url 请求地址
+     * @param jsonBody j so nB od y 参数
+     */
     private void executeDelete(String url, String jsonBody) throws IOException {
         RequestBody rb = RequestBody.create(jsonBody, JSON);
         Request request = new Request.Builder()
@@ -208,6 +222,11 @@ public class DashVectorClient {
         }
     }
 
+    /**
+     * 处理classifyDashVectorException。
+     * @param e 异常对象
+     * @return 返回处理结果。
+     */
     private AgentException classifyDashVectorException(Exception e) {
         String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
         if (msg.contains("timeout") || msg.contains("timed out")

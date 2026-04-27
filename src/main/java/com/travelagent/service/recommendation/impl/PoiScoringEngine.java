@@ -31,6 +31,12 @@ public class PoiScoringEngine {
     @Autowired private JsonUtil jsonUtil;
     @Autowired(required = false) private AmapClient amapClient;
 
+    /**
+     * 构建featurebreakdown。
+     * @param request 请求参数
+     * @param candidate 候选项
+     * @return 返回处理结果。
+     */
     public RecommendationFeatureBreakdown buildFeatureBreakdown(NearbyPoiRecommendationRequest request,
                                                                 Attraction candidate) {
         RecommendationFeatureBreakdown features = new RecommendationFeatureBreakdown();
@@ -72,6 +78,11 @@ public class PoiScoringEngine {
         return features;
     }
 
+    /**
+     * 处理weightsFor。
+     * @param queryType q ue ry Ty pe 参数
+     * @return 返回处理结果。
+     */
     public double[] weightsFor(String queryType) {
         if ("similar_style".equalsIgnoreCase(queryType)) {
             return new double[]{0.15d, 0.20d, 0.45d, 0.15d, 0.05d};
@@ -93,6 +104,12 @@ public class PoiScoringEngine {
         }
     }
 
+    /**
+     * 处理queryDistanceKm。
+     * @param request 请求参数
+     * @param candidate 候选项
+     * @return 返回处理结果。
+     */
     private Double queryDistanceKm(NearbyPoiRecommendationRequest request, Attraction candidate) {
         if (amapClient == null
                 || request.getCurrentLat() == null || request.getCurrentLng() == null
@@ -117,6 +134,13 @@ public class PoiScoringEngine {
         return null;
     }
 
+    /**
+     * 处理estimateTravelTimeMin。
+     * @param request 请求参数
+     * @param candidate 候选项
+     * @param distanceKm d is ta nc eK m 参数
+     * @return 返回处理结果。
+     */
     private Integer estimateTravelTimeMin(NearbyPoiRecommendationRequest request, Attraction candidate, Double distanceKm) {
         if (amapClient != null
                 && request.getCurrentLat() != null && request.getCurrentLng() != null
@@ -148,6 +172,12 @@ public class PoiScoringEngine {
         return (int) Math.ceil(distanceKm / speedKmh * 60.0d);
     }
 
+    /**
+     * 处理computeStyleSimilarity。
+     * @param request 请求参数
+     * @param candidate 候选项
+     * @return 返回处理结果。
+     */
     private double computeStyleSimilarity(NearbyPoiRecommendationRequest request, Attraction candidate) {
         List<String> candidateTags = parseStringList(candidate.getTagsJson());
         Set<String> targetTags = new HashSet<>();
@@ -184,6 +214,13 @@ public class PoiScoringEngine {
         return (double) intersection.size() / union.size();
     }
 
+    /**
+     * 处理computeRouteDeltaKm。
+     * @param request 请求参数
+     * @param candidate 候选项
+     * @param distanceKm d is ta nc eK m 参数
+     * @return 返回处理结果。
+     */
     private Double computeRouteDeltaKm(NearbyPoiRecommendationRequest request, Attraction candidate, Double distanceKm) {
         if (candidate.getLatitude() == null || candidate.getLongitude() == null) {
             return null;
@@ -216,6 +253,12 @@ public class PoiScoringEngine {
         return bestDelta == Double.MAX_VALUE ? distanceKm : bestDelta;
     }
 
+    /**
+     * 判断currentlyopen。
+     * @param request 请求参数
+     * @param candidate 候选项
+     * @return 是否满足当前条件。
+     */
     private boolean isCurrentlyOpen(NearbyPoiRecommendationRequest request, Attraction candidate) {
         if (candidate.getOpenHoursJson() == null || candidate.getOpenHoursJson().isBlank()) {
             return true;
@@ -244,6 +287,13 @@ public class PoiScoringEngine {
         }
     }
 
+    /**
+     * 处理computeConstraintScore。
+     * @param request 请求参数
+     * @param candidate 候选项
+     * @param currentlyOpen c ur re nt ly Op en 参数
+     * @return 返回处理结果。
+     */
     private double computeConstraintScore(NearbyPoiRecommendationRequest request,
                                           Attraction candidate, boolean currentlyOpen) {
         if (!currentlyOpen) {
@@ -267,6 +317,12 @@ public class PoiScoringEngine {
         return Math.max(0.0d, Math.min(1.0d, score));
     }
 
+    /**
+     * 处理computeWeatherScore。
+     * @param request 请求参数
+     * @param candidate 候选项
+     * @return 返回处理结果。
+     */
     private double computeWeatherScore(NearbyPoiRecommendationRequest request, Attraction candidate) {
         List<String> tags = parseStringList(candidate.getTagsJson());
         String category = candidate.getCategory() == null ? "" : candidate.getCategory().toLowerCase(Locale.ROOT);
@@ -296,6 +352,12 @@ public class PoiScoringEngine {
         return Math.max(0.0d, Math.min(1.0d, score));
     }
 
+    /**
+     * 判断containsAny。
+     * @param values v al ue s 参数
+     * @param targets t ar ge ts 参数
+     * @return 是否满足当前条件。
+     */
     private boolean containsAny(List<String> values, String... targets) {
         if (values == null || values.isEmpty() || targets == null) {
             return false;
@@ -312,6 +374,14 @@ public class PoiScoringEngine {
         return false;
     }
 
+    /**
+     * 处理haversineKm。
+     * @param lat1 l at1 参数
+     * @param lng1 l ng1 参数
+     * @param lat2 l at2 参数
+     * @param lng2 l ng2 参数
+     * @return 返回处理结果。
+     */
     private double haversineKm(double lat1, double lng1, double lat2, double lng2) {
         double dLat = Math.toRadians(lat2 - lat1);
         double dLng = Math.toRadians(lng2 - lng1);
@@ -321,6 +391,11 @@ public class PoiScoringEngine {
         return 6371.0d * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
+    /**
+     * 处理round。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private double round(double value) {
         return Math.round(value * 1000.0d) / 1000.0d;
     }

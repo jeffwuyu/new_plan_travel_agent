@@ -22,10 +22,18 @@ public class McpProcessManager {
 
     private final AgentMcpProperties properties;
 
+    /**
+     * 初始化McpProcessManager 实例。
+     * @param properties 配置属性
+     */
     public McpProcessManager(AgentMcpProperties properties) {
         this.properties = properties;
     }
 
+    /**
+     * 处理startProcess。
+     * @return 返回处理结果。
+     */
     public McpProcessHandle startProcess() {
         try {
             List<String> command = new ArrayList<>();
@@ -49,6 +57,10 @@ public class McpProcessManager {
         }
     }
 
+    /**
+     * 处理stopProcess。
+     * @param handle h an dl e 参数
+     */
     public void stopProcess(McpProcessHandle handle) {
         if (handle == null) {
             return;
@@ -69,6 +81,10 @@ public class McpProcessManager {
         }
     }
 
+    /**
+     * 处理closeQuietly。
+     * @param closeable c lo se ab le 参数
+     */
     private void closeQuietly(AutoCloseable closeable) {
         if (closeable == null) {
             return;

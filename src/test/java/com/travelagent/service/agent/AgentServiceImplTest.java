@@ -300,6 +300,31 @@ class AgentServiceImplTest {
     }
 
     @Test
+    void executeTask_amapTransientError_recordsRetryInsteadOfFailingImmediately() {
+        Task task = buildTask(TaskStatus.PENDING);
+        TaskCheckpoint checkpoint = buildCheckpoint(true);
+        checkpoint.getPlanningConfig().setDynamicTargetSteps(1);
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+
+        when(taskMapper.findByUuid("uuid")).thenReturn(task);
+        mockStandardTransitions(TaskStatus.PENDING);
+        mockUserLevel(1L, 1);
+        when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("manual"));
+        when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
+                .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
+
+        var geocodeTool = mock(com.travelagent.agent.tools.AgentTool.class);
+        when(geocodeTool.execute(any(), any()))
+                .thenThrow(new AgentException(AgentErrorCode.TOOL_AMAP_TRANSIENT, "temporary amap failure"));
+        when(toolRegistry.getTool(GeocodeTool.NAME)).thenReturn(geocodeTool);
+
+        agentService.executeTask("uuid");
+
+        verify(taskProgressService).recordEvent(eq("uuid"), eq("RETRY"), any(), any(), any(), anyString(), any());
+        verify(sseNotificationService, never()).sendEvent(eq("uuid"), eq(SseEvent.ERROR), any());
+    }
+
+    @Test
     void executeTask_withAttractionCandidates_entersAwaitingUserInput() {
         Task task = buildTask(TaskStatus.PENDING);
         TaskCheckpoint checkpoint = buildCheckpoint(true);

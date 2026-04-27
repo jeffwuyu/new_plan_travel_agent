@@ -26,6 +26,11 @@ public class PlannerPromptBuilder {
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
+    /**
+     * 构建systemprompt。
+     * @param cp c p 参数
+     * @return 返回处理结果。
+     */
     public String buildSystemPrompt(TaskCheckpoint cp) {
         StringBuilder sb = new StringBuilder();
         sb.append("You are a professional travel planner. Help the user plan an itinerary for ")
@@ -59,6 +64,11 @@ public class PlannerPromptBuilder {
         return sb.toString();
     }
 
+    /**
+     * 构建stepprompt。
+     * @param cp c p 参数
+     * @return 返回处理结果。
+     */
     public String buildStepPrompt(TaskCheckpoint cp) {
         int stepIndex = cp.getCurrentStepIndex();
         int totalSteps = cp.totalPlannedSteps();
@@ -122,6 +132,13 @@ public class PlannerPromptBuilder {
         return sb.toString();
     }
 
+    /**
+     * 构建routecandidatesystemprompt。
+     * @param cp c p 参数
+     * @param request 请求参数
+     * @param weatherContext w ea th er Co nt ex t 参数
+     * @return 返回处理结果。
+     */
     public String buildRouteCandidateSystemPrompt(TaskCheckpoint cp,
                                                    PlanNextAttractionRequest request,
                                                    Map<String, Object> weatherContext) {
@@ -151,6 +168,13 @@ public class PlannerPromptBuilder {
                 """;
     }
 
+    /**
+     * 构建routecandidateuserprompt。
+     * @param cp c p 参数
+     * @param request 请求参数
+     * @param weatherContext w ea th er Co nt ex t 参数
+     * @return 返回处理结果。
+     */
     public String buildRouteCandidateUserPrompt(TaskCheckpoint cp,
                                                  PlanNextAttractionRequest request,
                                                  Map<String, Object> weatherContext) {
@@ -173,6 +197,11 @@ public class PlannerPromptBuilder {
         return sb.toString();
     }
 
+    /**
+     * 构建finalsummarysystemprompt。
+     * @param cp c p 参数
+     * @return 返回处理结果。
+     */
     public String buildFinalSummarySystemPrompt(TaskCheckpoint cp) {
         String preferenceKeywords = "";
         if (cp.getPlanningConfig() != null
@@ -189,6 +218,11 @@ public class PlannerPromptBuilder {
                 preferenceKeywords);
     }
 
+    /**
+     * 构建finalsummaryusermessage。
+     * @param cp c p 参数
+     * @return 返回处理结果。
+     */
     public String buildFinalSummaryUserMessage(TaskCheckpoint cp) {
         StringBuilder sb = new StringBuilder(PromptTemplates.FINAL_SUMMARY_USER_PREFIX);
         for (CompletedStep s : cp.getCompletedSteps()) {
@@ -218,6 +252,12 @@ public class PlannerPromptBuilder {
         return sb.toString();
     }
 
+    /**
+     * 构建advisorcontext。
+     * @param cp c p 参数
+     * @param ragChunks r ag Ch un ks 参数
+     * @return 返回处理后的映射结果。
+     */
     public Map<String, Object> buildAdvisorContext(TaskCheckpoint cp, List<String> ragChunks) {
         Map<String, Object> context = new LinkedHashMap<>();
         context.put(AdvisorContextKeys.REGION, cp.getRegion());
@@ -239,6 +279,14 @@ public class PlannerPromptBuilder {
         return context;
     }
 
+    /**
+     * 构建selectioncontext。
+     * @param cp c p 参数
+     * @param request 请求参数
+     * @param weatherContext w ea th er Co nt ex t 参数
+     * @param branchType b ra nc hT yp e 参数
+     * @return 返回处理后的映射结果。
+     */
     public Map<String, Object> buildSelectionContext(TaskCheckpoint cp,
                                                       PlanNextAttractionRequest request,
                                                       Map<String, Object> weatherContext,
@@ -258,6 +306,11 @@ public class PlannerPromptBuilder {
         return context;
     }
 
+    /**
+     * 构建branchselectionoptions。
+     * @param weatherContext w ea th er Co nt ex t 参数
+     * @return 返回处理后的列表结果。
+     */
     public List<SelectionOptionItem> buildBranchSelectionOptions(Map<String, Object> weatherContext) {
         SelectionOptionItem nearby = new SelectionOptionItem();
         nearby.setOptionId("nearby_poi");
@@ -276,6 +329,13 @@ public class PlannerPromptBuilder {
         return List.of(nearby, route);
     }
 
+    /**
+     * 构建recommendationrequest。
+     * @param cp c p 参数
+     * @param planningRequest p la nn in gR eq ue st 参数
+     * @param weatherContext w ea th er Co nt ex t 参数
+     * @return 返回处理结果。
+     */
     public NearbyPoiRecommendationRequest buildRecommendationRequest(TaskCheckpoint cp,
                                                                       PlanNextAttractionRequest planningRequest,
                                                                       Map<String, Object> weatherContext) {
@@ -323,6 +383,11 @@ public class PlannerPromptBuilder {
         return window.getStartTime().plusMinutes(offsetWithinTrip).format(TIME_FORMATTER);
     }
 
+    /**
+     * 解析并确定daynumber。
+     * @param cp c p 参数
+     * @return 返回处理结果。
+     */
     private int resolveDayNumber(TaskCheckpoint cp) {
         int remaining = cp.getUsedTimeBudgetMin() == null ? 0 : cp.getUsedTimeBudgetMin();
         if (cp.getDailyTimeWindows() == null || cp.getDailyTimeWindows().isEmpty()) {
@@ -338,6 +403,11 @@ public class PlannerPromptBuilder {
         return cp.getDailyTimeWindows().get(cp.getDailyTimeWindows().size() - 1).getDayNumber();
     }
 
+    /**
+     * 处理nullToEmpty。
+     * @param s s 参数
+     * @return 返回处理结果。
+     */
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;
     }

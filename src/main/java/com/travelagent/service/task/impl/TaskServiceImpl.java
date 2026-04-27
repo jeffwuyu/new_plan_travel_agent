@@ -73,6 +73,13 @@ public class TaskServiceImpl implements TaskService {
     @Autowired private TaskRewindHandler rewindHandler;
     @Autowired private TaskExecutionDispatcher taskExecutionDispatcher;
 
+    /**
+     * 创建task。
+     * @param userId 用户ID
+     * @param userLevel 用户等级
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     @Override
     @Transactional
     public TaskResponse createTask(Long userId, int userLevel, CreateTaskRequest request) {
@@ -103,12 +110,23 @@ public class TaskServiceImpl implements TaskService {
         return TaskResponse.from(task, checkpoint);
     }
 
+    /**
+     * 获取task。
+     * @param taskUuid 任务唯一标识
+     * @param requestingUserId 发起请求的用户ID
+     * @return 返回处理结果。
+     */
     @Override
     public TaskResponse getTask(String taskUuid, Long requestingUserId) {
         Task task = loadAndVerifyOwnership(taskUuid, requestingUserId);
         return TaskResponse.from(task, parseCheckpoint(task));
     }
 
+    /**
+     * 获取。
+     * @param userId 用户ID
+     * @return 返回处理后的列表结果。
+     */
     @Override
     public List<TaskResponse> listTasks(Long userId) {
         return taskMapper.findByUserId(userId).stream()
@@ -116,6 +134,11 @@ public class TaskServiceImpl implements TaskService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 取消task。
+     * @param taskUuid 任务唯一标识
+     * @param requestingUserId 发起请求的用户ID
+     */
     @Override
     @Transactional
     public void cancelTask(String taskUuid, Long requestingUserId) {
@@ -132,6 +155,12 @@ public class TaskServiceImpl implements TaskService {
         sseNotificationService.completeEmitter(taskUuid);
     }
 
+    /**
+     * 恢复task。
+     * @param taskUuid 任务唯一标识
+     * @param requestingUserId 发起请求的用户ID
+     * @return 返回处理结果。
+     */
     @Override
     @Transactional
     public TaskResponse resumeTask(String taskUuid, Long requestingUserId) {
@@ -158,6 +187,13 @@ public class TaskServiceImpl implements TaskService {
         return TaskResponse.from(updated, parseCheckpoint(updated));
     }
 
+    /**
+     * 确认originselection。
+     * @param taskUuid 任务唯一标识
+     * @param requestingUserId 发起请求的用户ID
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     @Override
     @Transactional
     public TaskResponse confirmOriginSelection(String taskUuid, Long requestingUserId, ConfirmOriginSelectionRequest request) {
@@ -246,6 +282,13 @@ public class TaskServiceImpl implements TaskService {
         return TaskResponse.from(updated, checkpoint);
     }
 
+    /**
+     * 回退task。
+     * @param taskUuid 任务唯一标识
+     * @param requestingUserId 发起请求的用户ID
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     @Override
     @Transactional
     public TaskResponse rewindTask(String taskUuid, Long requestingUserId, RewindTaskRequest request) {
@@ -295,6 +338,13 @@ public class TaskServiceImpl implements TaskService {
         return TaskResponse.from(task, checkpoint);
     }
 
+    /**
+     * 刷新nodeselection。
+     * @param taskUuid 任务唯一标识
+     * @param requestingUserId 发起请求的用户ID
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     @Override
     @Transactional
     public TaskResponse refreshNodeSelection(String taskUuid, Long requestingUserId, NodeChatRequest request) {
@@ -396,11 +446,21 @@ public class TaskServiceImpl implements TaskService {
         return TaskResponse.from(task, checkpoint);
     }
 
+    /**
+     * 获取taskentity。
+     * @param taskUuid 任务唯一标识
+     * @param requestingUserId 发起请求的用户ID
+     * @return 返回处理结果。
+     */
     @Override
     public Task getTaskEntity(String taskUuid, Long requestingUserId) {
         return loadAndVerifyOwnership(taskUuid, requestingUserId);
     }
 
+    /**
+     * 校验createrequest。
+     * @param request 请求参数
+     */
     private void validateCreateRequest(CreateTaskRequest request) {
         if (request.getStartTime() == null || request.getEndTime() == null
                 || !request.getEndTime().isAfter(request.getStartTime())) {
@@ -415,6 +475,12 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
+    /**
+     * 构建initialcheckpoint。
+     * @param task 任务实体
+     * @param req r eq 参数
+     * @return 返回处理结果。
+     */
     private TaskCheckpoint buildInitialCheckpoint(Task task, CreateTaskRequest req) {
         int totalDays = calculateTotalDays(req.getStartTime(), req.getEndTime());
         PlanningConfig config = buildPlanningConfig(req, totalDays);
@@ -455,6 +521,12 @@ public class TaskServiceImpl implements TaskService {
         return cp;
     }
 
+    /**
+     * 构建planningconfig。
+     * @param req r eq 参数
+     * @param totalDays t ot al Da ys 参数
+     * @return 返回处理结果。
+     */
     private PlanningConfig buildPlanningConfig(CreateTaskRequest req, int totalDays) {
         PlanningConfig config = new PlanningConfig();
         config.setTotalDays(totalDays);
@@ -469,12 +541,23 @@ public class TaskServiceImpl implements TaskService {
         return config;
     }
 
+    /**
+     * 处理calculateTotalDays。
+     * @param startTime s ta rt Ti me 参数
+     * @param endTime e nd Ti me 参数
+     * @return 返回处理结果。
+     */
     private int calculateTotalDays(LocalDateTime startTime, LocalDateTime endTime) {
         LocalDate startDate = startTime.toLocalDate();
         LocalDate endDate = endTime.toLocalDate();
         return (int) (Duration.between(startDate.atStartOfDay(), endDate.atStartOfDay()).toDays() + 1);
     }
 
+    /**
+     * 构建dailywindows。
+     * @param config 配置对象
+     * @return 返回处理后的列表结果。
+     */
     private List<DailyTimeWindow> buildDailyWindows(PlanningConfig config) {
         List<DailyTimeWindow> windows = new ArrayList<>();
         LocalDateTime tripStart = config.getStartTime();
@@ -504,15 +587,32 @@ public class TaskServiceImpl implements TaskService {
         return windows;
     }
 
+    /**
+     * 处理totalAvailableMinutes。
+     * @param windows w in do ws 参数
+     * @return 返回处理结果。
+     */
     private int totalAvailableMinutes(List<DailyTimeWindow> windows) {
         return windows.stream().mapToInt(DailyTimeWindow::availableMinutes).sum();
     }
 
+    /**
+     * 处理computeDynamicTargetSteps。
+     * @param totalAvailableMinutes t ot al Av ai la bl eM in ut es 参数
+     * @param config 配置对象
+     * @return 返回处理结果。
+     */
     private int computeDynamicTargetSteps(int totalAvailableMinutes, PlanningConfig config) {
         int effectiveMinutes = Math.max(0, totalAvailableMinutes - config.getDestinationBufferMin());
         return Math.max(1, effectiveMinutes / ESTIMATED_MINUTES_PER_STOP);
     }
 
+    /**
+     * 解析并确定destination。
+     * @param region 区域信息
+     * @param endLocationQuery e nd Lo ca ti on Qu er y 参数
+     * @return 返回处理结果。
+     */
     private ResolvedLocation resolveDestination(String region, String endLocationQuery) {
         ResolvedLocation destination = new ResolvedLocation();
         destination.setName(endLocationQuery);
@@ -531,6 +631,12 @@ public class TaskServiceImpl implements TaskService {
         return destination;
     }
 
+    /**
+     * 加载andverifyownership。
+     * @param taskUuid 任务唯一标识
+     * @param requestingUserId 发起请求的用户ID
+     * @return 返回处理结果。
+     */
     private Task loadAndVerifyOwnership(String taskUuid, Long requestingUserId) {
         Task task = taskMapper.findByUuid(taskUuid);
         if (task == null) {
@@ -542,6 +648,11 @@ public class TaskServiceImpl implements TaskService {
         return task;
     }
 
+    /**
+     * 解析checkpoint。
+     * @param task 任务实体
+     * @return 返回处理结果。
+     */
     private TaskCheckpoint parseCheckpoint(Task task) {
         if (task.getCheckpointJson() == null || task.getCheckpointJson().isBlank()) {
             return null;
@@ -554,10 +665,22 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
+    /**
+     * 解析并确定pendinginputtype。
+     * @param checkpoint 任务检查点数据
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     private String resolvePendingInputType(TaskCheckpoint checkpoint, ConfirmOriginSelectionRequest request) {
         return resolvePendingInputType(checkpoint, request.getPendingInputType());
     }
 
+    /**
+     * 解析并确定pendinginputtype。
+     * @param checkpoint 任务检查点数据
+     * @param requestType r eq ue st Ty pe 参数
+     * @return 返回处理结果。
+     */
     private String resolvePendingInputType(TaskCheckpoint checkpoint, String requestType) {
         String checkpointType = checkpoint.getPendingInputType();
         if (requestType == null || requestType.isBlank()) {
@@ -569,6 +692,12 @@ public class TaskServiceImpl implements TaskService {
         return requestType;
     }
 
+    /**
+     * 解析并确定pendingcandidates。
+     * @param checkpoint 任务检查点数据
+     * @param pendingInputType 待处理输入类型
+     * @return 返回处理后的列表结果。
+     */
     private List<LocationCandidateItem> resolvePendingCandidates(TaskCheckpoint checkpoint, String pendingInputType) {
         if ("origin_selection".equals(pendingInputType)) {
             return checkpoint.getLocationCandidates() == null ? List.of() : checkpoint.getLocationCandidates();
@@ -581,6 +710,12 @@ public class TaskServiceImpl implements TaskService {
         return List.of();
     }
 
+    /**
+     * 解析并确定pendingselectionoption。
+     * @param checkpoint 任务检查点数据
+     * @param selectedOptionId s el ec te dO pt io nI d 参数
+     * @return 返回处理结果。
+     */
     private SelectionOptionItem resolvePendingSelectionOption(TaskCheckpoint checkpoint, String selectedOptionId) {
         List<SelectionOptionItem> options = checkpoint.getSelectionOptions() == null
                 ? List.of()
@@ -594,6 +729,12 @@ public class TaskServiceImpl implements TaskService {
                 .orElseThrow(() -> new BusinessException(400, "selected option does not belong to this task"));
     }
 
+    /**
+     * 将数据转换为resolvedlocation。
+     * @param candidate 候选项
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     private ResolvedLocation toResolvedLocation(LocationCandidateItem candidate, ConfirmOriginSelectionRequest request) {
         ResolvedLocation resolvedLocation = new ResolvedLocation();
         resolvedLocation.setCandidateId(candidate.getCandidateId());
@@ -613,6 +754,12 @@ public class TaskServiceImpl implements TaskService {
         return resolvedLocation;
     }
 
+    /**
+     * 合并selectedcandidate。
+     * @param candidate 候选项
+     * @param request 请求参数
+     * @return 返回处理结果。
+     */
     private LocationCandidateItem mergeSelectedCandidate(LocationCandidateItem candidate, ConfirmOriginSelectionRequest request) {
         LocationCandidateItem selected = new LocationCandidateItem();
         selected.setCandidateId(candidate.getCandidateId());
@@ -639,6 +786,15 @@ public class TaskServiceImpl implements TaskService {
         return selected;
     }
 
+    /**
+     * 构建selectionconfirmedpayload。
+     * @param taskUuid 任务唯一标识
+     * @param pendingInputType 待处理输入类型
+     * @param checkpoint 任务检查点数据
+     * @param candidate 候选项
+     * @param request 请求参数
+     * @return 返回处理后的映射结果。
+     */
     private Map<String, Object> buildSelectionConfirmedPayload(String taskUuid,
                                                                String pendingInputType,
                                                                TaskCheckpoint checkpoint,
@@ -659,9 +815,17 @@ public class TaskServiceImpl implements TaskService {
         return payload;
     }
 
+    /**
+     * 处理scheduleResumeDispatch。
+     * @param taskUuid 任务唯一标识
+     * @param trigger t ri gg er 参数
+     */
     private void scheduleResumeDispatch(String taskUuid, String trigger) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                /**
+                 * 处理afterCommit。
+                 */
                 @Override
                 public void afterCommit() {
                     dispatchResumeAfterCommit(taskUuid, trigger);
@@ -672,6 +836,11 @@ public class TaskServiceImpl implements TaskService {
         dispatchResumeAfterCommit(taskUuid, trigger);
     }
 
+    /**
+     * 处理dispatchResumeAfterCommit。
+     * @param taskUuid 任务唯一标识
+     * @param trigger t ri gg er 参数
+     */
     private void dispatchResumeAfterCommit(String taskUuid, String trigger) {
         try {
             taskExecutionDispatcher.dispatchTask(taskUuid, "resume:" + trigger);
@@ -681,6 +850,12 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
+    /**
+     * 处理markResumeDispatchFailed。
+     * @param taskUuid 任务唯一标识
+     * @param exception 异常对象
+     * @param trigger t ri gg er 参数
+     */
     private void markResumeDispatchFailed(String taskUuid, Exception exception, String trigger) {
         Task freshTask = taskMapper.findByUuid(taskUuid);
         if (freshTask == null) {

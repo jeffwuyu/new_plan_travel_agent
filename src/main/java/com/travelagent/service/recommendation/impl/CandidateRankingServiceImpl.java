@@ -19,6 +19,12 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
     @Autowired private PoiScoringEngine scoringEngine;
     @Autowired private RecommendationExplanationService explanationService;
 
+    /**
+     * 处理rankCandidates。
+     * @param request 请求参数
+     * @param candidates 候选项列表
+     * @return 返回处理后的列表结果。
+     */
     @Override
     public List<RecommendedPoiItem> rankCandidates(NearbyPoiRecommendationRequest request, List<Attraction> candidates) {
         List<RecommendedPoiItem> ranked = new ArrayList<>();
@@ -61,6 +67,12 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
         return ranked.size() > topK ? ranked.subList(0, topK) : ranked;
     }
 
+    /**
+     * 构建routesummary。
+     * @param request 请求参数
+     * @param features f ea tu re s 参数
+     * @return 返回处理结果。
+     */
     private String buildRouteSummary(NearbyPoiRecommendationRequest request, RecommendationFeatureBreakdown features) {
         List<String> segments = new ArrayList<>();
         if (features.getTravelTimeMin() != null) {
@@ -77,6 +89,11 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
         return String.join("，", segments);
     }
 
+    /**
+     * 构建highlights。
+     * @param candidate 候选项
+     * @return 返回处理后的列表结果。
+     */
     private List<String> buildHighlights(Attraction candidate) {
         List<String> highlights = new ArrayList<>();
         appendShortValues(highlights, scoringEngine.parseStringList(candidate.getTagsJson()), 3);
@@ -86,6 +103,12 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
         return highlights.size() > 5 ? highlights.subList(0, 5) : highlights;
     }
 
+    /**
+     * 处理appendShortValues。
+     * @param target t ar ge t 参数
+     * @param values v al ue s 参数
+     * @param maxAppend m ax Ap pe nd 参数
+     */
     private void appendShortValues(List<String> target, List<String> values, int maxAppend) {
         if (values == null || values.isEmpty() || maxAppend <= 0) {
             return;
@@ -105,6 +128,11 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
         }
     }
 
+    /**
+     * 处理appendDescription。
+     * @param target t ar ge t 参数
+     * @param description d es cr ip ti on 参数
+     */
     private void appendDescription(List<String> target, String description) {
         if (description == null) {
             return;
@@ -121,6 +149,11 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
         }
     }
 
+    /**
+     * 规范化travelmode。
+     * @param travelMode 出行方式
+     * @return 返回处理结果。
+     */
     private String normalizeTravelMode(String travelMode) {
         if ("walking".equalsIgnoreCase(travelMode)) {
             return "步行";
@@ -131,6 +164,11 @@ public class CandidateRankingServiceImpl implements CandidateRankingService {
         return "驾车";
     }
 
+    /**
+     * 处理round。
+     * @param value 键值
+     * @return 返回处理结果。
+     */
     private double round(double value) {
         return Math.round(value * 1000.0d) / 1000.0d;
     }

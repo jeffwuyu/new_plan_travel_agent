@@ -21,6 +21,11 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class PlainTextExtractor implements DocumentTextExtractor {
 
+    /**
+     * 处理extract。
+     * @param rawBytes r aw By te s 参数
+     * @return 返回处理结果。
+     */
     @Override
     public String extract(byte[] rawBytes) {
         String raw = new String(rawBytes, StandardCharsets.UTF_8);

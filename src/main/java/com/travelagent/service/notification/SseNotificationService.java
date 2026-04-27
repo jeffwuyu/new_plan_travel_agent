@@ -39,7 +39,6 @@ public class SseNotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(SseNotificationService.class);
 
-    /** SSE emitter timeout: 10 minutes (matches server.tomcat.async-timeout). */
     private static final long SSE_TIMEOUT_MS = 600_000L;
 
     private final ConcurrentHashMap<String, SseEmitter> emitters = new ConcurrentHashMap<>();
@@ -49,11 +48,9 @@ public class SseNotificationService {
     // -----------------------------------------------------------------------
 
     /**
-     * Create (or replace) an SSE emitter for the given task UUID.
-     * If an existing emitter is registered it is completed before being replaced.
-     *
-     * @param taskUuid externally-visible task UUID
-     * @return the new {@link SseEmitter} to return from the controller
+     * 创建emitter。
+     * @param taskUuid 任务唯一标识
+     * @return 返回处理结果。
      */
     public SseEmitter createEmitter(String taskUuid) {
         SseEmitter existing = emitters.get(taskUuid);
@@ -78,12 +75,10 @@ public class SseNotificationService {
     }
 
     /**
-     * Send a typed SSE event to the client subscribed to the given task.
-     * Silently no-ops if no active emitter exists for the task UUID.
-     *
-     * @param taskUuid   target task UUID
-     * @param eventType  SSE event name (client listens with {@code addEventListener})
-     * @param payload    serializable payload (typically a {@code Map} or DTO)
+     * 处理sendEvent。
+     * @param taskUuid 任务唯一标识
+     * @param eventType e ve nt Ty pe 参数
+     * @param payload 事件载荷
      */
     public void sendEvent(String taskUuid, SseEvent eventType, Object payload) {
         SseEmitter emitter = emitters.get(taskUuid);
@@ -107,8 +102,8 @@ public class SseNotificationService {
     }
 
     /**
-     * Mark the emitter as complete and remove it from the registry.
-     * Called when a task reaches a terminal state (COMPLETED, FAILED, CANCELLED).
+     * 处理completeEmitter。
+     * @param taskUuid 任务唯一标识
      */
     public void completeEmitter(String taskUuid) {
         SseEmitter emitter = emitters.remove(taskUuid);
@@ -118,15 +113,17 @@ public class SseNotificationService {
     }
 
     /**
-     * Remove the emitter from the registry without completing it.
-     * Used when the client disconnects voluntarily.
+     * 移除emitter。
+     * @param taskUuid 任务唯一标识
      */
     public void removeEmitter(String taskUuid) {
         emitters.remove(taskUuid);
     }
 
     /**
-     * Returns {@code true} if there is an active emitter registered for the task.
+     * 判断是否具备activeemitter。
+     * @param taskUuid 任务唯一标识
+     * @return 是否满足当前条件。
      */
     public boolean hasActiveEmitter(String taskUuid) {
         return emitters.containsKey(taskUuid);

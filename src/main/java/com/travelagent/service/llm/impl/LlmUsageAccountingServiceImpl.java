@@ -21,11 +21,25 @@ public class LlmUsageAccountingServiceImpl implements LlmUsageAccountingService 
     @Autowired private UserMapper userMapper;
     @Autowired private QuotaService quotaService;
 
+    /**
+     * 处理recordUsage。
+     * @param taskId 任务ID
+     * @param userId 用户ID
+     * @param tokens t ok en s 参数
+     * @return 返回处理结果。
+     */
     @Override
     public int recordUsage(Long taskId, Long userId, int tokens) {
         return doRecordUsage(taskId, userId, tokens, true);
     }
 
+    /**
+     * 处理recordUsageLenient。
+     * @param taskId 任务ID
+     * @param userId 用户ID
+     * @param tokens t ok en s 参数
+     * @return 返回处理结果。
+     */
     @Override
     public int recordUsageLenient(Long taskId, Long userId, int tokens) {
         try {
@@ -37,6 +51,14 @@ public class LlmUsageAccountingServiceImpl implements LlmUsageAccountingService 
         }
     }
 
+    /**
+     * 处理doRecordUsage。
+     * @param taskId 任务ID
+     * @param userId 用户ID
+     * @param tokens t ok en s 参数
+     * @param strictQuota s tr ic tQ uo ta 参数
+     * @return 返回处理结果。
+     */
     private int doRecordUsage(Long taskId, Long userId, int tokens, boolean strictQuota) {
         if (taskId == null || tokens <= 0) {
             return 0;

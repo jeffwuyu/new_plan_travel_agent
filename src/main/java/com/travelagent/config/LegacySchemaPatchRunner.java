@@ -23,11 +23,20 @@ public class LegacySchemaPatchRunner implements ApplicationRunner {
     private final JdbcTemplate jdbcTemplate;
     private final DatabaseSchemaGuard schemaGuard;
 
+    /**
+     * 初始化LegacySchemaPatchRunner 实例。
+     * @param jdbcTemplate j db cT em pl at e 参数
+     * @param schemaGuard s ch em aG ua rd 参数
+     */
     public LegacySchemaPatchRunner(JdbcTemplate jdbcTemplate, DatabaseSchemaGuard schemaGuard) {
         this.jdbcTemplate = jdbcTemplate;
         this.schemaGuard = schemaGuard;
     }
 
+    /**
+     * 处理run。
+     * @param args a rg s 参数
+     */
     @Override
     public void run(ApplicationArguments args) {
         List<String> appliedPatches = new ArrayList<>();
@@ -92,6 +101,13 @@ public class LegacySchemaPatchRunner implements ApplicationRunner {
         }
     }
 
+    /**
+     * 处理ensureColumn。
+     * @param appliedPatches a pp li ed Pa tc he s 参数
+     * @param tableName t ab le Na me 参数
+     * @param columnName c ol um nN am e 参数
+     * @param alterSql a lt er Sq l 参数
+     */
     private void ensureColumn(List<String> appliedPatches, String tableName,
                               String columnName, String alterSql) throws SQLException {
         if (schemaGuard.columnExists(tableName, columnName)) {

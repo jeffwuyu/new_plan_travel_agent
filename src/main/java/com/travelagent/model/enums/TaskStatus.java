@@ -22,6 +22,11 @@ public enum TaskStatus {
         this.label = label;
     }
 
+    /**
+     * 将。
+     * @param code 状态码
+     * @return 返回处理结果。
+     */
     public static TaskStatus fromCode(String code) {
         for (TaskStatus status : values()) {
             if (status.code.equals(code)) {
@@ -31,18 +36,34 @@ public enum TaskStatus {
         throw new IllegalArgumentException("Unknown task status: " + code);
     }
 
+    /**
+     * 判断resumable。
+     * @return 是否满足当前条件。
+     */
     public boolean isResumable() {
         return this == PAUSED;
     }
 
+    /**
+     * 判断awaitinguserinput。
+     * @return 是否满足当前条件。
+     */
     public boolean isAwaitingUserInput() {
         return this == AWAITING_USER_INPUT;
     }
 
+    /**
+     * 判断active。
+     * @return 是否满足当前条件。
+     */
     public boolean isActive() {
         return this == PLANNING || this == TOOL_CALLING || this == RESUMING || this == AWAITING_USER_INPUT;
     }
 
+    /**
+     * 判断terminal。
+     * @return 是否满足当前条件。
+     */
     public boolean isTerminal() {
         return this == COMPLETED || this == FAILED || this == CANCELLED;
     }
