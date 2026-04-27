@@ -35,7 +35,7 @@ public class TaskMetricsService {
 
     /**
      * 处理recordToolCall。
-     * @param success s uc ce ss 参数
+     * @param success success 参数
      */
     public void recordToolCall(boolean success) {
         toolCallsTotal.incrementAndGet();
@@ -44,22 +44,18 @@ public class TaskMetricsService {
 
     /**
      * 处理recordTaskStarted。
-     * @param tasksStarted.incrementAndGet( t as ks St ar te d.i nc re me nt An dG et( 参数
      */
     public void recordTaskStarted()   { tasksStarted.incrementAndGet(); }
     /**
      * 处理recordTaskCompleted。
-     * @param tasksCompleted.incrementAndGet( t as ks Co mp le te d.i nc re me nt An dG et( 参数
      */
     public void recordTaskCompleted() { tasksCompleted.incrementAndGet(); }
     /**
      * 处理recordTaskFailed。
-     * @param tasksFailed.incrementAndGet( t as ks Fa il ed.i nc re me nt An dG et( 参数
      */
     public void recordTaskFailed()    { tasksFailed.incrementAndGet(); }
     /**
      * 处理recordTaskPaused。
-     * @param tasksPaused.incrementAndGet( t as ks Pa us ed.i nc re me nt An dG et( 参数
      */
     public void recordTaskPaused()    { tasksPaused.incrementAndGet(); }
 
