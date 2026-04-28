@@ -2,7 +2,7 @@ package com.travelagent.service;
 
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.context.CompletedStep;
-import com.travelagent.agent.planner.MarkovPlanner;
+import com.travelagent.service.agent.AgentService;
 import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.planner.TaskExecutionDispatcher;
 import com.travelagent.agent.statemachine.AgentEvent;
@@ -23,7 +23,6 @@ import com.travelagent.model.dto.TaskResponse;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.entity.UserQuotaConfig;
 import com.travelagent.model.enums.TaskStatus;
-import com.travelagent.service.llm.LlmUsageAccountingService;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.task.OriginCandidateService;
@@ -68,9 +67,8 @@ class TaskServiceTest {
     @Mock private JsonUtil jsonUtil;
     @Mock private OriginCandidateService originCandidateService;
     @Mock private AmapClient amapClient;
-    @Mock private MarkovPlanner markovPlanner;
+    @Mock private AgentService agentService;
     @Mock private TaskProgressService taskProgressService;
-    @Mock private LlmUsageAccountingService llmUsageAccountingService;
     @Mock private TaskExecutionDispatcher taskExecutionDispatcher;
 
     @InjectMocks
@@ -391,7 +389,7 @@ class TaskServiceTest {
 
         LocationCandidateItem refreshed = recommendationCandidate("poi-2", "Indoor Museum");
         refreshed.setBranchType("nearby_poi");
-        when(markovPlanner.planNextAttraction(eq(task), eq(checkpoint), any(), eq(TASK_UUID)))
+        when(agentService.refreshNodeCandidates(eq(task), eq(checkpoint), eq(TASK_UUID)))
                 .thenReturn(PlanningResult.forCandidates(
                         List.of(refreshed),
                         88,
@@ -400,7 +398,6 @@ class TaskServiceTest {
                         "nearby_poi",
                         Map.of("userPreferencePrompt", "室内 少走路"),
                         Map.of()));
-        when(llmUsageAccountingService.recordUsage(task.getId(), task.getUserId(), 88)).thenReturn(88);
 
         NodeChatRequest request = new NodeChatRequest();
         request.setPendingInputType("poi_candidate_selection");

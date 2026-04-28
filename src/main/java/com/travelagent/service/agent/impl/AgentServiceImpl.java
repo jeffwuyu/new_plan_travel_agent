@@ -16,7 +16,7 @@ import com.travelagent.config.DatabaseSchemaGuard;
 import com.travelagent.exception.AgentErrorCode;
 import com.travelagent.exception.AgentException;
 import com.travelagent.exception.QuotaExhaustedException;
-import com.travelagent.mapper.PlanMapper;
+import com.travelagent.service.plan.PlanPersistenceService;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.model.dto.LocationCandidateItem;
 import com.travelagent.model.entity.Plan;
@@ -72,13 +72,28 @@ public class AgentServiceImpl implements AgentService {
     @Autowired private SseNotificationService sseNotificationService;
     @Autowired private MarkovPlanner markovPlanner;
     @Autowired private QuotaService quotaService;
-    @Autowired private PlanMapper planMapper;
+    @Autowired private PlanPersistenceService planPersistenceService;
     @Autowired private TaskProgressService taskProgressService;
     @Autowired private TaskMetricsService taskMetricsService;
     @Autowired private DatabaseSchemaGuard schemaGuard;
     @Autowired private LlmUsageAccountingService llmUsageAccountingService;
     @Autowired private AgentCheckpointHelper checkpointHelper;
     @Autowired private AgentToolExecutor toolExecutor;
+
+    @Override
+    public PlanningResult refreshNodeCandidates(Task task, TaskCheckpoint checkpoint, String taskUuid) {
+        PlanNextAttractionRequest req = markovPlanner.buildPlanRequest(checkpoint);
+        PlanningResult result = markovPlanner.planNextAttraction(task, checkpoint, req, taskUuid);
+        if (result.totalTokens() > 0) {
+            try {
+                int updated = llmUsageAccountingService.recordUsage(task.getId(), task.getUserId(), result.totalTokens());
+                task.setTotalTokensUsed(updated);
+            } catch (Exception e) {
+                log.warn("[AgentService] Failed to record token usage for node-chat task={}: {}", taskUuid, e.getMessage());
+            }
+        }
+        return result;
+    }
 
     /**
      * 处理recoverStuckTasksOnStartup。
@@ -713,13 +728,11 @@ public class AgentServiceImpl implements AgentService {
             plan.setTitle(checkpoint.getRegion() + " " + checkpoint.getPlanningConfig().getTotalDays() + "-Day Trip");
             plan.setSummary(checkpoint.getUserIntent());
         }
-        planMapper.insertPlan(plan);
+        planPersistenceService.insertPlan(plan);
 
         List<FinalSummaryResult.StepSummary> stepSummaries = summary != null ? summary.steps() : List.of();
         List<PlanStep> steps = buildPlanSteps(plan.getId(), checkpoint.getCompletedSteps(), stepSummaries);
-        if (!steps.isEmpty()) {
-            planMapper.insertSteps(steps);
-        }
+        planPersistenceService.insertSteps(steps);
         return plan.getId();
     }
 

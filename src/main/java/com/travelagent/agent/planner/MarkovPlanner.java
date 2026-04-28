@@ -2,7 +2,7 @@ package com.travelagent.agent.planner;
 
 import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.TaskCheckpoint;
-import com.travelagent.client.amap.AmapClient;
+import com.travelagent.agent.tools.WeatherTool;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.client.dashscope.LlmCallResult;
 import com.travelagent.mapper.LlmCallLogMapper;
@@ -44,7 +44,7 @@ public class MarkovPlanner {
     @Autowired private PlannerResponseParser responseParser;
     @Autowired(required = false) private RagService ragService;
     @Autowired(required = false) private NearbyPoiRecommendationService nearbyPoiRecommendationService;
-    @Autowired(required = false) private AmapClient amapClient;
+    @Autowired(required = false) private WeatherTool weatherTool;
 
     /**
      * 处理planNextAttraction。
@@ -287,13 +287,14 @@ public class MarkovPlanner {
         if ((adcode == null || adcode.isBlank()) && cp.getSelectedOrigin() != null) {
             adcode = cp.getSelectedOrigin().getAdcode();
         }
-        if (adcode == null || adcode.isBlank() || amapClient == null) {
+        if (adcode == null || adcode.isBlank() || weatherTool == null) {
             context.put("summary", "暂未获取到天气，默认按常规条件推荐。");
             context.put("constraintHints", List.of());
             return context;
         }
         try {
-            Map<String, Object> weather = amapClient.getWeather(adcode);
+            String weatherKey = cp.getTaskUuid() + "-planner-weather-" + adcode;
+            Map<String, Object> weather = weatherTool.execute(Map.of("adcode", adcode), weatherKey);
             context.putAll(weather);
             context.put("source", "amap");
             context.putAll(buildWeatherConstraintSummary(weather));

@@ -20,7 +20,7 @@ import com.travelagent.config.DatabaseSchemaGuard;
 import com.travelagent.exception.AgentErrorCode;
 import com.travelagent.exception.AgentException;
 import com.travelagent.exception.QuotaExhaustedException;
-import com.travelagent.mapper.PlanMapper;
+import com.travelagent.service.plan.PlanPersistenceService;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.mapper.UserMapper;
 import com.travelagent.model.dto.LocationCandidateItem;
@@ -61,6 +61,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -79,7 +80,7 @@ class AgentServiceImplTest {
     @Mock private MarkovPlanner markovPlanner;
     @Mock private ToolRegistry toolRegistry;
     @Mock private QuotaService quotaService;
-    @Mock private PlanMapper planMapper;
+    @Mock private PlanPersistenceService planPersistenceService;
     @Mock private UserMapper userMapper;
     @Mock private TaskProgressService taskProgressService;
     @Mock private TaskMetricsService taskMetricsService;
@@ -172,11 +173,11 @@ class AgentServiceImplTest {
         when(amapClient.getTravelDuration(any(Double.class), any(Double.class), any(Double.class), any(Double.class), anyString()))
                 .thenReturn(Map.of("durationMin", 25));
         mockToolRegistry();
-        when(planMapper.insertPlan(any())).thenAnswer(invocation -> {
+        doAnswer(invocation -> {
             Plan plan = invocation.getArgument(0);
             plan.setId(42L);
-            return 1;
-        });
+            return null;
+        }).when(planPersistenceService).insertPlan(any());
 
         agentService.executeTask("uuid");
 
@@ -209,11 +210,11 @@ class AgentServiceImplTest {
         when(toolRegistry.getTool(WeatherTool.NAME)).thenReturn(weatherTool);
         when(toolRegistry.getTool(TrafficTimeTool.NAME)).thenReturn(trafficTool);
         when(markovPlanner.generateFinalSummary(any(), any(), anyString())).thenReturn(null);
-        when(planMapper.insertPlan(any())).thenAnswer(invocation -> {
+        doAnswer(invocation -> {
             Plan plan = invocation.getArgument(0);
             plan.setId(42L);
-            return 1;
-        });
+            return null;
+        }).when(planPersistenceService).insertPlan(any());
 
         agentService.executeTask("uuid");
 
@@ -243,11 +244,11 @@ class AgentServiceImplTest {
         when(amapClient.getTravelDuration(any(Double.class), any(Double.class), any(Double.class), any(Double.class), anyString()))
                 .thenReturn(Map.of("durationMin", 20));
         mockToolRegistry();
-        when(planMapper.insertPlan(any())).thenAnswer(invocation -> {
+        doAnswer(invocation -> {
             Plan plan = invocation.getArgument(0);
             plan.setId(1L);
-            return 1;
-        });
+            return null;
+        }).when(planPersistenceService).insertPlan(any());
 
         agentService.executeTask("uuid");
 
@@ -268,11 +269,11 @@ class AgentServiceImplTest {
         when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("manual"));
         when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
                 .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
-        when(planMapper.insertPlan(any())).thenAnswer(invocation -> {
+        doAnswer(invocation -> {
             Plan plan = invocation.getArgument(0);
             plan.setId(7L);
-            return 1;
-        });
+            return null;
+        }).when(planPersistenceService).insertPlan(any());
         when(amapClient.getTravelDuration(any(Double.class), any(Double.class), any(Double.class), any(Double.class), anyString()))
                 .thenReturn(Map.of("durationMin", 22));
         when(markovPlanner.generateFinalSummary(any(), any(), anyString())).thenReturn(null);

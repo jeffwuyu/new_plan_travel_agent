@@ -5,8 +5,6 @@ import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.RetryState;
 import com.travelagent.agent.context.TaskCheckpoint;
-import com.travelagent.agent.planner.MarkovPlanner;
-import com.travelagent.agent.planner.PlanNextAttractionRequest;
 import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.planner.TaskExecutionDispatcher;
 import com.travelagent.agent.statemachine.AgentEvent;
@@ -26,7 +24,7 @@ import com.travelagent.model.dto.TaskResponse;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.entity.UserQuotaConfig;
 import com.travelagent.model.enums.TaskStatus;
-import com.travelagent.service.llm.LlmUsageAccountingService;
+import com.travelagent.service.agent.AgentService;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.task.OriginCandidateService;
@@ -67,9 +65,8 @@ public class TaskServiceImpl implements TaskService {
     @Autowired private JsonUtil jsonUtil;
     @Autowired private OriginCandidateService originCandidateService;
     @Autowired private AmapClient amapClient;
-    @Autowired private MarkovPlanner markovPlanner;
+    @Autowired private AgentService agentService;
     @Autowired private TaskProgressService taskProgressService;
-    @Autowired private LlmUsageAccountingService llmUsageAccountingService;
     @Autowired private TaskRewindHandler rewindHandler;
     @Autowired private TaskExecutionDispatcher taskExecutionDispatcher;
 
@@ -388,12 +385,7 @@ public class TaskServiceImpl implements TaskService {
             throw new BusinessException(400, "unsupported pending input type for node preference: " + pendingInputType);
         }
 
-        PlanNextAttractionRequest planningRequest = markovPlanner.buildPlanRequest(checkpoint);
-        PlanningResult planResult = markovPlanner.planNextAttraction(task, checkpoint, planningRequest, taskUuid);
-        if (planResult.totalTokens() > 0) {
-            int updatedTotal = llmUsageAccountingService.recordUsage(task.getId(), task.getUserId(), planResult.totalTokens());
-            task.setTotalTokensUsed(updatedTotal);
-        }
+        PlanningResult planResult = agentService.refreshNodeCandidates(task, checkpoint, taskUuid);
         if (!planResult.requiresUserSelection()) {
             throw new BusinessException(400, "node preference refresh did not produce selectable candidates");
         }
