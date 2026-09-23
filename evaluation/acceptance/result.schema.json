@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["caseId", "status", "commit", "environment", "startedAt", "finishedAt", "expected", "actual", "artifacts"],
+  "properties": {
+    "caseId": {"type": "string", "minLength": 1},
+    "status": {"enum": ["PASS", "FAIL", "BLOCKED", "INVALID", "INSUFFICIENT_SAMPLE"]},
+    "commit": {"type": "string", "minLength": 7},
+    "environment": {"type": "object"},
+    "startedAt": {"type": "string", "format": "date-time"},
+    "finishedAt": {"type": "string", "format": "date-time"},
+    "expected": {},
+    "actual": {},
+    "artifacts": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

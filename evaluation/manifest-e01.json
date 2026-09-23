@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "e01-v1",
+  "project": "travel",
+  "status": "NOT_RUN",
+  "commit": null,
+  "suite": null,
+  "dataset": {"path": null, "version": null, "sha256": null, "sampleCount": 0},
+  "environment": {"javaVersion": null, "springAiVersion": null, "database": "MySQL", "redis": null, "providerMode": null},
+  "settings": {"randomSeed": null, "warmupRuns": null, "measuredRuns": null},
+  "metricDefinitions": {},
+  "limitations": ["尚未执行正式功能、性能或质量评测；不得据此回填简历指标。"]
+}
