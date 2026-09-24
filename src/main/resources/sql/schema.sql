@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     completed_at      DATETIME     NULL,
+    recovery_attempts INT          NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_task_uuid (task_uuid),
     INDEX idx_user_id (user_id),

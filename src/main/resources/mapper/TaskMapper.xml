@@ -13,6 +13,7 @@
         <result property="leaseToken"      column="lease_token"/>
         <result property="leaseExpiresAt"  column="lease_expires_at"/>
         <result property="executionOwner"  column="execution_owner"/>
+        <result property="recoveryAttempts" column="recovery_attempts"/>
         <result property="region"          column="region"/>
         <result property="requestIp"       column="request_ip"/>
         <result property="checkpointJson"  column="checkpoint_json"/>
@@ -69,6 +70,18 @@
             #{s}
         </foreach>
         ORDER BY created_at ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecoverableExpiredLeases" resultMap="taskResultMap">
+        SELECT * FROM tasks
+        WHERE status IN
+        <foreach collection="statuses" item="s" open="(" separator="," close=")">
+            #{s}
+        </foreach>
+          AND (lease_expires_at IS NULL OR lease_expires_at &lt;= #{before})
+          AND id &gt; #{afterId}
+        ORDER BY id ASC
         LIMIT #{limit}
     </select>
 
@@ -160,6 +173,16 @@
             updated_at = NOW()
         WHERE id = #{id} AND status = #{expectedStatus}
           AND revision = #{expectedRevision}
+          AND (lease_expires_at IS NULL OR lease_expires_at &lt;= NOW())
+    </update>
+
+    <update id="claimRecoveryIfExpired">
+        UPDATE tasks
+        SET status = 'resuming', execution_owner = #{owner}, lease_token = #{leaseToken},
+            lease_expires_at = #{leaseExpiresAt}, revision = revision + 1,
+            recovery_attempts = recovery_attempts + 1, updated_at = NOW()
+        WHERE id = #{id} AND revision = #{expectedRevision}
+          AND status IN ('planning', 'tool_calling')
           AND (lease_expires_at IS NULL OR lease_expires_at &lt;= NOW())
     </update>
 

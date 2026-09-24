@@ -7,6 +7,7 @@ import com.travelagent.service.task.RedisTaskLockService;
 import com.travelagent.service.task.TaskLifecycleGovernanceService;
 import com.travelagent.service.task.TaskDispatchQueueService;
 import com.travelagent.service.task.TaskProgressService;
+import com.travelagent.model.enums.TaskStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -125,6 +126,15 @@ public class TaskExecutionDispatcher {
         Task task = taskMapper.findByUuid(taskUuid);
         if (task == null || task.getId() == null || task.getStatus() == null) {
             return null;
+        }
+        // Recovery claims already own a live database lease. Reusing its token
+        // lets the normal RESUMING poll execute the task without attempting a
+        // second claim that would be rejected while the lease is healthy.
+        if (TaskStatus.RESUMING.getCode().equals(task.getStatus())
+                && task.getLeaseToken() != null && !task.getLeaseToken().isBlank()
+                && task.getLeaseExpiresAt() != null
+                && task.getLeaseExpiresAt().isAfter(java.time.LocalDateTime.now())) {
+            return task.getLeaseToken();
         }
         try {
             return lifecycleGovernanceService.claimExecutionLease(

@@ -82,6 +82,8 @@ public class AgentServiceImpl implements AgentService {
     @Autowired private AgentToolStepService toolStepService;
     @Value("${agent.task.max-recovery-attempts:3}")
     private int maxRecoveryAttempts;
+    @Value("${agent.task.recovery-scan-batch-size:100}")
+    private int recoveryScanBatchSize;
     private final Map<String, String> executionLeaseTokens = new ConcurrentHashMap<>();
 
     @Override
@@ -126,17 +128,26 @@ public class AgentServiceImpl implements AgentService {
      * 扫描规划中或工具调用中的陈旧任务，并把可恢复任务转为 resuming。
      */
     public void recoverStuckTasks() {
-        List<String> stuckStatuses = List.of(
-                TaskStatus.PLANNING.getCode(),
-                TaskStatus.TOOL_CALLING.getCode()
-        );
-        List<Task> stuckTasks = taskMapper.findByStatusIn(stuckStatuses, 100);
+        boolean durableRecoveryScan = lifecycleGovernanceService != null;
+        if (durableRecoveryScan) {
+            // Start each pass at the beginning. A task that was healthy during a
+            // previous pass may become expired later; retaining an in-memory ID
+            // cursor would permanently skip that task until process restart.
+            lifecycleGovernanceService.scanExpiredExecutionLeases("recovery", 0L, recoveryScanBatchSize);
+        }
+        List<String> stuckStatuses = durableRecoveryScan
+                ? List.of(TaskStatus.RESUMING.getCode())
+                : List.of(TaskStatus.PLANNING.getCode(), TaskStatus.TOOL_CALLING.getCode());
+        List<Task> stuckTasks = taskMapper.findByStatusIn(stuckStatuses,
+                durableRecoveryScan ? Math.max(1, recoveryScanBatchSize) : 100);
         for (Task task : stuckTasks) {
             try {
                 if (redisTaskLockService != null && redisTaskLockService.hasValidLease(task.getTaskUuid())) {
                     continue;
                 }
-                int attempts = incrementRecoveryAttempts(task.getTaskUuid());
+                int attempts = durableRecoveryScan
+                        ? (task.getRecoveryAttempts() == null ? 0 : task.getRecoveryAttempts())
+                        : incrementRecoveryAttempts(task.getTaskUuid());
                 if (attempts > maxRecoveryAttempts) {
                     task.setStatus(TaskStatus.FAILED.getCode());
                     task.setErrorMessage("Task exceeded max recovery attempts: " + maxRecoveryAttempts);

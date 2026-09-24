@@ -6,6 +6,9 @@ ALTER TABLE tasks
     ADD COLUMN IF NOT EXISTS lease_expires_at DATETIME NULL,
     ADD COLUMN IF NOT EXISTS execution_owner VARCHAR(128) NULL;
 
+ALTER TABLE tasks
+    ADD COLUMN IF NOT EXISTS recovery_attempts INT NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS task_operations (
     id             BIGINT       NOT NULL AUTO_INCREMENT,
     user_id        BIGINT       NOT NULL,

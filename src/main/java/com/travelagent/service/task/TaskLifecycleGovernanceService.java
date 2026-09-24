@@ -19,6 +19,7 @@ import java.util.UUID;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 @Service
 public class TaskLifecycleGovernanceService {
@@ -112,6 +113,47 @@ public class TaskLifecycleGovernanceService {
         summary.put("archivedPaused", archivedPaused);
         summary.put("scanLimit", limit);
         return summary;
+    }
+
+    /**
+     * Claims expired executable tasks using a database cursor. The cursor makes
+     * repeated scans progress through large backlogs without relying on a
+     * process-start snapshot.
+     */
+    public RecoveryScanResult scanExpiredExecutionLeases(String trigger, Long afterId, int batchSize) {
+        List<String> statuses = List.of(TaskStatus.PLANNING.getCode(), TaskStatus.TOOL_CALLING.getCode());
+        long cursor = afterId == null ? 0L : Math.max(0L, afterId);
+        int claimed = 0;
+        int skipped = 0;
+        List<String> claimedTaskUuids = new ArrayList<>();
+        int limit = Math.max(1, Math.min(batchSize, 500));
+        while (true) {
+            List<Task> tasks = taskMapper.findRecoverableExpiredLeases(statuses,
+                    LocalDateTime.now(), cursor, limit);
+            if (tasks == null || tasks.isEmpty()) {
+                break;
+            }
+            for (Task task : tasks) {
+                cursor = Math.max(cursor, task.getId() == null ? cursor : task.getId());
+                String token = UUID.randomUUID().toString();
+                long revision = task.getRevision() == null ? 1L : task.getRevision();
+                int updated = taskMapper.claimRecoveryIfExpired(task.getId(), revision,
+                        normalizeTrigger(trigger), token, LocalDateTime.now().plusMinutes(10));
+                if (updated == 1) {
+                    claimed++;
+                    claimedTaskUuids.add(task.getTaskUuid());
+                } else {
+                    skipped++;
+                }
+            }
+            if (tasks.size() < limit) {
+                break;
+            }
+        }
+        return new RecoveryScanResult(cursor, claimed, skipped, claimedTaskUuids);
+    }
+
+    public record RecoveryScanResult(long nextCursor, int claimed, int skipped, List<String> taskUuids) {
     }
 
     public String claimExecutionLease(Long taskId, String expectedStatus, String owner, Duration ttl) {

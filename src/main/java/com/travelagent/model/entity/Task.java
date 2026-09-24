@@ -42,6 +42,9 @@ public class Task {
 
     private String executionOwner;
 
+    /** Number of durable lease recovery claims for this task. */
+    private Integer recoveryAttempts = 0;
+
     /** Target region, e.g. "西安市" */
     private String region;
 
