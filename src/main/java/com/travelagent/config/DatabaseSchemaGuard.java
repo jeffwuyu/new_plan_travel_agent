@@ -28,6 +28,7 @@ public class DatabaseSchemaGuard {
         "tasks",
         "plans",
         "plan_steps",
+        "plan_accommodations",
         "user_quota_config",
         "task_execution_events"
     );

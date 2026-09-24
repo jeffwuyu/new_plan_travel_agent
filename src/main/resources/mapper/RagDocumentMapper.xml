@@ -10,18 +10,28 @@
         <result property="title"        column="title"/>
         <result property="region"       column="region"/>
         <result property="docType"      column="doc_type"/>
+        <result property="sourceType"   column="source_type"/>
+        <result property="sourceName"   column="source_name"/>
+        <result property="sourceUrl"    column="source_url"/>
+        <result property="metadataJson" column="metadata_json"/>
         <result property="status"       column="status"/>
+        <result property="ingestProgress" column="ingest_progress"/>
+        <result property="retryCount"   column="retry_count"/>
+        <result property="lastErrorCode" column="last_error_code"/>
         <result property="errorMessage" column="error_message"/>
+        <result property="disabledAt"   column="disabled_at"/>
         <result property="createdAt"    column="created_at"/>
         <result property="updatedAt"    column="updated_at"/>
     </resultMap>
 
     <insert id="insert" parameterType="com.travelagent.model.entity.RagDocument"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO rag_documents (oss_key, title, region, doc_type, status, error_message,
-                                   created_at, updated_at)
-        VALUES (#{ossKey}, #{title}, #{region}, #{docType}, #{status}, #{errorMessage},
-                NOW(), NOW())
+        INSERT INTO rag_documents (oss_key, title, region, doc_type, source_type, source_name,
+                                   source_url, metadata_json, status, ingest_progress, retry_count,
+                                   last_error_code, error_message, disabled_at, created_at, updated_at)
+        VALUES (#{ossKey}, #{title}, #{region}, #{docType}, #{sourceType}, #{sourceName},
+                #{sourceUrl}, #{metadataJson}, #{status}, #{ingestProgress}, #{retryCount},
+                #{lastErrorCode}, #{errorMessage}, #{disabledAt}, NOW(), NOW())
     </insert>
 
     <select id="findById" resultMap="ragDocumentResultMap">
@@ -32,11 +42,56 @@
         SELECT * FROM rag_documents WHERE oss_key = #{ossKey} LIMIT 1
     </select>
 
+    <select id="findBySourceType" resultMap="ragDocumentResultMap">
+        SELECT * FROM rag_documents
+        WHERE source_type = #{sourceType}
+          AND status = 'indexed'
+        ORDER BY updated_at DESC
+    </select>
+
     <update id="updateStatus">
         UPDATE rag_documents
         SET status        = #{status},
             error_message = #{errorMessage},
             updated_at    = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateLifecycle">
+        UPDATE rag_documents
+        SET status = #{status},
+            ingest_progress = #{ingestProgress},
+            retry_count = #{retryCount},
+            last_error_code = #{lastErrorCode},
+            error_message = #{errorMessage},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementRetryCount">
+        UPDATE rag_documents
+        SET retry_count = retry_count + 1,
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="disableDocument">
+        UPDATE rag_documents
+        SET status = 'disabled',
+            ingest_progress = 0,
+            disabled_at = NOW(),
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="reenableDocument">
+        UPDATE rag_documents
+        SET status = 'pending',
+            ingest_progress = 0,
+            last_error_code = NULL,
+            error_message = NULL,
+            disabled_at = NULL,
+            updated_at = NOW()
         WHERE id = #{id}
     </update>
 

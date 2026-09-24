@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelagent.mapper.TaskCheckpointArtifactMapper">
+
+    <insert id="upsertArtifact">
+        INSERT INTO task_checkpoint_artifacts
+            (task_uuid, task_id, artifact_type, payload_json, item_count, schema_version, created_at, updated_at)
+        VALUES
+            (#{taskUuid}, #{taskId}, #{artifactType}, #{payloadJson}, #{itemCount}, #{schemaVersion}, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            task_id = VALUES(task_id),
+            payload_json = VALUES(payload_json),
+            item_count = VALUES(item_count),
+            schema_version = VALUES(schema_version),
+            updated_at = NOW()
+    </insert>
+</mapper>

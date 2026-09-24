@@ -10,22 +10,18 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 /**
- * Extracts plain text from PDF documents using Apache PDFBox 3.x.
+ * PDF 文本提取器，使用 Apache PDFBox 3.x 从 PDF 字节中读取可检索文本。
  *
- * <p>PDFBox 3.0 API note: the entry point changed from {@code PDDocument.load(byte[])} (2.x)
- * to {@code org.apache.pdfbox.Loader.loadPDF(byte[])} (3.x). This implementation uses
- * the 3.x API.
- *
- * <p>Text is extracted in reading order ({@code setSortByPosition(true)}).
- * Scanned-image PDFs without embedded text will return an empty or near-empty string.
+ * <p>按页面阅读顺序提取文本；扫描件等无内嵌文本的 PDF 会返回空字符串或极短文本。</p>
  */
 @Component
 public class PdfTextExtractor implements DocumentTextExtractor {
 
     /**
-     * 处理extract。
-     * @param rawBytes r aw By te s 参数
-     * @return 返回处理结果。
+     * 从 PDF 原始字节中提取纯文本。
+     *
+     * @param rawBytes PDF 文件字节
+     * @return 提取出的纯文本
      */
     @Override
     public String extract(byte[] rawBytes) {

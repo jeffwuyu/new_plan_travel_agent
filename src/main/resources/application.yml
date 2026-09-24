@@ -16,7 +16,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/travel_agent?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    password: ${DB_PASSWORD:}
+    password: ${secret.mysql-password:${DB_PASSWORD:}}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 10
@@ -35,6 +35,9 @@ spring:
     init:
       mode: always
       schema-locations: classpath:sql/schema-runtime.sql
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+    locations: classpath:db/migration/mysql
 
   # ==================== Redis ====================
   data:
@@ -67,6 +70,9 @@ spring:
     date-format: "yyyy-MM-dd HH:mm:ss"
     time-zone: Asia/Shanghai
 
+redis:
+  password: ${secret.redis-password:${REDIS_PASSWORD:}}
+
 server:
   port: 8123
   servlet:
@@ -76,6 +82,19 @@ server:
       force: true
   tomcat:
     async-timeout: 600000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 # ==================== MyBatis ====================
 mybatis:
@@ -116,25 +135,37 @@ knife4j:
 
 # ==================== JWT ====================
 jwt:
-  secret: ${JWT_SECRET:change-me-in-production-min-32-chars}
+  secret: ${secret.jwt-secret:${JWT_SECRET:change-me-in-production-min-32-chars}}
   expiration: 86400000
   header: Authorization
   prefix: Bearer
 
 # ==================== Dashscope (Tongyi Qianwen) ====================
 dashscope:
-  api-key: ${secret.api-dashscope-key}
+  api-key: ${secret.api-dashscope-key:${DASHSCOPE_API_KEY:}}
   llm:
     model: qwen-plus
     temperature: 0.7
   embedding:
     model: text-embedding-v3
+  image:
+    enabled: true
+    api-key: ${secret.api-bailian-image-key:${secret.api-dashscope-key:${DASHSCOPE_API_KEY:}}}
+    model: wan2.7-image-pro
+    endpoint: https://dashscope.aliyuncs.com/api/v1/services/aigc/image-generation/generation
+    task-endpoint: https://dashscope.aliyuncs.com/api/v1/tasks
+    size: 2K
+    n: 1
+    timeout-ms: 180000
+    poll-initial-interval-ms: 3000
+    poll-max-interval-ms: 10000
+    max-auto-retries: 2
   timeout: 60000
   max-retries: 3
 
 # ==================== Amap ====================
 amap:
-  api-key: ${secret.api-amap-key}
+  api-key: ${secret.api-amap-key:${AMAP_API_KEY:}}
   geocode-url: https://restapi.amap.com/v3/geocode/geo
   weather-url: https://restapi.amap.com/v3/weather/weatherInfo
   direction-url: https://restapi.amap.com/v3/direction/driving
@@ -143,34 +174,121 @@ amap:
   transit-direction-url: https://restapi.amap.com/v3/direction/transit/integrated
   distance-url: https://restapi.amap.com/v3/distance
   nearby-search-url: https://restapi.amap.com/v3/place/around
+  text-search-url: https://restapi.amap.com/v3/place/text
   timeout: 10000
+
+# ==================== OTA Accommodation ====================
+accommodation:
+  provider: ${ACCOMMODATION_PROVIDER:mock}
+  price-freshness-ttl-hours: ${ACCOMMODATION_PRICE_FRESHNESS_TTL_HOURS:6}
+
+ctrip:
+  api:
+    base-url: ${secret.ctrip-accommodation-base-url:${CTRIP_ACCOMMODATION_BASE_URL:}}
+    app-id: ${secret.ctrip-app-id:${CTRIP_APP_ID:}}
+    secret: ${secret.ctrip-secret:${CTRIP_SECRET:}}
+    timeout-ms: ${CTRIP_TIMEOUT_MS:10000}
+
+# ==================== Web Search ====================
+web-search:
+  endpoint: ${secret.web-search-endpoint:${WEB_SEARCH_ENDPOINT:}}
+  api-key: ${secret.web-search-api-key:${WEB_SEARCH_API_KEY:}}
 
 # ==================== Alibaba Cloud OSS ====================
 oss:
-  endpoint: https://oss-cn-beijing.aliyuncs.com
-  access-key-id: ${secret.oss-access-key-id}
-  access-key-secret: ${secret.oss-access-key-secret}
-  bucket-name: travel-agent-docs
+  endpoint: ${secret.oss-endpoint:${OSS_ENDPOINT:https://oss-cn-beijing.aliyuncs.com}}
+  access-key-id: ${secret.oss-access-key-id:${OSS_ACCESS_KEY_ID:}}
+  access-key-secret: ${secret.oss-access-key-secret:${OSS_ACCESS_KEY_SECRET:}}
+  bucket-name: ${secret.oss-bucket-name:${OSS_BUCKET_NAME:travel-agent-docs}}
   rag-prefix: rag/documents/
+  route-map-prefix: route-maps/
+  signed-url-ttl-minutes: 30
+
+route-map:
+  enabled: true
+  auto-generate-on-plan-complete: true
+  default-style: anime_travel_map
+  manual-regenerate-limit-per-record: 3
+  daily-generate-limit-per-user: ${ROUTE_MAP_DAILY_GENERATE_LIMIT_PER_USER:20}
+  max-recovery-attempts: ${ROUTE_MAP_MAX_RECOVERY_ATTEMPTS:3}
+  dispatch-compensation:
+    enabled: ${ROUTE_MAP_DISPATCH_COMPENSATION_ENABLED:true}
+    max-attempts: ${ROUTE_MAP_DISPATCH_COMPENSATION_MAX_ATTEMPTS:3}
+    retry-delay-seconds: ${ROUTE_MAP_DISPATCH_COMPENSATION_RETRY_DELAY_SECONDS:60}
+    scan-limit: ${ROUTE_MAP_DISPATCH_COMPENSATION_SCAN_LIMIT:20}
+    scan-interval-ms: ${ROUTE_MAP_DISPATCH_COMPENSATION_SCAN_INTERVAL_MS:60000}
+    scan-initial-delay-ms: ${ROUTE_MAP_DISPATCH_COMPENSATION_SCAN_INITIAL_DELAY_MS:60000}
+  job:
+    lease-seconds: ${ROUTE_MAP_JOB_LEASE_SECONDS:900}
+  thread-pool-size: ${ROUTE_MAP_THREAD_POOL_SIZE:2}
+  queue-size: ${ROUTE_MAP_QUEUE_SIZE:50}
+  image-width: 2048
+  image-height: 1536
 
 # ==================== DashVector ====================
 dashvector:
-  api-key: ${secret.dashvector-api-key}
-  endpoint: ${secret.endpoint}
+  api-key: ${secret.dashvector-api-key:${DASHVECTOR_API_KEY:}}
+  endpoint: ${secret.dashvector-endpoint:${secret.endpoint:${DASHVECTOR_ENDPOINT:}}}
   collection: travel
   dimension: 1536
   top-k: 5
 
+rag:
+  vector-backend: ${RAG_VECTOR_BACKEND:postgres}
+  ingestion:
+    thread-pool-size: ${RAG_INGESTION_THREAD_POOL_SIZE:2}
+    queue-size: ${RAG_INGESTION_QUEUE_SIZE:50}
+  postgres:
+    url: ${RAG_POSTGRES_URL:jdbc:postgresql://localhost:5432/travel_agent_rag}
+    username: ${RAG_POSTGRES_USERNAME:travel_agent}
+    password: ${RAG_POSTGRES_PASSWORD:travel_agent_pass}
+
 # ==================== Agent ====================
 agent:
+  instance-id: ${AGENT_INSTANCE_ID:}
+  sse:
+    redis-enabled: true
+    ticket-ttl-seconds: ${AGENT_SSE_TICKET_TTL_SECONDS:60}
+  session-api:
+    enabled: false
+  selection:
+    policy: ${AGENT_SELECTION_POLICY:auto_high_confidence}
+    confidence-threshold: ${AGENT_SELECTION_CONFIDENCE_THRESHOLD:0.82}
+    score-gap-threshold: ${AGENT_SELECTION_SCORE_GAP_THRESHOLD:0.12}
   task:
     thread-pool-size: 4
     queue-size: 100
     poll-interval-ms: 2000
     max-per-poll: 4
+    max-recovery-attempts: ${AGENT_TASK_MAX_RECOVERY_ATTEMPTS:3}
+    lock-ttl-ms: ${AGENT_TASK_LOCK_TTL_MS:600000}
+    lease-ttl-ms: ${AGENT_TASK_LEASE_TTL_MS:600000}
+    redis-unavailable-policy: ${AGENT_TASK_REDIS_UNAVAILABLE_POLICY:fail_closed}
+    queue:
+      enabled: ${AGENT_TASK_QUEUE_ENABLED:true}
+      stream-key: ${AGENT_TASK_QUEUE_STREAM_KEY:agent:task:dispatch-stream}
+      dead-letter-stream-key: ${AGENT_TASK_QUEUE_DEAD_LETTER_STREAM_KEY:agent:task:dispatch-dlq}
+      consumer-group: ${AGENT_TASK_QUEUE_CONSUMER_GROUP:travel-agent-dispatchers}
+      consumer-name: ${AGENT_TASK_QUEUE_CONSUMER_NAME:}
+      pending-claim-idle-seconds: ${AGENT_TASK_QUEUE_PENDING_CLAIM_IDLE_SECONDS:60}
+      max-attempts: ${AGENT_TASK_QUEUE_MAX_ATTEMPTS:3}
+      retry-delay-seconds: ${AGENT_TASK_QUEUE_RETRY_DELAY_SECONDS:30}
+    lifecycle:
+      enabled: ${AGENT_TASK_LIFECYCLE_ENABLED:true}
+      scan-interval-ms: ${AGENT_TASK_LIFECYCLE_SCAN_INTERVAL_MS:600000}
+      scan-initial-delay-ms: ${AGENT_TASK_LIFECYCLE_SCAN_INITIAL_DELAY_MS:600000}
+      scan-limit: ${AGENT_TASK_LIFECYCLE_SCAN_LIMIT:100}
+      awaiting-timeout-hours: ${AGENT_TASK_AWAITING_TIMEOUT_HOURS:24}
+      resuming-timeout-minutes: ${AGENT_TASK_RESUMING_TIMEOUT_MINUTES:30}
+      paused-archive-days: ${AGENT_TASK_PAUSED_ARCHIVE_DAYS:14}
   history:
     max-tokens: 3000
     sliding-window: 6
+  scratchpad:
+    enabled: ${AGENT_SCRATCHPAD_ENABLED:true}
+    keep-recent-steps: ${AGENT_SCRATCHPAD_KEEP_RECENT_STEPS:6}
+    max-observation-chars: ${AGENT_SCRATCHPAD_MAX_OBSERVATION_CHARS:1200}
+    max-summary-chars: ${AGENT_SCRATCHPAD_MAX_SUMMARY_CHARS:2000}
   planner:
     max-steps: 30
     same-day-radius-km: 30
@@ -185,7 +303,7 @@ agent:
         - -y
         - "@amap/amap-maps-mcp-server"
       env:
-        AMAP_MAPS_API_KEY: ${secret.api-amap-key}
+        AMAP_MAPS_API_KEY: ${secret.api-amap-key:${AMAP_API_KEY:}}
     tool-mapping:
       geocode: maps_geo
       weather: maps_weather
@@ -193,11 +311,76 @@ agent:
       traffic_time.walking: maps_direction_walking
       traffic_time.bicycling: maps_direction_bicycling
       traffic_time.transit: maps_direction_transit
+  tool-guard:
+    enabled: true
+    allowed-tools:
+      geocode:
+        min-user-level: 1
+        allowed-states: [planning, tool_calling, resuming]
+        confirm-on-sensitive-input: true
+        confirm-on-injection-risk: true
+      weather:
+        min-user-level: 1
+        allowed-states: [planning, tool_calling, resuming]
+        confirm-on-sensitive-input: true
+        confirm-on-injection-risk: true
+      traffic_time:
+        min-user-level: 1
+        allowed-states: [planning, tool_calling, resuming]
+        confirm-on-sensitive-input: true
+        confirm-on-injection-risk: true
+      web_search:
+        min-user-level: 1
+        allowed-states: [planning, tool_calling, resuming]
+        confirm-on-sensitive-input: true
+        confirm-on-injection-risk: true
+      rag:
+        min-user-level: 1
+        allowed-states: [planning, tool_calling, resuming]
+        confirm-on-sensitive-input: true
+        confirm-on-injection-risk: true
+      booking_query:
+        min-user-level: 1
+        allowed-states: [planning, tool_calling, resuming]
+        confirm-on-sensitive-input: true
+        confirm-on-injection-risk: true
+      amap_map:
+        min-user-level: 1
+        allowed-states: [planning, tool_calling, resuming]
+        confirm-on-sensitive-input: true
+        confirm-on-injection-risk: true
+  tool-result-validation:
+    enabled: true
+    max-serialized-chars: 65536
+    max-string-chars: 8000
+    max-collection-items: 50
+  hallucination-detection:
+    enabled: ${AGENT_HALLUCINATION_DETECTION_ENABLED:true}
+    max-retries: ${AGENT_HALLUCINATION_DETECTION_MAX_RETRIES:3}
+    strict-claim-types: ${AGENT_HALLUCINATION_DETECTION_STRICT_CLAIM_TYPES:phone,url,price,address,time,weather,traffic,booking}
+  observation-cleaning:
+    enabled: true
+    max-input-chars: ${AGENT_OBSERVATION_MAX_INPUT_CHARS:60000}
+    max-cleaned-chars: ${AGENT_OBSERVATION_MAX_CLEANED_CHARS:8000}
+    max-summary-ratio: ${AGENT_OBSERVATION_MAX_SUMMARY_RATIO:0.40}
+    max-summary-chars: ${AGENT_OBSERVATION_MAX_SUMMARY_CHARS:2000}
+    max-evidence-items: ${AGENT_OBSERVATION_MAX_EVIDENCE_ITEMS:5}
+    raw-artifact-enabled: ${AGENT_OBSERVATION_RAW_ARTIFACT_ENABLED:true}
 
 # ==================== Rate Limit ====================
 ratelimit:
   anonymous:
     hourly-limit: 10
+  agent:
+    enabled: ${AGENT_RATE_LIMIT_ENABLED:true}
+    window-seconds: ${AGENT_RATE_LIMIT_WINDOW_SECONDS:60}
+    redis-unavailable-policy: ${AGENT_RATE_LIMIT_REDIS_UNAVAILABLE_POLICY:fail_closed}
+    tool:
+      per-user-per-minute: ${AGENT_TOOL_RATE_LIMIT_PER_USER_PER_MINUTE:20}
+      per-ip-per-minute: ${AGENT_TOOL_RATE_LIMIT_PER_IP_PER_MINUTE:60}
+    llm:
+      per-user-per-minute: ${AGENT_LLM_RATE_LIMIT_PER_USER_PER_MINUTE:5}
+      per-ip-per-minute: ${AGENT_LLM_RATE_LIMIT_PER_IP_PER_MINUTE:20}
 
 # ==================== Quota defaults ====================
 quota:
@@ -216,6 +399,16 @@ quota:
     monthly-tokens: 9999999
     max-concurrent-tasks: 10
     max-plan-steps: 50
+
+admin:
+  rbac:
+    enabled: ${ADMIN_RBAC_ENABLED:false}
+    super-admin-user-ids: ${ADMIN_RBAC_SUPER_ADMIN_USER_IDS:}
+    user-permissions: ${ADMIN_RBAC_USER_PERMISSIONS:}
+
+external:
+  health:
+    live-probe-enabled: ${EXTERNAL_HEALTH_LIVE_PROBE_ENABLED:false}
 
 # ==================== Logging ====================
 logging:

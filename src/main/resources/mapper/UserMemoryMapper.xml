@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelagent.mapper.UserMemoryMapper">
+
+    <resultMap id="profileResultMap" type="UserMemoryProfile">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="sourceSummary" column="source_summary"/>
+        <result property="profileSummary" column="profile_summary"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <resultMap id="factResultMap" type="UserMemoryFact">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="memoryType" column="memory_type"/>
+        <result property="memoryKey" column="memory_key"/>
+        <result property="memoryValue" column="memory_value"/>
+        <result property="confidence" column="confidence"/>
+        <result property="evidenceCount" column="evidence_count"/>
+        <result property="source" column="source"/>
+        <result property="sourceSummary" column="source_summary"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <select id="findProfileByUserId" resultMap="profileResultMap">
+        SELECT *
+        FROM user_memory_profile
+        WHERE user_id = #{userId}
+          AND deleted_at IS NULL
+        LIMIT 1
+    </select>
+
+    <insert id="upsertProfile">
+        INSERT INTO user_memory_profile
+            (user_id, source_summary, profile_summary, created_at, updated_at)
+        VALUES
+            (#{userId}, #{sourceSummary}, #{profileSummary}, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            source_summary = VALUES(source_summary),
+            profile_summary = VALUES(profile_summary),
+            deleted_at = NULL,
+            updated_at = NOW()
+    </insert>
+
+    <select id="findActiveFactsByUserId" resultMap="factResultMap">
+        SELECT *
+        FROM user_memory_fact
+        WHERE user_id = #{userId}
+          AND deleted_at IS NULL
+        ORDER BY memory_type, confidence DESC, evidence_count DESC, updated_at DESC
+    </select>
+
+    <insert id="upsertFact" parameterType="UserMemoryFact">
+        INSERT INTO user_memory_fact
+            (user_id, memory_type, memory_key, memory_value, confidence, evidence_count, source, source_summary,
+             created_at, updated_at)
+        VALUES
+            (#{userId}, #{memoryType}, #{memoryKey}, #{memoryValue}, #{confidence}, #{evidenceCount}, #{source},
+             #{sourceSummary}, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            confidence = LEAST(0.95, GREATEST(confidence, VALUES(confidence)) + 0.05),
+            evidence_count = evidence_count + VALUES(evidence_count),
+            source = VALUES(source),
+            source_summary = VALUES(source_summary),
+            deleted_at = NULL,
+            updated_at = NOW()
+    </insert>
+
+    <update id="softDeleteFact">
+        UPDATE user_memory_fact
+        SET deleted_at = NOW(), updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND memory_type = #{memoryType}
+          AND memory_key = #{memoryKey}
+          AND memory_value = #{memoryValue}
+          AND deleted_at IS NULL
+    </update>
+
+    <update id="softDeleteProfile">
+        UPDATE user_memory_profile
+        SET deleted_at = NOW(), updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND deleted_at IS NULL
+    </update>
+
+    <update id="softDeleteFacts">
+        UPDATE user_memory_fact
+        SET deleted_at = NOW(), updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND deleted_at IS NULL
+    </update>
+</mapper>

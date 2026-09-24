@@ -2,6 +2,7 @@ package com.travelagent.filter;
 
 import com.travelagent.mapper.UserMapper;
 import com.travelagent.model.entity.User;
+import com.travelagent.service.notification.SseTicketService;
 import com.travelagent.util.JwtUtil;
 import com.travelagent.util.RedisUtil;
 import io.jsonwebtoken.Claims;
@@ -52,6 +53,9 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     @Autowired
     private UserMapper userMapper;
 
+    @Autowired
+    private SseTicketService sseTicketService;
+
     @Value("${jwt.header:Authorization}")
     private String headerName;
 
@@ -76,6 +80,9 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         if (header != null && header.startsWith(tokenPrefix + " ")) {
             token = header.substring(tokenPrefix.length() + 1).trim();
         } else {
+            if (tryAuthenticateSseTicket(request)) {
+                return true;
+            }
             // Fallback: ?token= query param — used by EventSource (SSE) which cannot set headers
             String queryToken = request.getParameter("token");
             if (queryToken != null && !queryToken.isBlank()) {
@@ -112,6 +119,27 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             sendUnauthorized(response, "无效的Token");
             return false;
         }
+    }
+
+    private boolean tryAuthenticateSseTicket(HttpServletRequest request) {
+        String ticket = request.getParameter("sseTicket");
+        if (ticket == null || ticket.isBlank()) {
+            return false;
+        }
+        String uri = request.getRequestURI();
+        String prefix = request.getContextPath() + "/api/tasks/";
+        String suffix = "/stream";
+        if (!uri.startsWith(prefix) || !uri.endsWith(suffix)) {
+            return false;
+        }
+        String taskUuid = uri.substring(prefix.length(), uri.length() - suffix.length());
+        return sseTicketService.validate(ticket, taskUuid)
+                .map(principal -> {
+                    request.setAttribute(ATTR_USER_ID, principal.userId());
+                    request.setAttribute(ATTR_USER_LEVEL, 1);
+                    return true;
+                })
+                .orElse(false);
     }
 
     /**

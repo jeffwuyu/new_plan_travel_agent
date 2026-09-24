@@ -11,6 +11,7 @@ public final class AdvisorContextKeys {
     public static final String COMPLETED_STEPS = "completedSteps";
     public static final String RAG_CHUNKS = "ragChunks";
     public static final String RESPONSE_SCHEMA = "responseSchema";
+    public static final String LONG_TERM_USER_PROFILE = "longTermUserProfile";
     public static final String SAME_DAY_RADIUS_KM = "sameDayRadiusKm";
     public static final String CURRENT_DAY_NUMBER = "currentDayNumber";
 

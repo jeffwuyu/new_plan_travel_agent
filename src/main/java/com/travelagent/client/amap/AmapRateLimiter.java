@@ -10,7 +10,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * Sliding-window rate limiter for AMap APIs (3 req/sec per API endpoint).
+ * 高德接口滑动窗口限流器。
+ *
+ * <p>按 API 名称维持本地 1 秒窗口，避免同一实例内对高德单接口发起过密请求。</p>
  */
 @Component
 public class AmapRateLimiter {
@@ -21,8 +23,9 @@ public class AmapRateLimiter {
     private final ConcurrentMap<String, Deque<Long>> windows = new ConcurrentHashMap<>();
 
     /**
-     * 处理acquire。
-     * @param apiName a pi Na me 参数
+     * 获取指定高德 API 的调用许可，必要时阻塞等待窗口释放。
+     *
+     * @param apiName API 名称
      */
     public void acquire(String apiName) {
         Deque<Long> window = windows.computeIfAbsent(apiName, k -> new ArrayDeque<>());
@@ -54,8 +57,9 @@ public class AmapRateLimiter {
     }
 
     /**
-     * 处理sleep。
-     * @param millis m il li s 参数
+     * 执行限流等待，并在中断时转换为工具异常。
+     *
+     * @param millis 等待毫秒数
      */
     private void sleep(long millis) {
         try {
@@ -68,9 +72,10 @@ public class AmapRateLimiter {
     }
 
     /**
-     * 处理trimExpired。
-     * @param window w in do w 参数
-     * @param now n ow 参数
+     * 清理滑动窗口中过期的请求时间戳。
+     *
+     * @param window 指定 API 的请求时间窗口
+     * @param now 当前时间戳
      */
     private void trimExpired(Deque<Long> window, long now) {
         while (!window.isEmpty() && now - window.peekFirst() >= WINDOW_MILLIS) {

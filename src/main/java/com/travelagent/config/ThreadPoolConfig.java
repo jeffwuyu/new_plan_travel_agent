@@ -10,8 +10,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 /**
  * Thread pool configuration for async agent task execution.
  *
- * agentTaskExecutor  - Long-running agent task loops (plan, tool calls)
+ * agentTaskExecutor - Long-running agent task loops (plan, tool calls)
  * ragIngestionExecutor - RAG document ingestion (chunking + embedding)
+ * routeMapExecutor - Route map rendering, OSS upload and image generation polling
  */
 
 /**
@@ -26,6 +27,18 @@ public class ThreadPoolConfig {
 
     @Value("${agent.task.queue-size:100}")
     private int agentQueueSize;
+
+    @Value("${rag.ingestion.thread-pool-size:2}")
+    private int ragIngestionPoolSize;
+
+    @Value("${rag.ingestion.queue-size:50}")
+    private int ragIngestionQueueSize;
+
+    @Value("${route-map.thread-pool-size:2}")
+    private int routeMapPoolSize;
+
+    @Value("${route-map.queue-size:50}")
+    private int routeMapQueueSize;
 
     /**
      * 处理agentTaskExecutor。
@@ -52,10 +65,23 @@ public class ThreadPoolConfig {
     @Bean(name = "ragIngestionExecutor")
     public ThreadPoolTaskExecutor ragIngestionExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);
-        executor.setMaxPoolSize(4);
-        executor.setQueueCapacity(50);
+        executor.setCorePoolSize(ragIngestionPoolSize);
+        executor.setMaxPoolSize(Math.max(ragIngestionPoolSize, ragIngestionPoolSize * 2));
+        executor.setQueueCapacity(ragIngestionQueueSize);
         executor.setThreadNamePrefix("rag-ingest-");
+        executor.setKeepAliveSeconds(120);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean(name = "routeMapExecutor")
+    public ThreadPoolTaskExecutor routeMapExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(routeMapPoolSize);
+        executor.setMaxPoolSize(Math.max(routeMapPoolSize, routeMapPoolSize * 2));
+        executor.setQueueCapacity(routeMapQueueSize);
+        executor.setThreadNamePrefix("route-map-");
         executor.setKeepAliveSeconds(120);
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();

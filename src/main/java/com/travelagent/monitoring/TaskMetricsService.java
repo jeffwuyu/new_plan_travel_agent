@@ -1,5 +1,8 @@
 package com.travelagent.monitoring;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -9,6 +12,16 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class TaskMetricsService {
+
+    private final Counter llmCallsCounter;
+    private final Counter llmErrorsCounter;
+    private final Counter toolCallsCounter;
+    private final Counter toolErrorsCounter;
+    private final Counter tasksStartedCounter;
+    private final Counter tasksCompletedCounter;
+    private final Counter tasksFailedCounter;
+    private final Counter tasksPausedCounter;
+    private final Timer llmLatencyTimer;
 
     private final AtomicLong llmCallsTotal     = new AtomicLong();
     private final AtomicLong llmLatencyMsTotal = new AtomicLong();
@@ -22,6 +35,18 @@ public class TaskMetricsService {
     private final AtomicLong tasksFailed    = new AtomicLong();
     private final AtomicLong tasksPaused    = new AtomicLong();
 
+    public TaskMetricsService(MeterRegistry registry) {
+        llmCallsCounter = registry.counter("travel_agent_llm_calls_total");
+        llmErrorsCounter = registry.counter("travel_agent_llm_errors_total");
+        toolCallsCounter = registry.counter("travel_agent_tool_calls_total");
+        toolErrorsCounter = registry.counter("travel_agent_tool_errors_total");
+        tasksStartedCounter = registry.counter("travel_agent_tasks_started_total");
+        tasksCompletedCounter = registry.counter("travel_agent_tasks_completed_total");
+        tasksFailedCounter = registry.counter("travel_agent_tasks_failed_total");
+        tasksPausedCounter = registry.counter("travel_agent_tasks_paused_total");
+        llmLatencyTimer = registry.timer("travel_agent_llm_latency");
+    }
+
     /**
      * 处理recordLlmCall。
      * @param latencyMs l at en cy Ms 参数
@@ -31,6 +56,9 @@ public class TaskMetricsService {
         llmCallsTotal.incrementAndGet();
         llmLatencyMsTotal.addAndGet(latencyMs);
         if (!success) llmErrorsTotal.incrementAndGet();
+        llmCallsCounter.increment();
+        llmLatencyTimer.record(java.time.Duration.ofMillis(Math.max(0, latencyMs)));
+        if (!success) llmErrorsCounter.increment();
     }
 
     /**
@@ -40,24 +68,26 @@ public class TaskMetricsService {
     public void recordToolCall(boolean success) {
         toolCallsTotal.incrementAndGet();
         if (!success) toolErrorsTotal.incrementAndGet();
+        toolCallsCounter.increment();
+        if (!success) toolErrorsCounter.increment();
     }
 
     /**
      * 处理recordTaskStarted。
      */
-    public void recordTaskStarted()   { tasksStarted.incrementAndGet(); }
+    public void recordTaskStarted()   { tasksStarted.incrementAndGet(); tasksStartedCounter.increment(); }
     /**
      * 处理recordTaskCompleted。
      */
-    public void recordTaskCompleted() { tasksCompleted.incrementAndGet(); }
+    public void recordTaskCompleted() { tasksCompleted.incrementAndGet(); tasksCompletedCounter.increment(); }
     /**
      * 处理recordTaskFailed。
      */
-    public void recordTaskFailed()    { tasksFailed.incrementAndGet(); }
+    public void recordTaskFailed()    { tasksFailed.incrementAndGet(); tasksFailedCounter.increment(); }
     /**
      * 处理recordTaskPaused。
      */
-    public void recordTaskPaused()    { tasksPaused.incrementAndGet(); }
+    public void recordTaskPaused()    { tasksPaused.incrementAndGet(); tasksPausedCounter.increment(); }
 
     /**
      * 获取snapshot。

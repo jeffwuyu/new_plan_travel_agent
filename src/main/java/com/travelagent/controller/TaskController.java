@@ -2,6 +2,8 @@ package com.travelagent.controller;
 
 import com.travelagent.exception.BusinessException;
 import com.travelagent.filter.JwtAuthInterceptor;
+import com.travelagent.agent.requirements.TravelConstraints;
+import com.travelagent.agent.requirements.TravelRequirementParser;
 import com.travelagent.model.dto.ConfirmOriginSelectionRequest;
 import com.travelagent.model.dto.CreateTaskRequest;
 import com.travelagent.model.dto.NodeChatRequest;
@@ -9,6 +11,7 @@ import com.travelagent.model.dto.RewindTaskRequest;
 import com.travelagent.model.dto.Result;
 import com.travelagent.model.dto.TaskExecutionProgressResponse;
 import com.travelagent.model.dto.TaskResponse;
+import com.travelagent.model.dto.TravelConstraintParseRequest;
 import com.travelagent.service.task.TaskProgressService;
 import com.travelagent.service.task.TaskService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +27,7 @@ public class TaskController {
 
     @Autowired private TaskService taskService;
     @Autowired private TaskProgressService taskProgressService;
+    @Autowired(required = false) private TravelRequirementParser travelRequirementParser;
 
     /**
      * 创建task。
@@ -36,7 +40,18 @@ public class TaskController {
                                            HttpServletRequest httpRequest) {
         Long userId = JwtAuthInterceptor.getUserId(httpRequest);
         int userLevel = JwtAuthInterceptor.getUserLevel(httpRequest);
-        return Result.success(taskService.createTask(userId, userLevel, request));
+        return Result.success(taskService.createTask(userId, userLevel, request, resolveClientIp(httpRequest)));
+    }
+
+    @PostMapping("/constraints/parse")
+    public Result<TravelConstraints> parseConstraints(@Valid @RequestBody TravelConstraintParseRequest request) {
+        TravelRequirementParser parser = travelRequirementParser == null
+                ? new TravelRequirementParser()
+                : travelRequirementParser;
+        if (request.getExistingConstraints() == null) {
+            return Result.success(parser.parse(request.getMessage()));
+        }
+        return Result.success(parser.parse(request.getMessage(), request.getExistingConstraints()));
     }
 
     /**
@@ -85,6 +100,20 @@ public class TaskController {
     public Result<TaskResponse> resumeTask(@PathVariable String taskUuid, HttpServletRequest httpRequest) {
         Long userId = JwtAuthInterceptor.getUserId(httpRequest);
         return Result.success(taskService.resumeTask(taskUuid, userId));
+    }
+
+    @PostMapping("/{taskUuid}/pending-tool/confirm")
+    public Result<TaskResponse> confirmPendingToolReplay(@PathVariable String taskUuid,
+                                                         HttpServletRequest httpRequest) {
+        Long userId = JwtAuthInterceptor.getUserId(httpRequest);
+        return Result.success(taskService.confirmPendingToolReplay(taskUuid, userId));
+    }
+
+    @PostMapping("/{taskUuid}/pending-tool/skip")
+    public Result<TaskResponse> skipPendingToolReplay(@PathVariable String taskUuid,
+                                                      HttpServletRequest httpRequest) {
+        Long userId = JwtAuthInterceptor.getUserId(httpRequest);
+        return Result.success(taskService.skipPendingToolReplay(taskUuid, userId));
     }
 
     /**
@@ -164,5 +193,17 @@ public class TaskController {
             throw new BusinessException(400, "limit must be between 1 and 100");
         }
         return Result.success(taskProgressService.getProgress(taskUuid, limit));
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
+        return request.getRemoteAddr();
     }
 }

@@ -1,25 +1,19 @@
 package com.travelagent.service.rag;
 
 /**
- * Strategy interface for extracting plain text from a raw document byte array.
+ * 文档文本提取策略接口，用于把不同格式的原始字节转换为可入库的纯文本。
  *
- * <p>Each implementation handles one or more {@code docType} values
- * (e.g. {@code "pdf"}, {@code "text"}, {@code "markdown"}).
- *
- * <p>Implementations must:
- * <ul>
- *   <li>Return a non-null String (may be empty if the document has no readable text).</li>
- *   <li>Throw {@link DocumentExtractionException} on unrecoverable parse errors.</li>
- * </ul>
+ * <p>实现类需要保证返回非 null 字符串；遇到不可恢复的解析错误时抛出
+ * {@link DocumentExtractionException}。</p>
  */
 public interface DocumentTextExtractor {
 
     /**
-     * Extracts plain text from the given raw byte array.
+     * 从原始文档字节中提取纯文本。
      *
-     * @param rawBytes raw document bytes (e.g. PDF binary, UTF-8 encoded text)
-     * @return extracted plain text; never null
-     * @throws DocumentExtractionException if the bytes cannot be parsed
+     * @param rawBytes 原始文档字节
+     * @return 提取出的纯文本，永不返回 null
+     * @throws DocumentExtractionException 文档无法解析时抛出
      */
     String extract(byte[] rawBytes);
 }

@@ -62,6 +62,24 @@ public class GeocodeTool implements AgentTool {
         return NAME;
     }
 
+    @Override
+    public String getSource() {
+        return "amap:geocode";
+    }
+
+    @Override
+    public Map<String, Object> inputSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "required", java.util.List.of("name", "region"),
+                "properties", Map.of(
+                        "name", Map.of("type", "string", "minLength", 1),
+                        "region", Map.of("type", "string", "minLength", 1)
+                )
+        );
+    }
+
     /**
      * 处理execute。
      * @param arguments 工具调用参数

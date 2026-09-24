@@ -2,11 +2,15 @@ package com.travelagent.service.notification;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -42,6 +46,7 @@ public class SseNotificationService {
     private static final long SSE_TIMEOUT_MS = 600_000L;
 
     private final ConcurrentHashMap<String, SseEmitter> emitters = new ConcurrentHashMap<>();
+    @Autowired(required = false) private RedisSseEventBus redisSseEventBus;
 
     // -----------------------------------------------------------------------
     // Emitter lifecycle
@@ -81,6 +86,14 @@ public class SseNotificationService {
      * @param payload 事件载荷
      */
     public void sendEvent(String taskUuid, SseEvent eventType, Object payload) {
+        Object stablePayload = enrichPayload(taskUuid, eventType, payload);
+        sendLocalEvent(taskUuid, eventType, stablePayload);
+        if (redisSseEventBus != null) {
+            redisSseEventBus.publish(taskUuid, eventType, stablePayload);
+        }
+    }
+
+    public void sendLocalEvent(String taskUuid, SseEvent eventType, Object payload) {
         SseEmitter emitter = emitters.get(taskUuid);
         if (emitter == null) return;
 
@@ -127,5 +140,23 @@ public class SseNotificationService {
      */
     public boolean hasActiveEmitter(String taskUuid) {
         return emitters.containsKey(taskUuid);
+    }
+
+    private Object enrichPayload(String taskUuid, SseEvent eventType, Object payload) {
+        Map<String, Object> envelope = new LinkedHashMap<>();
+        if (payload instanceof Map<?, ?> map) {
+            map.forEach((key, value) -> {
+                if (key != null) {
+                    envelope.put(String.valueOf(key), value);
+                }
+            });
+        } else if (payload != null) {
+            envelope.put("data", payload);
+        }
+        envelope.putIfAbsent("contractVersion", "task-sse.v2");
+        envelope.putIfAbsent("eventType", eventType.name());
+        envelope.putIfAbsent("taskUuid", taskUuid);
+        envelope.putIfAbsent("traceId", taskUuid + "-" + eventType.name() + "-" + UUID.randomUUID());
+        return envelope;
     }
 }

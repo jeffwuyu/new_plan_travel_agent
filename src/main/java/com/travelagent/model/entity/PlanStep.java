@@ -19,6 +19,9 @@ public class PlanStep {
     private BigDecimal longitude;
     private Integer estimatedDurationMin;
     private Integer trafficTimeFromPrev;
+    private String trafficModeFromPrev;
+    private String selectedRouteSummaryFromPrev;
+    private String selectedRouteGeometryJson;
     private String weatherNote;
     private String llmDescription;
     private LocalDateTime plannedStartTime;

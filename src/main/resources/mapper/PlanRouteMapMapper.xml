@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelagent.mapper.PlanRouteMapMapper">
+
+    <resultMap id="routeMapResultMap" type="PlanDayRouteMap">
+        <id property="id" column="id"/>
+        <result property="planId" column="plan_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="dayNumber" column="day_number"/>
+        <result property="style" column="style"/>
+        <result property="status" column="status"/>
+        <result property="progressPercent" column="progress_percent"/>
+        <result property="skeletonOssKey" column="skeleton_oss_key"/>
+        <result property="aiRawOssKey" column="ai_raw_oss_key"/>
+        <result property="finalOssKey" column="final_oss_key"/>
+        <result property="routeGeometryJson" column="route_geometry_json"/>
+        <result property="stopsJson" column="stops_json"/>
+        <result property="segmentsJson" column="segments_json"/>
+        <result property="boundsJson" column="bounds_json"/>
+        <result property="model" column="model"/>
+        <result property="requestId" column="request_id"/>
+        <result property="taskId" column="task_id"/>
+        <result property="retryCount" column="retry_count"/>
+        <result property="manualRegenCount" column="manual_regen_count"/>
+        <result property="errorCode" column="error_code"/>
+        <result property="errorMessage" column="error_message"/>
+        <result property="latencyMs" column="latency_ms"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="PlanDayRouteMap" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO plan_day_route_maps (
+            plan_id, user_id, day_number, style, status, progress_percent,
+            retry_count, manual_regen_count, error_code, error_message, created_at, updated_at
+        )
+        VALUES (
+            #{planId}, #{userId}, #{dayNumber}, #{style}, #{status}, #{progressPercent},
+            COALESCE(#{retryCount}, 0), COALESCE(#{manualRegenCount}, 0),
+            #{errorCode}, #{errorMessage}, NOW(), NOW()
+        )
+    </insert>
+
+    <select id="findByPlanDayStyle" resultMap="routeMapResultMap">
+        SELECT * FROM plan_day_route_maps
+        WHERE plan_id = #{planId} AND day_number = #{dayNumber} AND style = #{style}
+        LIMIT 1
+    </select>
+
+    <select id="findById" resultMap="routeMapResultMap">
+        SELECT * FROM plan_day_route_maps WHERE id = #{id} LIMIT 1
+    </select>
+
+    <select id="findByPlanId" resultMap="routeMapResultMap">
+        SELECT * FROM plan_day_route_maps
+        WHERE plan_id = #{planId}
+        <if test="style != null and style != ''">
+            AND style = #{style}
+        </if>
+        ORDER BY day_number ASC, style ASC
+    </select>
+
+    <select id="findByStatuses" resultMap="routeMapResultMap">
+        SELECT * FROM plan_day_route_maps
+        WHERE status IN
+        <foreach collection="statuses" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+        ORDER BY updated_at ASC, id ASC
+    </select>
+
+    <select id="findFailedDispatchBefore" resultMap="routeMapResultMap">
+        SELECT * FROM plan_day_route_maps
+        WHERE status = 'failed'
+          AND error_code = 'ROUTE_MAP_DISPATCH_FAILED'
+          AND updated_at &lt;= #{cutoff}
+        ORDER BY updated_at ASC, id ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countCreatedByUserBetween" resultType="int">
+        SELECT COUNT(*)
+        FROM plan_day_route_maps
+        WHERE user_id = #{userId}
+          AND created_at &gt;= #{start}
+          AND created_at &lt; #{end}
+    </select>
+
+    <select id="summarizeBetween" resultType="map">
+        SELECT
+            COUNT(*) AS totalCount,
+            SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END) AS succeededCount,
+            SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failedCount,
+            SUM(CASE WHEN status = 'fallback' THEN 1 ELSE 0 END) AS fallbackCount,
+            SUM(CASE WHEN status IN (
+                'pending', 'generating', 'geometry_ready', 'skeleton_ready',
+                'ai_submitted', 'ai_generating', 'ai_ready', 'overlaying'
+            ) THEN 1 ELSE 0 END) AS runningCount,
+            COALESCE(SUM(manual_regen_count), 0) AS manualRegenerateCount,
+            AVG(CASE WHEN latency_ms IS NOT NULL THEN latency_ms ELSE NULL END) AS averageLatencyMs
+        FROM plan_day_route_maps
+        WHERE created_at &gt;= #{start}
+          AND created_at &lt; #{end}
+    </select>
+
+    <select id="countByStatusBetween" resultType="map">
+        SELECT status AS status, COUNT(*) AS count
+        FROM plan_day_route_maps
+        WHERE created_at &gt;= #{start}
+          AND created_at &lt; #{end}
+        GROUP BY status
+        ORDER BY count DESC, status ASC
+    </select>
+
+    <select id="countFailuresByErrorCodeBetween" resultType="map">
+        SELECT error_code AS errorCode, COUNT(*) AS count
+        FROM plan_day_route_maps
+        WHERE created_at &gt;= #{start}
+          AND created_at &lt; #{end}
+          AND status IN ('failed', 'fallback')
+          AND error_code IS NOT NULL
+        GROUP BY error_code
+        ORDER BY count DESC, error_code ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countByUserBetween" resultType="map">
+        SELECT
+            user_id AS userId,
+            COUNT(*) AS count,
+            SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END) AS succeededCount,
+            SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failedCount,
+            SUM(CASE WHEN status = 'fallback' THEN 1 ELSE 0 END) AS fallbackCount,
+            COALESCE(SUM(manual_regen_count), 0) AS manualRegenerateCount
+        FROM plan_day_route_maps
+        WHERE created_at &gt;= #{start}
+          AND created_at &lt; #{end}
+        GROUP BY user_id
+        ORDER BY count DESC, user_id ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="markRunning">
+        UPDATE plan_day_route_maps
+        SET status = #{status},
+            progress_percent = #{progressPercent},
+            error_code = #{errorCode},
+            error_message = #{errorMessage},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateGeometry">
+        UPDATE plan_day_route_maps
+        SET status = #{status},
+            progress_percent = #{progressPercent},
+            route_geometry_json = #{routeGeometryJson},
+            stops_json = #{stopsJson},
+            segments_json = #{segmentsJson},
+            bounds_json = #{boundsJson},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateSkeleton">
+        UPDATE plan_day_route_maps
+        SET status = #{status},
+            progress_percent = #{progressPercent},
+            skeleton_oss_key = #{skeletonOssKey},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateAiTask">
+        UPDATE plan_day_route_maps
+        SET status = #{status},
+            progress_percent = #{progressPercent},
+            model = #{model},
+            request_id = #{requestId},
+            task_id = #{taskId},
+            retry_count = #{retryCount},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateAiRaw">
+        UPDATE plan_day_route_maps
+        SET status = #{status},
+            progress_percent = #{progressPercent},
+            ai_raw_oss_key = #{aiRawOssKey},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateCompleted">
+        UPDATE plan_day_route_maps
+        SET status = #{status},
+            progress_percent = #{progressPercent},
+            ai_raw_oss_key = #{aiRawOssKey},
+            final_oss_key = #{finalOssKey},
+            error_code = #{errorCode},
+            error_message = #{errorMessage},
+            latency_ms = #{latencyMs},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementManualRegen">
+        UPDATE plan_day_route_maps
+        SET manual_regen_count = manual_regen_count + 1,
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementRetryCount">
+        UPDATE plan_day_route_maps
+        SET retry_count = retry_count + 1,
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+</mapper>

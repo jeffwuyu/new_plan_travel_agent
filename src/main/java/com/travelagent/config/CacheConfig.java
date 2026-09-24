@@ -39,6 +39,11 @@ public class CacheConfig {
     public static final String ATTRACTION_BASIC = "attractionBasic";
     public static final String TASK_STATUS      = "taskStatus";
     public static final String RAG_CHUNK        = "ragChunk";
+    public static final String WEB_REALTIME     = "webRealtime";
+    public static final String WEATHER_REALTIME = "weatherRealtime";
+    public static final String MAP_ROUTE        = "mapRoute";
+    public static final String BOOKING_STATUS   = "bookingStatus";
+    public static final String SESSION_STATE    = "sessionState";
 
     /**
      * 处理cacheManager。
@@ -52,7 +57,12 @@ public class CacheConfig {
             buildCache(QUOTA_CONFIG, 10, TimeUnit.MINUTES, 20),
             buildCache(ATTRACTION_BASIC, 60, TimeUnit.MINUTES, 2000),
             buildCache(TASK_STATUS, 1, TimeUnit.MINUTES, 200),
-            buildCache(RAG_CHUNK, 30, TimeUnit.MINUTES, 1000)
+            buildCache(RAG_CHUNK, 30, TimeUnit.MINUTES, 1000),
+            buildCache(WEB_REALTIME, 2, TimeUnit.HOURS, 500),
+            buildCache(WEATHER_REALTIME, 30, TimeUnit.MINUTES, 500),
+            buildCache(MAP_ROUTE, 20, TimeUnit.MINUTES, 1000),
+            buildCache(BOOKING_STATUS, 30, TimeUnit.MINUTES, 500),
+            buildCache(SESSION_STATE, 10, TimeUnit.MINUTES, 500)
         ));
         return cacheManager;
     }

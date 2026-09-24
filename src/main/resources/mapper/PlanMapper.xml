@@ -18,6 +18,8 @@
         <result property="fullDayStartTime" column="full_day_start_time"/>
         <result property="fullDayEndTime" column="full_day_end_time"/>
         <result property="destinationBufferMin" column="destination_buffer_min"/>
+        <result property="accommodationStatus" column="accommodation_status"/>
+        <result property="accommodationFailureReason" column="accommodation_failure_reason"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
@@ -31,6 +33,9 @@
         <result property="longitude" column="longitude"/>
         <result property="estimatedDurationMin" column="estimated_duration_min"/>
         <result property="trafficTimeFromPrev" column="traffic_time_from_prev"/>
+        <result property="trafficModeFromPrev" column="traffic_mode_from_prev"/>
+        <result property="selectedRouteSummaryFromPrev" column="selected_route_summary_from_prev"/>
+        <result property="selectedRouteGeometryJson" column="selected_route_geometry_json"/>
         <result property="weatherNote" column="weather_note"/>
         <result property="llmDescription" column="llm_description"/>
         <result property="plannedStartTime" column="planned_start_time"/>
@@ -39,16 +44,42 @@
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
+    <resultMap id="accommodationResultMap" type="PlanAccommodation">
+        <id property="id" column="id"/>
+        <result property="planId" column="plan_id"/>
+        <result property="nightNumber" column="night_number"/>
+        <result property="checkInDate" column="check_in_date"/>
+        <result property="checkOutDate" column="check_out_date"/>
+        <result property="provider" column="provider"/>
+        <result property="providerHotelId" column="provider_hotel_id"/>
+        <result property="name" column="name"/>
+        <result property="type" column="type"/>
+        <result property="address" column="address"/>
+        <result property="latitude" column="latitude"/>
+        <result property="longitude" column="longitude"/>
+        <result property="rating" column="rating"/>
+        <result property="reviewCount" column="review_count"/>
+        <result property="pricePerNightYuan" column="price_per_night_yuan"/>
+        <result property="currency" column="currency"/>
+        <result property="distanceMeters" column="distance_meters"/>
+        <result property="score" column="score"/>
+        <result property="reason" column="reason"/>
+        <result property="priceFetchedAt" column="price_fetched_at"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
     <insert id="insertPlan" parameterType="Plan" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO plans (
             task_id, user_id, title, region, summary, total_days,
             start_location_query, end_location_query, trip_start_time, trip_end_time,
-            full_day_start_time, full_day_end_time, destination_buffer_min, created_at
+            full_day_start_time, full_day_end_time, destination_buffer_min,
+            accommodation_status, accommodation_failure_reason, created_at
         )
         VALUES (
             #{taskId}, #{userId}, #{title}, #{region}, #{summary}, #{totalDays},
             #{startLocationQuery}, #{endLocationQuery}, #{tripStartTime}, #{tripEndTime},
-            #{fullDayStartTime}, #{fullDayEndTime}, #{destinationBufferMin}, NOW()
+            #{fullDayStartTime}, #{fullDayEndTime}, #{destinationBufferMin},
+            #{accommodationStatus}, #{accommodationFailureReason}, NOW()
         )
     </insert>
 
@@ -56,13 +87,15 @@
         INSERT INTO plan_steps (
             plan_id, step_order, day_number, attraction_name,
             latitude, longitude, estimated_duration_min,
-            traffic_time_from_prev, weather_note, llm_description,
+            traffic_time_from_prev, traffic_mode_from_prev, selected_route_summary_from_prev,
+            selected_route_geometry_json, weather_note, llm_description,
             planned_start_time, planned_end_time, travel_time_to_destination_min, created_at
         )
         VALUES (
             #{planId}, #{stepOrder}, #{dayNumber}, #{attractionName},
             #{latitude}, #{longitude}, #{estimatedDurationMin},
-            #{trafficTimeFromPrev}, #{weatherNote}, #{llmDescription},
+            #{trafficTimeFromPrev}, #{trafficModeFromPrev}, #{selectedRouteSummaryFromPrev},
+            #{selectedRouteGeometryJson}, #{weatherNote}, #{llmDescription},
             #{plannedStartTime}, #{plannedEndTime}, #{travelTimeToDestinationMin}, NOW()
         )
     </insert>
@@ -71,7 +104,8 @@
         INSERT INTO plan_steps (
             plan_id, step_order, day_number, attraction_name,
             latitude, longitude, estimated_duration_min,
-            traffic_time_from_prev, weather_note, llm_description,
+            traffic_time_from_prev, traffic_mode_from_prev, selected_route_summary_from_prev,
+            selected_route_geometry_json, weather_note, llm_description,
             planned_start_time, planned_end_time, travel_time_to_destination_min, created_at
         )
         VALUES
@@ -79,11 +113,39 @@
             (
                 #{s.planId}, #{s.stepOrder}, #{s.dayNumber}, #{s.attractionName},
                 #{s.latitude}, #{s.longitude}, #{s.estimatedDurationMin},
-                #{s.trafficTimeFromPrev}, #{s.weatherNote}, #{s.llmDescription},
+                #{s.trafficTimeFromPrev}, #{s.trafficModeFromPrev}, #{s.selectedRouteSummaryFromPrev},
+                #{s.selectedRouteGeometryJson}, #{s.weatherNote}, #{s.llmDescription},
                 #{s.plannedStartTime}, #{s.plannedEndTime}, #{s.travelTimeToDestinationMin}, NOW()
             )
         </foreach>
     </insert>
+
+    <insert id="insertAccommodations">
+        INSERT INTO plan_accommodations (
+            plan_id, night_number, check_in_date, check_out_date, provider, provider_hotel_id,
+            name, type, address, latitude, longitude, rating, review_count,
+            price_per_night_yuan, currency, distance_meters, score, reason, price_fetched_at, created_at
+        )
+        VALUES
+        <foreach collection="accommodations" item="a" separator=",">
+            (
+                #{a.planId}, #{a.nightNumber}, #{a.checkInDate}, #{a.checkOutDate}, #{a.provider}, #{a.providerHotelId},
+                #{a.name}, #{a.type}, #{a.address}, #{a.latitude}, #{a.longitude}, #{a.rating}, #{a.reviewCount},
+                #{a.pricePerNightYuan}, #{a.currency}, #{a.distanceMeters}, #{a.score}, #{a.reason}, #{a.priceFetchedAt}, NOW()
+            )
+        </foreach>
+    </insert>
+
+    <update id="updateAccommodationStatus">
+        UPDATE plans
+        SET accommodation_status = #{status},
+            accommodation_failure_reason = #{failureReason}
+        WHERE id = #{planId}
+    </update>
+
+    <delete id="deleteAccommodationsByPlanId">
+        DELETE FROM plan_accommodations WHERE plan_id = #{planId}
+    </delete>
 
     <select id="findByTaskId" resultMap="planResultMap">
         SELECT * FROM plans WHERE task_id = #{taskId} LIMIT 1
@@ -99,6 +161,10 @@
 
     <select id="findStepsByPlanId" resultMap="stepResultMap">
         SELECT * FROM plan_steps WHERE plan_id = #{planId} ORDER BY step_order ASC
+    </select>
+
+    <select id="findAccommodationsByPlanId" resultMap="accommodationResultMap">
+        SELECT * FROM plan_accommodations WHERE plan_id = #{planId} ORDER BY night_number ASC, score DESC
     </select>
 
 </mapper>

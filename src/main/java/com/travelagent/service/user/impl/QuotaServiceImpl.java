@@ -74,11 +74,15 @@ public class QuotaServiceImpl implements QuotaService {
         UserQuotaConfig config = getQuotaConfig(userLevel);
         if (config == null) return; // No config = no limit (shouldn't happen)
 
-        String key = dailyKey(userId);
-        boolean available = redisUtil.checkQuota(key, config.getDailyTokenLimit());
-        if (!available) {
+        boolean dailyAvailable = redisUtil.checkQuota(dailyKey(userId), config.getDailyTokenLimit());
+        if (!dailyAvailable) {
             log.warn("Daily quota exhausted for userId={}", userId);
             throw new QuotaExhaustedException("daily");
+        }
+        boolean monthlyAvailable = redisUtil.checkQuota(monthlyKey(userId), config.getMonthlyTokenLimit());
+        if (!monthlyAvailable) {
+            log.warn("Monthly quota exhausted for userId={}", userId);
+            throw new QuotaExhaustedException("monthly");
         }
     }
 
@@ -101,12 +105,17 @@ public class QuotaServiceImpl implements QuotaService {
         // Debit daily counter (TTL 48hr to cover timezone edge cases)
         Long newDaily = redisUtil.incrementWithTtl(dailyKey, tokens, Duration.ofHours(48));
         // Debit monthly counter (TTL 35 days)
-        redisUtil.incrementWithTtl(monthlyKey, tokens, Duration.ofDays(35));
+        Long newMonthly = redisUtil.incrementWithTtl(monthlyKey, tokens, Duration.ofDays(35));
 
         if (newDaily != null && newDaily > dailyLimit) {
             log.warn("Daily quota exceeded post-debit for userId={}, newDaily={}, limit={}",
                 userId, newDaily, dailyLimit);
             throw new QuotaExhaustedException("daily");
+        }
+        if (newMonthly != null && newMonthly > monthlyLimit) {
+            log.warn("Monthly quota exceeded post-debit for userId={}, newMonthly={}, limit={}",
+                    userId, newMonthly, monthlyLimit);
+            throw new QuotaExhaustedException("monthly");
         }
 
         return newDaily != null ? newDaily : 0;

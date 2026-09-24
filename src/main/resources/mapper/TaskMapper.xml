@@ -59,9 +59,7 @@
     </select>
 
     <!--
-        Startup recovery scan: find tasks stuck in mid-execution states (planning, tool_calling)
-        after a JVM crash. Only called once at application startup by AgentServiceImpl@PostConstruct.
-        LIMIT guards against a full-table scan on a large backlog.
+        Durable recovery scan: find executable tasks with expired database leases.
     -->
     <select id="findByStatusIn" resultMap="taskResultMap">
         SELECT * FROM tasks
@@ -182,7 +180,7 @@
             lease_expires_at = #{leaseExpiresAt}, revision = revision + 1,
             recovery_attempts = recovery_attempts + 1, updated_at = NOW()
         WHERE id = #{id} AND revision = #{expectedRevision}
-          AND status IN ('planning', 'tool_calling')
+          AND status IN ('planning', 'tool_calling', 'resuming')
           AND (lease_expires_at IS NULL OR lease_expires_at &lt;= NOW())
     </update>
 

@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 中文注释：服务实现类，调用 Dashscope text-embedding-v3 将文本转换为 1536 维向量。
+ * DashScope 向量化服务实现，负责调用 text-embedding 模型并按供应商批量限制切分请求。
  */
 @Service
 public class EmbeddingServiceImpl implements EmbeddingService {
@@ -33,9 +33,10 @@ public class EmbeddingServiceImpl implements EmbeddingService {
     private String embeddingModel;
 
     /**
-     * 处理embed。
+     * 将单段文本转换为 embedding 向量。
+     *
      * @param text 文本内容
-     * @return 返回处理结果。
+     * @return embedding 向量
      */
     @Override
     public float[] embed(String text) {
@@ -44,9 +45,10 @@ public class EmbeddingServiceImpl implements EmbeddingService {
     }
 
     /**
-     * 处理embedBatch。
-     * @param texts t ex ts 参数
-     * @return 返回处理后的列表结果。
+     * 按批次调用 DashScope，把文本列表转换为向量列表。
+     *
+     * @param texts 文本列表
+     * @return 与输入顺序一致的 embedding 向量列表
      */
     @Override
     public List<float[]> embedBatch(List<String> texts) {

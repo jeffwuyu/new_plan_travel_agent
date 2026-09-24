@@ -3,6 +3,7 @@ package com.travelagent.service.task.impl;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.mapper.TaskExecutionEventMapper;
 import com.travelagent.mapper.TaskMapper;
+import com.travelagent.model.dto.SelectionPromptDto;
 import com.travelagent.model.dto.TaskExecutionProgressResponse;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.entity.TaskExecutionEvent;
@@ -26,14 +27,15 @@ public class TaskProgressServiceImpl implements TaskProgressService {
     @Autowired private JsonUtil jsonUtil;
 
     /**
-     * 处理recordEvent。
+     * 记录任务执行事件，用于刷新后恢复进度时间线和管理后台排障。
+     *
      * @param taskUuid 任务唯一标识
-     * @param eventType e ve nt Ty pe 参数
-     * @param status 状态值
-     * @param stepIndex s te pI nd ex 参数
-     * @param totalSteps t ot al St ep s 参数
+     * @param eventType 事件类型
+     * @param status 事件发生时的任务状态
+     * @param stepIndex 当前步骤序号
+     * @param totalSteps 总步骤数
      * @param message 提示信息
-     * @param detailsPayload d et ai ls Pa yl oa d 参数
+     * @param detailsPayload 事件详情载荷
      */
     @Override
     public void recordEvent(String taskUuid, String eventType, String status,
@@ -61,10 +63,11 @@ public class TaskProgressServiceImpl implements TaskProgressService {
     }
 
     /**
-     * 获取progress。
+     * 查询任务进度快照，合并持久化事件和当前 checkpoint 派生状态。
+     *
      * @param taskUuid 任务唯一标识
      * @param limit 返回数量上限
-     * @return 返回处理结果。
+     * @return 任务进度响应
      */
     @Override
     public TaskExecutionProgressResponse getProgress(String taskUuid, int limit) {
@@ -94,10 +97,20 @@ public class TaskProgressServiceImpl implements TaskProgressService {
             resp.setLocationCandidates(checkpoint.getLocationCandidates());
             resp.setSelectionOptions(checkpoint.getSelectionOptions());
             resp.setRecommendationCandidates(checkpoint.getRecommendationCandidates());
+            resp.setSelectionPrompt(SelectionPromptDto.from(
+                    checkpoint.getPendingInputType(),
+                    checkpoint.getSelectionStage(),
+                    checkpoint.getSelectedBranchType(),
+                    checkpoint.getStartLocationQuery(),
+                    checkpoint.getCurrentStepIndex(),
+                    null,
+                    checkpoint.getCurrentContext(),
+                    checkpoint.getWeatherContext()));
             resp.setCurrentContext(checkpoint.getCurrentContext() == null ? Map.of() : checkpoint.getCurrentContext());
             resp.setWeatherContext(checkpoint.getWeatherContext() == null ? Map.of() : checkpoint.getWeatherContext());
             resp.setSelectedOrigin(checkpoint.getSelectedOrigin());
             resp.setSelectedDestination(checkpoint.getSelectedDestination());
+            resp.setSessionState(checkpoint.toSessionState());
         } else {
             events.stream()
                     .filter(e -> e.getStepIndex() != null)
@@ -112,9 +125,10 @@ public class TaskProgressServiceImpl implements TaskProgressService {
     }
 
     /**
-     * 获取latestevent。
+     * 查询任务最近一条执行事件。
+     *
      * @param taskUuid 任务唯一标识
-     * @return 返回处理结果。
+     * @return 最近事件，缺失时返回 null
      */
     @Override
     public TaskExecutionEvent getLatestEvent(String taskUuid) {
@@ -122,16 +136,19 @@ public class TaskProgressServiceImpl implements TaskProgressService {
     }
 
     /**
-     * 解析checkpoint。
+     * 解析任务 checkpoint 并执行 schema 迁移。
+     *
      * @param task 任务实体
-     * @return 返回处理结果。
+     * @return 当前 checkpoint，缺失或解析失败时返回 null
      */
     private TaskCheckpoint parseCheckpoint(Task task) {
         if (task == null || task.getCheckpointJson() == null || task.getCheckpointJson().isBlank()) {
             return null;
         }
         try {
-            return jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
+            TaskCheckpoint checkpoint = jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
+            checkpoint.migrateToCurrentSchema();
+            return checkpoint;
         } catch (Exception e) {
             log.warn("[TaskProgressService] Failed to parse checkpoint for task={}: {}", task.getTaskUuid(), e.getMessage());
             return null;

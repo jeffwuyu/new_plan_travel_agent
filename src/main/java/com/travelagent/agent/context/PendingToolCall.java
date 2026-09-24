@@ -23,6 +23,12 @@ import java.util.Map;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class PendingToolCall {
 
+    public PendingToolCall(String toolName, Map<String, Object> arguments, String idempotencyKey) {
+        this.toolName = toolName;
+        this.arguments = arguments;
+        this.idempotencyKey = idempotencyKey;
+    }
+
     /** Fully-qualified tool class name, e.g. "GeocodeTool". */
     private String toolName;
 
@@ -35,4 +41,10 @@ public class PendingToolCall {
      * Stored in Redis with 24h TTL; if present, result is returned from cache.
      */
     private String idempotencyKey;
+
+    /**
+     * Set only after an operator/user explicitly confirms replay for a tool
+     * whose side effects are not safe to repeat automatically.
+     */
+    private boolean manualReplayApproved;
 }

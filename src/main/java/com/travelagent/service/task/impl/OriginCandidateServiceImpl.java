@@ -20,10 +20,11 @@ public class OriginCandidateServiceImpl implements OriginCandidateService {
     @Autowired private AmapClient amapClient;
 
     /**
-     * 处理generateCandidates。
+     * 生成起点候选列表，优先合并本地景点库，再用高德地理编码补充用户输入地点。
+     *
      * @param region 区域信息
-     * @param currentLocationQuery c ur re nt Lo ca ti on Qu er y 参数
-     * @return 返回处理后的列表结果。
+     * @param currentLocationQuery 用户输入的当前所在地
+     * @return 合并去重后的起点候选
      */
     @Override
     public List<LocationCandidateItem> generateCandidates(String region, String currentLocationQuery) {
@@ -60,7 +61,7 @@ public class OriginCandidateServiceImpl implements OriginCandidateService {
             item.setSource("geocode");
             merged.putIfAbsent(item.getCandidateId(), item);
         } catch (Exception ignored) {
-            // Fallback to catalog results only.
+            // 高德解析失败时保留本地库候选，避免创建任务被外部地图服务阻断。
         }
 
         return new ArrayList<>(merged.values());

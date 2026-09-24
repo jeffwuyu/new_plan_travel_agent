@@ -3,24 +3,23 @@ package com.travelagent.service.rag;
 import java.util.List;
 
 /**
- * 中文注释：服务接口，将文本转换为向量表示，用于 RAG 入库和查询。
+ * 向量化服务接口，将文本转换为 embedding，用于 RAG 入库和查询召回。
  */
 public interface EmbeddingService {
 
     /**
-     * Converts a single text into a 1536-dimensional float vector
-     * using Dashscope text-embedding-v3.
+     * 将单段文本转换为向量。
      *
-     * @param text input text (≤512 tokens recommended)
-     * @return float array of length 1536
+     * @param text 输入文本
+     * @return embedding 向量
      */
     float[] embed(String text);
 
     /**
-     * Converts a list of texts into vectors in batches of 25 (Dashscope API limit).
+     * 批量将文本转换为向量，返回顺序与输入顺序一致。
      *
-     * @param texts list of input texts
-     * @return list of float arrays, same order as input
+     * @param texts 输入文本列表
+     * @return embedding 向量列表
      */
     List<float[]> embedBatch(List<String> texts);
 }

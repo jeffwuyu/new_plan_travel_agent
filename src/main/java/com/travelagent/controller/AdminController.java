@@ -1,353 +1,384 @@
 package com.travelagent.controller;
 
-import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
-import com.travelagent.exception.BusinessException;
-import com.travelagent.filter.JwtAuthInterceptor;
+import com.travelagent.client.oss.OssClient;
+import com.travelagent.controller.admin.AdminAccessSupport;
+import com.travelagent.controller.admin.AdminOpsHandler;
+import com.travelagent.controller.admin.AdminUserQuotaHandler;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.mapper.UserMapper;
 import com.travelagent.mapper.UserQuotaConfigMapper;
 import com.travelagent.model.dto.Result;
+import com.travelagent.model.entity.AdminAuditLog;
 import com.travelagent.model.entity.Task;
+import com.travelagent.model.entity.TaskExecutionEvent;
 import com.travelagent.model.entity.User;
 import com.travelagent.model.entity.UserQuotaConfig;
+import com.travelagent.monitoring.ExternalCapabilityHealth;
+import com.travelagent.monitoring.ExternalCapabilityHealthService;
 import com.travelagent.monitoring.TaskMetricsService;
+import com.travelagent.service.admin.AdminAuditService;
+import com.travelagent.service.admin.AdminAuthorizationService;
+import com.travelagent.service.admin.AdminTaskOpsService;
+import com.travelagent.service.routemap.PlanRouteMapService;
 import com.travelagent.service.user.UserService;
+import com.travelagent.util.RedisUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 用途：管理员专用控制器。
+ * 管理后台 REST 路由门面。
  *
- * 提供以下管理端点，所有端点均要求 userLevel == 3（ADMIN），
- * 非管理员请求将返回 HTTP 403：
- *
- *   GET  /api/admin/users                    — 分页查询所有用户
- *   PUT  /api/admin/users/{userId}/level     — 修改指定用户等级（1/2/3）
- *   PUT  /api/admin/users/{userId}/status    — 启用/禁用指定用户
- *   GET  /api/admin/quota-configs            — 查询所有等级的配额配置
- *   PUT  /api/admin/quota-configs/{level}    — 修改指定等级的配额限额
- *   GET  /api/admin/tasks                    — 分页查询任务（可按状态过滤）
- *
- * 安全注意：本期 VIP 升级由管理员手动通过 PUT /level 端点操作，
- * 支付系统不在本期范围内（见计划说明）。
+ * <p>该控制器保留 `/api/admin` 的外部契约，具体用户、配额、任务、路线图、
+ * 健康探活和审计逻辑委托给内部 handler，避免单个控制器继续承载过多职责。</p>
  */
-@Tag(name = "管理员", description = "管理员专用：用户管理、配额配置、任务监控（需 ADMIN 权限）")
+@Tag(name = "Admin", description = "Administrator APIs for users, quotas, tasks, metrics, and audits")
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
 
-    @Autowired
-    private UserMapper userMapper;
-
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private UserQuotaConfigMapper quotaConfigMapper;
-
-    @Autowired
-    private TaskMapper taskMapper;
-
-    @Autowired
-    private TaskMetricsService taskMetricsService;
-
-    // -----------------------------------------------------------------------
-    // 工具方法：管理员权限校验
-    // -----------------------------------------------------------------------
+    private final AdminUserQuotaHandler userQuotaHandler;
+    private final AdminOpsHandler opsHandler;
 
     /**
-     * 处理requireAdmin。
-     * @param request 请求参数
+     * 创建管理后台控制器并组装内部 handler。
+     *
+     * @param userMapper 用户数据访问对象
+     * @param userService 用户服务
+     * @param quotaConfigMapper 配额配置数据访问对象
+     * @param taskMapper 任务数据访问对象
+     * @param taskMetricsService 任务指标服务
+     * @param externalCapabilityHealthService 外部能力健康服务
+     * @param redisUtil Redis 工具
+     * @param adminAuthorizationService 可选 RBAC 授权服务
+     * @param adminAuditService 可选审计服务
+     * @param adminTaskOpsService 可选任务运维服务
+     * @param planRouteMapService 可选路线图服务
+     * @param ossClient 可选 OSS 客户端
      */
-    private void requireAdmin(HttpServletRequest request) {
-        int userLevel = JwtAuthInterceptor.getUserLevel(request);
-        if (userLevel != 3) {
-            throw new BusinessException(403, "此操作需要管理员权限（ADMIN）");
-        }
+    @Autowired
+    public AdminController(UserMapper userMapper,
+                           UserService userService,
+                           UserQuotaConfigMapper quotaConfigMapper,
+                           TaskMapper taskMapper,
+                           TaskMetricsService taskMetricsService,
+                           ExternalCapabilityHealthService externalCapabilityHealthService,
+                           RedisUtil redisUtil,
+                           @Autowired(required = false) AdminAuthorizationService adminAuthorizationService,
+                           @Autowired(required = false) AdminAuditService adminAuditService,
+                           @Autowired(required = false) AdminTaskOpsService adminTaskOpsService,
+                           @Autowired(required = false) PlanRouteMapService planRouteMapService,
+                           @Autowired(required = false) OssClient ossClient) {
+        AdminAccessSupport accessSupport = new AdminAccessSupport(adminAuthorizationService, adminAuditService);
+        this.userQuotaHandler = new AdminUserQuotaHandler(
+                userMapper, userService, quotaConfigMapper, redisUtil, adminTaskOpsService, accessSupport);
+        this.opsHandler = new AdminOpsHandler(
+                taskMapper,
+                taskMetricsService,
+                externalCapabilityHealthService,
+                adminTaskOpsService,
+                planRouteMapService,
+                ossClient,
+                adminAuditService,
+                accessSupport);
     }
 
-    // -----------------------------------------------------------------------
-    // 用户管理
-    // -----------------------------------------------------------------------
-
     /**
-     * 分页查询所有未软删除用户列表。
+     * 分页查询用户列表。
      *
-     * <p>使用 PageHelper 透明分页：
-     *   PageHelper.startPage(page, size) 在 SQL 执行前自动注入 LIMIT/OFFSET，
-     *   并通过 PageInfo 返回总记录数、总页数等分页元数据。
-     *
-     * <p>返回数据不含 password_hash（UserServiceImpl.findById 会清空，
-     * 但此处直接用 UserMapper；密码哈希字段在注册返回时已清空，列表不含敏感信息）。
-     *
-     * @param page 页码，从 1 开始
-     * @param size 每页条数，默认 20
-     */
-    @Operation(summary = "分页查询所有用户",
-               description = "管理员查看用户列表，支持分页。password_hash 不在返回字段中。")
-    /**
-     * 获取。
      * @param page 页码
-     * @param size s iz e 参数
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
+     * @param size 每页数量
+     * @param request 当前 HTTP 请求
+     * @return 用户分页响应
      */
+    @Operation(summary = "List users")
     @GetMapping("/users")
     public Result<PageInfo<User>> listUsers(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             HttpServletRequest request) {
-        requireAdmin(request);
-        PageHelper.startPage(page, size);
-        List<User> users = userMapper.findAll();
-        // 清空密码哈希，不向前端暴露
-        users.forEach(u -> u.setPasswordHash(null));
-        PageInfo<User> pageInfo = new PageInfo<>(users);
-        return Result.success(pageInfo);
+        return Result.success(userQuotaHandler.listUsers(page, size, request));
     }
 
     /**
-     * 修改指定用户的账号等级。
+     * 修改用户等级。
      *
-     * <p>合法等级值：
-     *   1 → REGULAR（普通用户）
-     *   2 → VIP
-     *   3 → ADMIN（谨慎授予）
-     *
-     * <p>本期 VIP 付费升级由管理员手动调用此接口，支付系统不在范围内。
-     *
-     * @param userId   目标用户 ID
-     * @param body     请求体：{@code {"userLevel": 2}}
+     * @param userId 用户 ID
+     * @param body 请求体，包含 `userLevel`
+     * @param request 当前 HTTP 请求
+     * @return 空成功响应
      */
-    @Operation(summary = "修改用户等级（REGULAR / VIP / ADMIN）",
-               description = "合法值：1=普通, 2=VIP, 3=管理员。本期 VIP 升级由管理员手动操作。")
-    /**
-     * 更新userlevel。
-     * @param userId 用户ID
-     * @param body 原始响应体
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
-     */
+    @Operation(summary = "Update user level")
     @PutMapping("/users/{userId}/level")
     public Result<Void> updateUserLevel(
             @PathVariable Long userId,
             @RequestBody Map<String, Integer> body,
             HttpServletRequest request) {
-        requireAdmin(request);
-
-        Integer newLevel = body.get("userLevel");
-        if (newLevel == null || newLevel < 1 || newLevel > 3) {
-            throw new BusinessException(400, "userLevel 必须为 1（普通）、2（VIP）或 3（管理员）");
-        }
-        // 校验用户存在
-        User user = userMapper.findById(userId);
-        if (user == null) {
-            throw new BusinessException(404, "用户不存在");
-        }
-        userService.updateUserLevel(userId, newLevel);
+        userQuotaHandler.updateUserLevel(userId, body, request);
         return Result.success();
     }
 
     /**
-     * 启用或禁用指定用户账号（status: 1=启用, 0=禁用）。
+     * 启用或禁用用户。
      *
-     * <p>禁用用户后，其 JWT 仍然有效直到自然过期，
-     * 但 JwtAuthInterceptor 不会主动拦截（本期不做实时禁用校验）。
-     * 若需立即禁用，可配合 Redis 黑名单（logout 接口）实现。
-     *
-     * @param userId 目标用户 ID
-     * @param body   请求体：{@code {"status": 0}}
+     * @param userId 用户 ID
+     * @param body 请求体，包含 `status`
+     * @param request 当前 HTTP 请求
+     * @return 空成功响应
      */
-    @Operation(summary = "启用/禁用用户账号",
-               description = "status=1 启用，status=0 禁用。禁用后已签发的 JWT 仍有效，如需立即失效请调用 /auth/logout。")
-    /**
-     * 更新userstatus。
-     * @param userId 用户ID
-     * @param body 原始响应体
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
-     */
+    @Operation(summary = "Enable or disable user")
     @PutMapping("/users/{userId}/status")
     public Result<Void> updateUserStatus(
             @PathVariable Long userId,
             @RequestBody Map<String, Integer> body,
             HttpServletRequest request) {
-        requireAdmin(request);
-
-        Integer status = body.get("status");
-        if (status == null || (status != 0 && status != 1)) {
-            throw new BusinessException(400, "status 必须为 1（启用）或 0（禁用）");
-        }
-        User user = userMapper.findById(userId);
-        if (user == null) {
-            throw new BusinessException(404, "用户不存在");
-        }
-        User update = new User();
-        update.setId(userId);
-        update.setStatus(status);
-        userMapper.update(update);
+        userQuotaHandler.updateUserStatus(userId, body, request);
         return Result.success();
     }
 
-    // -----------------------------------------------------------------------
-    // 配额配置管理
-    // -----------------------------------------------------------------------
-
     /**
-     * 获取。
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
+     * 查询用户等级配额配置。
+     *
+     * @param request 当前 HTTP 请求
+     * @return 三个等级的配额配置
      */
-    @Operation(summary = "查询所有等级的配额配置")
+    @Operation(summary = "List quota configs")
     @GetMapping("/quota-configs")
     public Result<Map<String, UserQuotaConfig>> listQuotaConfigs(HttpServletRequest request) {
-        requireAdmin(request);
-        // 直接按 3 个已知等级查询
-        UserQuotaConfig regularCfg = quotaConfigMapper.findByUserLevel(1);
-        UserQuotaConfig vipCfg     = quotaConfigMapper.findByUserLevel(2);
-        UserQuotaConfig adminCfg   = quotaConfigMapper.findByUserLevel(3);
-        return Result.success(Map.of(
-                "REGULAR", regularCfg != null ? regularCfg : new UserQuotaConfig(),
-                "VIP",     vipCfg     != null ? vipCfg     : new UserQuotaConfig(),
-                "ADMIN",   adminCfg   != null ? adminCfg   : new UserQuotaConfig()
-        ));
+        return Result.success(userQuotaHandler.listQuotaConfigs(request));
     }
 
     /**
-     * 更新指定等级的配额配置。
+     * 更新用户等级配额配置。
      *
-     * <p>请求体可包含以下字段（均为可选，仅修改传入的字段）：
-     * <pre>
-     * {
-     *   "dailyTokenLimit":    50000,
-     *   "monthlyTokenLimit":  500000,
-     *   "maxConcurrentTasks": 5,
-     *   "maxPlanSteps":       30
-     * }
-     * </pre>
-     *
-     * <p>修改后，Redis 缓存中的配额配置 Key（quota:config:{level}）将在下次
-     * TTL（10 分钟）到期后自动刷新；如需立即生效可手动清除 Redis 该 Key。
-     *
-     * @param level 用户等级：1=REGULAR, 2=VIP, 3=ADMIN
-     * @param config 部分更新的配额配置
+     * @param level 用户等级
+     * @param config 配额配置
+     * @param request 当前 HTTP 请求
+     * @return 空成功响应
      */
-    @Operation(summary = "修改指定等级的配额配置",
-               description = "可部分更新 dailyTokenLimit/monthlyTokenLimit/maxConcurrentTasks/maxPlanSteps。"
-                           + "Redis 缓存 10 分钟内自动过期刷新。")
-    /**
-     * 更新quotaconfig。
-     * @param level l ev el 参数
-     * @param config 配置对象
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
-     */
+    @Operation(summary = "Update quota config")
     @PutMapping("/quota-configs/{level}")
     public Result<Void> updateQuotaConfig(
             @PathVariable int level,
             @RequestBody UserQuotaConfig config,
             HttpServletRequest request) {
-        requireAdmin(request);
-
-        if (level < 1 || level > 3) {
-            throw new BusinessException(400, "level 必须为 1、2 或 3");
-        }
-        // 校验配额值的合理范围（防止误设为 0 导致全部用户无法使用）
-        if (config.getDailyTokenLimit() != null && config.getDailyTokenLimit() <= 0) {
-            throw new BusinessException(400, "dailyTokenLimit 必须大于 0");
-        }
-        if (config.getMonthlyTokenLimit() != null && config.getMonthlyTokenLimit() <= 0) {
-            throw new BusinessException(400, "monthlyTokenLimit 必须大于 0");
-        }
-        if (config.getMaxConcurrentTasks() != null && config.getMaxConcurrentTasks() <= 0) {
-            throw new BusinessException(400, "maxConcurrentTasks 必须大于 0");
-        }
-        if (config.getMaxPlanSteps() != null && config.getMaxPlanSteps() <= 0) {
-            throw new BusinessException(400, "maxPlanSteps 必须大于 0");
-        }
-
-        config.setUserLevel(level);
-        quotaConfigMapper.update(config);
+        userQuotaHandler.updateQuotaConfig(level, config, request);
         return Result.success();
     }
 
-    // -----------------------------------------------------------------------
-    // 指标快照
-    // -----------------------------------------------------------------------
-
-    @Operation(summary = "查询运行时指标快照",
-               description = "返回 LLM 调用次数/延迟/错误率、工具调用统计、任务状态计数。JVM 重启后归零。")
     /**
-     * 获取metrics。
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
+     * 查询运行时指标。
+     *
+     * @param request 当前 HTTP 请求
+     * @return 指标快照
      */
+    @Operation(summary = "Get runtime metrics")
     @GetMapping("/metrics")
     public Result<Map<String, Object>> getMetrics(HttpServletRequest request) {
-        requireAdmin(request);
-        return Result.success(taskMetricsService.getSnapshot());
+        return Result.success(opsHandler.getMetrics(request));
     }
 
-    // -----------------------------------------------------------------------
-    // 任务监控
-    // -----------------------------------------------------------------------
+    /**
+     * 查询外部能力健康矩阵。
+     *
+     * @param request 当前 HTTP 请求
+     * @return 外部能力健康列表
+     */
+    @Operation(summary = "Get capability health matrix")
+    @GetMapping("/capabilities/health")
+    public Result<List<ExternalCapabilityHealth>> getCapabilityHealth(HttpServletRequest request) {
+        return Result.success(opsHandler.getCapabilityHealth(request));
+    }
 
     /**
-     * 分页查询全体用户的任务列表（管理员视角，可跨用户）。
+     * 执行 OSS 探活。
      *
-     * <p>支持按 status 过滤，例如查询当前所有 {@code planning} 中的任务：
-     * {@code GET /api/admin/tasks?status=planning&page=1&size=20}
-     *
-     * <p>当不传 status 时，查询所有状态的任务（按创建时间倒序）。
-     * checkpoint_json 在 SQL 层排除，不会传输到前端。
-     *
-     * @param status 任务状态过滤（可选）：pending/planning/tool_calling/paused/resuming/completed/failed/cancelled
-     * @param page   页码，从 1 开始，默认 1
-     * @param size   每页条数，默认 50，上限 200
+     * @param request 当前 HTTP 请求
+     * @return 探活结果
      */
-    @Operation(summary = "分页查询任务列表（管理员视角）",
-               description = "可按 status 过滤，不传则返回全部状态。checkpoint_json 不暴露。支持分页（page/size）。")
+    @Operation(summary = "Run OSS upload/download probe")
+    @PostMapping("/capabilities/oss-probe")
+    public Result<Map<String, Object>> runOssProbe(HttpServletRequest request) {
+        return Result.success(opsHandler.runOssProbe(request));
+    }
+
     /**
-     * 获取。
-     * @param status 状态值
+     * 分页查询任务列表。
+     *
+     * @param status 状态过滤
      * @param page 页码
-     * @param size s iz e 参数
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
+     * @param size 每页数量
+     * @param request 当前 HTTP 请求
+     * @return 任务分页响应
      */
+    @Operation(summary = "List tasks")
     @GetMapping("/tasks")
     public Result<PageInfo<Task>> listTasks(
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "50") int size,
             HttpServletRequest request) {
-        requireAdmin(request);
+        return Result.success(opsHandler.listTasks(status, page, size, request));
+    }
 
-        if (page < 1) {
-            throw new BusinessException(400, "page 必须大于 0");
-        }
-        if (size <= 0 || size > 200) {
-            throw new BusinessException(400, "size 必须在 1 ~ 200 之间");
-        }
+    /**
+     * 查询任务事件时间线。
+     *
+     * @param taskUuid 任务 UUID
+     * @param limit 返回数量上限
+     * @param request 当前 HTTP 请求
+     * @return 任务事件列表
+     */
+    @Operation(summary = "Get task events")
+    @GetMapping("/tasks/{taskUuid}/events")
+    public Result<List<TaskExecutionEvent>> listTaskEvents(
+            @PathVariable String taskUuid,
+            @RequestParam(defaultValue = "100") int limit,
+            HttpServletRequest request) {
+        return Result.success(opsHandler.listTaskEvents(taskUuid, limit, request));
+    }
 
-        String statusFilter = (status != null && !status.isBlank()) ? status : null;
-        PageHelper.startPage(page, size);
-        List<Task> tasks = taskMapper.findAllWithFilter(statusFilter);
-        // checkpoint_json is excluded at SQL level; this is a safety net
-        tasks.forEach(t -> t.setCheckpointJson(null));
-        return Result.success(new PageInfo<>(tasks));
+    /**
+     * 查询任务 lease 信息。
+     *
+     * @param taskUuid 任务 UUID
+     * @param request 当前 HTTP 请求
+     * @return lease 快照
+     */
+    @Operation(summary = "Get task lease info")
+    @GetMapping("/tasks/{taskUuid}/lease")
+    public Result<Map<String, Object>> getTaskLease(
+            @PathVariable String taskUuid,
+            HttpServletRequest request) {
+        return Result.success(opsHandler.getTaskLease(taskUuid, request));
+    }
+
+    /**
+     * 查询任务派发队列快照。
+     *
+     * @param request 当前 HTTP 请求
+     * @return 队列快照
+     */
+    @Operation(summary = "Get task dispatch queue snapshot")
+    @GetMapping("/tasks/queue")
+    public Result<Map<String, Object>> getTaskDispatchQueue(HttpServletRequest request) {
+        return Result.success(opsHandler.getTaskDispatchQueue(request));
+    }
+
+    /**
+     * 触发任务生命周期超时扫描。
+     *
+     * @param body 请求体，包含触发来源
+     * @param request 当前 HTTP 请求
+     * @return 扫描结果
+     */
+    @Operation(summary = "Run task lifecycle timeout scan")
+    @PostMapping("/tasks/lifecycle-scan")
+    public Result<Map<String, Object>> runTaskLifecycleScan(
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request) {
+        return Result.success(opsHandler.runTaskLifecycleScan(body, request));
+    }
+
+    /**
+     * 管理员重派发任务。
+     *
+     * @param taskUuid 任务 UUID
+     * @param body 请求体，包含原因
+     * @param request 当前 HTTP 请求
+     * @return 重派发结果
+     */
+    @Operation(summary = "Redispatch failed or paused task")
+    @PostMapping("/tasks/{taskUuid}/redispatch")
+    public Result<Map<String, Object>> redispatchTask(
+            @PathVariable String taskUuid,
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request) {
+        return Result.success(opsHandler.redispatchTask(taskUuid, body, request));
+    }
+
+    /**
+     * 管理员重派发路线图作业。
+     *
+     * @param routeMapId 路线图记录 ID
+     * @param body 请求体，包含原因
+     * @param request 当前 HTTP 请求
+     * @return 重派发结果
+     */
+    @Operation(summary = "Redispatch route map job")
+    @PostMapping("/route-maps/{routeMapId}/redispatch")
+    public Result<Map<String, Object>> redispatchRouteMap(
+            @PathVariable Long routeMapId,
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request) {
+        return Result.success(opsHandler.redispatchRouteMap(routeMapId, body, request));
+    }
+
+    /**
+     * 触发路线图派发补偿扫描。
+     *
+     * @param body 请求体，包含触发来源
+     * @param request 当前 HTTP 请求
+     * @return 补偿扫描结果
+     */
+    @Operation(summary = "Run route map dispatch compensation scan")
+    @PostMapping("/route-maps/dispatch-compensation-scan")
+    public Result<Map<String, Object>> runRouteMapDispatchCompensationScan(
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request) {
+        return Result.success(opsHandler.runRouteMapDispatchCompensationScan(body, request));
+    }
+
+    /**
+     * 查询路线图生成统计。
+     *
+     * @param startDate 开始日期
+     * @param endDate 结束日期
+     * @param limit 返回数量上限
+     * @param request 当前 HTTP 请求
+     * @return 统计结果
+     */
+    @Operation(summary = "Get route map generation statistics")
+    @GetMapping("/route-maps/statistics")
+    public Result<Map<String, Object>> getRouteMapStatistics(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "10") int limit,
+            HttpServletRequest request) {
+        return Result.success(opsHandler.getRouteMapStatistics(startDate, endDate, limit, request));
+    }
+
+    /**
+     * 查询管理员审计日志。
+     *
+     * @param adminUserId 管理员用户 ID
+     * @param action 操作编码
+     * @param limit 返回数量上限
+     * @param request 当前 HTTP 请求
+     * @return 审计日志列表
+     */
+    @Operation(summary = "List admin audit logs")
+    @GetMapping("/audit-logs")
+    public Result<List<AdminAuditLog>> listAuditLogs(
+            @RequestParam(required = false) Long adminUserId,
+            @RequestParam(required = false) String action,
+            @RequestParam(defaultValue = "50") int limit,
+            HttpServletRequest request) {
+        return Result.success(opsHandler.listAuditLogs(adminUserId, action, limit, request));
     }
 }

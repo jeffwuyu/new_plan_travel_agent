@@ -15,6 +15,8 @@ public enum AgentErrorCode {
     TOOL_AMAP_ERROR(false),
     TOOL_DASHVECTOR_TIMEOUT(true),
     TOOL_DASHVECTOR_ERROR(false),
+    TOOL_WEB_SEARCH_TIMEOUT(true),
+    TOOL_WEB_SEARCH_ERROR(false),
 
     // Task-level
     QUOTA_EXHAUSTED(false),

@@ -1,5 +1,7 @@
 package com.travelagent.advisor;
 
+import com.travelagent.agent.prompt.PromptSectionType;
+import com.travelagent.service.rag.RagSearchResult;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.AdvisorChain;
@@ -37,7 +39,7 @@ public class RagContextAdvisor implements BaseAdvisor {
             return request;
         }
         return request.mutate()
-                .prompt(appendSystemText(request.prompt(), addition))
+                .prompt(PromptAdvisorSupport.appendSection(request.prompt(), PromptSectionType.OBSERVATION, addition))
                 .build();
     }
 
@@ -77,8 +79,7 @@ public class RagContextAdvisor implements BaseAdvisor {
             return "";
         }
         List<String> chunks = list.stream()
-                .map(Object::toString)
-                .map(String::trim)
+                .map(this::formatRagItem)
                 .filter(text -> !text.isBlank())
                 .collect(Collectors.toList());
         if (chunks.isEmpty()) {
@@ -92,6 +93,15 @@ public class RagContextAdvisor implements BaseAdvisor {
         }
         sb.append("Use the reference information when relevant, but keep the answer grounded in the requested JSON output.");
         return sb.toString();
+    }
+
+    private String formatRagItem(Object item) {
+        if (item instanceof RagSearchResult result) {
+            String source = result.sourceType() == null ? "unknown" : result.sourceType();
+            String reason = result.rankReason() == null ? "" : "; " + result.rankReason();
+            return "[" + source + "] " + result.chunkText() + reason;
+        }
+        return item == null ? "" : item.toString().trim();
     }
 
     /**

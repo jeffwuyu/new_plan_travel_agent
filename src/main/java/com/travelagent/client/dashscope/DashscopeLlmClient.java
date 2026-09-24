@@ -3,11 +3,17 @@ package com.travelagent.client.dashscope;
 import com.travelagent.advisor.JsonSchemaAdvisor;
 import com.travelagent.advisor.RagContextAdvisor;
 import com.travelagent.advisor.TravelPlanningAdvisor;
+import com.travelagent.agent.prompt.PromptAssembly;
+import com.travelagent.agent.prompt.PromptSection;
+import com.travelagent.agent.prompt.PromptSectionType;
 import com.travelagent.exception.AgentErrorCode;
 import com.travelagent.exception.AgentException;
 import com.travelagent.mapper.LlmCallLogMapper;
+import com.travelagent.mapper.TaskMapper;
 import com.travelagent.model.entity.LlmCallLog;
+import com.travelagent.model.entity.Task;
 import com.travelagent.monitoring.TaskMetricsService;
+import com.travelagent.service.ratelimit.AgentRateLimitService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -68,6 +74,12 @@ public class DashscopeLlmClient {
     @Autowired
     private TaskMetricsService taskMetricsService;
 
+    @Autowired(required = false)
+    private AgentRateLimitService agentRateLimitService;
+
+    @Autowired(required = false)
+    private TaskMapper taskMapper;
+
     /**
      * 初始化DashscopeLlmClient 实例。
      * @param chatClientBuilder c ha tC li en tB ui ld er 参数
@@ -101,6 +113,13 @@ public class DashscopeLlmClient {
                 idempotencyKey, List.of(), Map.of()).content();
     }
 
+    public String call(Long taskId, Long userId, String callType,
+                       PromptAssembly promptAssembly, List<Map<String, Object>> history,
+                       String userMessage, String idempotencyKey) {
+        return callWithUsage(taskId, userId, callType, promptAssembly, history, userMessage,
+                idempotencyKey, List.of(), Map.of()).content();
+    }
+
     /**
      * 处理call。
      * @param taskId 任务ID
@@ -123,6 +142,15 @@ public class DashscopeLlmClient {
                 idempotencyKey, advisorNames, advisorContext).content();
     }
 
+    public String call(Long taskId, Long userId, String callType,
+                       PromptAssembly promptAssembly, List<Map<String, Object>> history,
+                       String userMessage, String idempotencyKey,
+                       List<String> advisorNames,
+                       Map<String, Object> advisorContext) {
+        return callWithUsage(taskId, userId, callType, promptAssembly, history, userMessage,
+                idempotencyKey, advisorNames, advisorContext).content();
+    }
+
     /**
      * 处理callWithUsage。
      * @param taskId 任务ID
@@ -138,6 +166,13 @@ public class DashscopeLlmClient {
                                        String systemPrompt, List<Map<String, Object>> history,
                                        String userMessage, String idempotencyKey) {
         return callWithUsage(taskId, userId, callType, systemPrompt, history, userMessage,
+                idempotencyKey, List.of(), Map.of());
+    }
+
+    public LlmCallResult callWithUsage(Long taskId, Long userId, String callType,
+                                       PromptAssembly promptAssembly, List<Map<String, Object>> history,
+                                       String userMessage, String idempotencyKey) {
+        return callWithUsage(taskId, userId, callType, promptAssembly, history, userMessage,
                 idempotencyKey, List.of(), Map.of());
     }
 
@@ -160,13 +195,24 @@ public class DashscopeLlmClient {
                                        List<String> advisorNames,
                                        Map<String, Object> advisorContext) {
 
-        List<Message> messages = buildMessages(systemPrompt, history, userMessage);
+        return callWithUsage(taskId, userId, callType, PromptAssembly.legacy(systemPrompt, userMessage),
+                history, userMessage, idempotencyKey, advisorNames, advisorContext);
+    }
+
+    public LlmCallResult callWithUsage(Long taskId, Long userId, String callType,
+                                       PromptAssembly promptAssembly, List<Map<String, Object>> history,
+                                       String userMessage, String idempotencyKey,
+                                       List<String> advisorNames,
+                                       Map<String, Object> advisorContext) {
+
+        List<Message> messages = buildMessages(promptAssembly, history, userMessage);
         List<Advisor> resolvedAdvisors = resolveAdvisors(advisorNames);
         Map<String, Object> requestContext = advisorContext != null ? advisorContext : Map.of();
 
         long t0 = System.currentTimeMillis();
         boolean success = true;
         try {
+            checkLlmRateLimit(taskId, userId);
             return withRetry(() -> {
                 long start = System.currentTimeMillis();
                 String status = "success";
@@ -249,13 +295,25 @@ public class DashscopeLlmClient {
                                        List<String> advisorNames,
                                        Map<String, Object> advisorContext) {
 
-        List<Message> messages = buildMessages(systemPrompt, history, userMessage);
+        return callStreaming(taskId, userId, callType, PromptAssembly.legacy(systemPrompt, userMessage),
+                history, userMessage, idempotencyKey, tokenConsumer, advisorNames, advisorContext);
+    }
+
+    public LlmCallResult callStreaming(Long taskId, Long userId, String callType,
+                                       PromptAssembly promptAssembly, List<Map<String, Object>> history,
+                                       String userMessage, String idempotencyKey,
+                                       Consumer<String> tokenConsumer,
+                                       List<String> advisorNames,
+                                       Map<String, Object> advisorContext) {
+
+        List<Message> messages = buildMessages(promptAssembly, history, userMessage);
         List<Advisor> resolvedAdvisors = resolveAdvisors(advisorNames);
         Map<String, Object> requestContext = advisorContext != null ? advisorContext : Map.of();
         long start = System.currentTimeMillis();
         boolean streamSuccess = true;
 
         try {
+            checkLlmRateLimit(taskId, userId);
             Flux<ChatResponse> flux = applyAdvisors(
                     chatClient.prompt().messages(messages),
                     resolvedAdvisors,
@@ -313,8 +371,24 @@ public class DashscopeLlmClient {
     private List<Message> buildMessages(String systemPrompt,
                                         List<Map<String, Object>> history,
                                         String userMessage) {
+        return buildMessages(PromptAssembly.legacy(systemPrompt, userMessage), history, userMessage);
+    }
+
+    private List<Message> buildMessages(PromptAssembly promptAssembly,
+                                        List<Map<String, Object>> history,
+                                        String userMessage) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(systemPrompt));
+        PromptAssembly effectivePrompt = copyAssembly(promptAssembly);
+        if (history != null) {
+            for (Map<String, Object> entry : history) {
+                String role = (String) entry.get("role");
+                String content = (String) entry.get("content");
+                if ("system".equals(role) && content != null && !content.isBlank()) {
+                    effectivePrompt.add(PromptSectionType.MEMORY, content);
+                }
+            }
+        }
+        messages.add(new SystemMessage(effectivePrompt.render()));
 
         if (history != null) {
             for (Map<String, Object> entry : history) {
@@ -333,6 +407,17 @@ public class DashscopeLlmClient {
 
         messages.add(new UserMessage(userMessage));
         return messages;
+    }
+
+    private PromptAssembly copyAssembly(PromptAssembly promptAssembly) {
+        PromptAssembly copy = PromptAssembly.create();
+        if (promptAssembly == null) {
+            return copy;
+        }
+        for (PromptSection section : promptAssembly.sections()) {
+            copy.add(section);
+        }
+        return copy;
     }
 
     /**
@@ -436,6 +521,26 @@ public class DashscopeLlmClient {
             llmCallLogMapper.insert(entry);
         } catch (Exception e) {
             log.warn("[DashscopeLlmClient] Failed to write audit log: {}", e.getMessage());
+        }
+    }
+
+    private void checkLlmRateLimit(Long taskId, Long userId) {
+        if (agentRateLimitService != null) {
+            agentRateLimitService.checkLlmLimit(userId, resolveRequestIp(taskId));
+        }
+    }
+
+    private String resolveRequestIp(Long taskId) {
+        if (taskId == null || taskMapper == null) {
+            return null;
+        }
+        try {
+            Task task = taskMapper.findById(taskId);
+            return task == null ? null : task.getRequestIp();
+        } catch (Exception e) {
+            log.debug("[DashscopeLlmClient] Failed to resolve task requestIp for taskId={}: {}",
+                    taskId, e.getMessage());
+            return null;
         }
     }
 

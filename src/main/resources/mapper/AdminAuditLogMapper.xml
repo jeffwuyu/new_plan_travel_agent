@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelagent.mapper.AdminAuditLogMapper">
+
+    <resultMap id="adminAuditLogResultMap" type="AdminAuditLog">
+        <id property="id" column="id"/>
+        <result property="adminUserId" column="admin_user_id"/>
+        <result property="permission" column="permission"/>
+        <result property="action" column="action"/>
+        <result property="targetType" column="target_type"/>
+        <result property="targetId" column="target_id"/>
+        <result property="requestIp" column="request_ip"/>
+        <result property="userAgent" column="user_agent"/>
+        <result property="detailsJson" column="details_json"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="AdminAuditLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO admin_audit_logs (
+            admin_user_id, permission, action, target_type, target_id,
+            request_ip, user_agent, details_json, created_at
+        )
+        VALUES (
+            #{adminUserId}, #{permission}, #{action}, #{targetType}, #{targetId},
+            #{requestIp}, #{userAgent}, #{detailsJson}, NOW()
+        )
+    </insert>
+
+    <select id="findRecent" resultMap="adminAuditLogResultMap">
+        SELECT * FROM admin_audit_logs
+        <where>
+            <if test="adminUserId != null">
+                admin_user_id = #{adminUserId}
+            </if>
+            <if test="action != null and action != ''">
+                AND action = #{action}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

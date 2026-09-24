@@ -8,12 +8,14 @@ import com.travelagent.model.dto.Result;
 import com.travelagent.model.entity.Plan;
 import com.travelagent.model.entity.PlanStep;
 import com.travelagent.model.entity.Task;
+import com.travelagent.service.accommodation.PlanAccommodationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -42,6 +44,9 @@ public class PlanController {
 
     @Autowired
     private TaskMapper taskMapper;
+
+    @Autowired
+    private PlanAccommodationService planAccommodationService;
 
     // -----------------------------------------------------------------------
     // 当前用户规划列表
@@ -89,7 +94,14 @@ public class PlanController {
         if (!plan.getUserId().equals(userId)) {
             throw new BusinessException(403, "无权访问该规划");
         }
+        plan.setAccommodations(planAccommodationService.loadForPlan(planId));
         return Result.success(plan);
+    }
+
+    @PostMapping("/{planId}/accommodations/refresh")
+    public Result<Plan> refreshAccommodations(@PathVariable Long planId, HttpServletRequest request) {
+        Long userId = JwtAuthInterceptor.getUserId(request);
+        return Result.success(planAccommodationService.refreshAccommodations(planId, userId));
     }
 
     /**
@@ -162,6 +174,7 @@ public class PlanController {
         }
 
         List<PlanStep> steps = planMapper.findStepsByPlanId(plan.getId());
+        plan.setAccommodations(planAccommodationService.loadForPlan(plan.getId()));
         return Result.success(Map.of(
                 "plan", plan,
                 "stepCount", steps.size()

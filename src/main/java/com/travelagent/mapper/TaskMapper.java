@@ -32,6 +32,17 @@ public interface TaskMapper {
     List<Task> findByStatusIn(@Param("statuses") List<String> statuses,
                               @Param("limit") int limit);
 
+    List<Task> findRecoverableExpiredLeases(@Param("statuses") List<String> statuses,
+                                            @Param("before") LocalDateTime before,
+                                            @Param("afterId") Long afterId,
+                                            @Param("limit") int limit);
+
+    int claimRecoveryIfExpired(@Param("id") Long id,
+                               @Param("expectedRevision") long expectedRevision,
+                               @Param("owner") String owner,
+                               @Param("leaseToken") String leaseToken,
+                               @Param("leaseExpiresAt") LocalDateTime leaseExpiresAt);
+
     /** Returns stale tasks in a specific lifecycle state, oldest first. */
     List<Task> findStaleByStatus(@Param("status") String status,
                                  @Param("before") LocalDateTime before,

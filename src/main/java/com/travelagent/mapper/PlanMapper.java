@@ -1,6 +1,7 @@
 package com.travelagent.mapper;
 
 import com.travelagent.model.entity.Plan;
+import com.travelagent.model.entity.PlanAccommodation;
 import com.travelagent.model.entity.PlanStep;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -20,6 +21,14 @@ public interface PlanMapper {
 
     int insertSteps(@Param("steps") List<PlanStep> steps);
 
+    int insertAccommodations(@Param("accommodations") List<PlanAccommodation> accommodations);
+
+    int deleteAccommodationsByPlanId(@Param("planId") Long planId);
+
+    int updateAccommodationStatus(@Param("planId") Long planId,
+                                  @Param("status") String status,
+                                  @Param("failureReason") String failureReason);
+
     Plan findByTaskId(@Param("taskId") Long taskId);
 
     Plan findById(@Param("id") Long id);
@@ -27,4 +36,6 @@ public interface PlanMapper {
     List<Plan> findByUserId(@Param("userId") Long userId);
 
     List<PlanStep> findStepsByPlanId(@Param("planId") Long planId);
+
+    List<PlanAccommodation> findAccommodationsByPlanId(@Param("planId") Long planId);
 }

@@ -8,6 +8,7 @@ import com.travelagent.model.dto.Result;
 import com.travelagent.model.dto.UploadRagDocumentResponse;
 import com.travelagent.model.entity.RagDocument;
 import com.travelagent.service.rag.RagService;
+import com.travelagent.service.rag.RagSearchResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,16 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-/**
- * 管理员专用 RAG 控制器。
- *
- * 所有端点均要求 userLevel == 3（ADMIN）。
- *
- *   POST /api/rag/documents            — 注册文档元信息（status=pending）
- *   POST /api/rag/documents/{id}/ingest — 触发异步入库
- *   GET  /api/rag/documents/{id}        — 查询文档状态
- *   GET  /api/rag/query                 — 手动测试 RAG 检索
- */
 @Tag(name = "RAG 管理", description = "文档入库与向量检索管理（需 ADMIN 权限）")
 @RestController
 @RequestMapping("/api/rag")
@@ -47,14 +38,6 @@ public class RagController {
     @Autowired private RagDocumentMapper ragDocumentMapper;
     @Autowired private OssClient ossClient;
 
-    // -----------------------------------------------------------------------
-    // Admin guard
-    // -----------------------------------------------------------------------
-
-    /**
-     * 处理requireAdmin。
-     * @param request 请求参数
-     */
     private void requireAdmin(HttpServletRequest request) {
         int userLevel = JwtAuthInterceptor.getUserLevel(request);
         if (userLevel != 3) {
@@ -62,32 +45,17 @@ public class RagController {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Endpoints
-    // -----------------------------------------------------------------------
-
-    /**
-     * Accepts a multipart file, uploads it to OSS, registers the document in MySQL,
-     * and triggers async ingestion. Returns immediately with status=pending.
-     */
     @Operation(summary = "上传 RAG 文档文件",
-               description = "multipart/form-data 上传，验证后写入 OSS，注册 DB，触发异步入库。最大 50MB。")
-    /**
-     * 处理uploadDocument。
-     * @param file 文件对象
-     * @param title t it le 参数
-     * @param "region" "r eg io n" 参数
-     * @param region 区域信息
-     * @param docType d oc Ty pe 参数
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
-     */
+            description = "multipart/form-data 上传，验证后写入 OSS，注册 DB，并触发异步入库。最大 50MB。")
     @PostMapping(value = "/documents/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Result<UploadRagDocumentResponse> uploadDocument(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
             @RequestParam(value = "region", required = false) String region,
             @RequestParam("docType") String docType,
+            @RequestParam(value = "sourceType", required = false, defaultValue = "static_knowledge") String sourceType,
+            @RequestParam(value = "sourceName", required = false, defaultValue = "manual") String sourceName,
+            @RequestParam(value = "sourceUrl", required = false) String sourceUrl,
             HttpServletRequest request) {
         requireAdmin(request);
 
@@ -116,48 +84,38 @@ public class RagController {
         }
 
         ossClient.uploadDocument(ossKey, bytes, resolveContentType(docType));
-        RagDocument doc = ragService.registerDocument(ossKey, title, region, docType);
+        RagDocument doc = ragService.registerDocument(ossKey, title, region, docType,
+                sourceType, sourceName, sourceUrl, null);
         ragService.ingestDocument(doc.getId());
 
         return Result.success(new UploadRagDocumentResponse(
                 doc.getId(), ossKey, title, region, docType));
     }
 
-    /**
-     * 解析并确定contenttype。
-     * @param docType d oc Ty pe 参数
-     * @return 返回处理结果。
-     */
     private String resolveContentType(String docType) {
         return switch (docType) {
-            case "pdf"      -> "application/pdf";
+            case "pdf" -> "application/pdf";
             case "markdown" -> "text/markdown";
-            default         -> "text/plain";
+            default -> "text/plain";
         };
     }
 
-    /**
-     * Registers document metadata in MySQL.
-     * Expected body: { "ossKey": "...", "title": "...", "region": "...", "docType": "text|pdf|markdown" }
-     */
     @Operation(summary = "注册 RAG 文档元信息",
-               description = "将文档元信息写入 rag_documents 表（status=pending），不触发入库。")
-    /**
-     * 注册document。
-     * @param body 原始响应体
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
-     */
+            description = "将文档元信息写入 rag_documents 表（status=pending），不触发入库。")
     @PostMapping("/documents")
     public Result<RagDocument> registerDocument(
             @RequestBody Map<String, String> body,
             HttpServletRequest request) {
         requireAdmin(request);
 
-        String ossKey  = body.get("ossKey");
-        String title   = body.get("title");
-        String region  = body.get("region");
+        String ossKey = body.get("ossKey");
+        String title = body.get("title");
+        String region = body.get("region");
         String docType = body.get("docType");
+        String sourceType = body.getOrDefault("sourceType", "static_knowledge");
+        String sourceName = body.getOrDefault("sourceName", "manual");
+        String sourceUrl = body.get("sourceUrl");
+        String metadataJson = body.get("metadataJson");
 
         if (ossKey == null || ossKey.isBlank()) {
             throw new BusinessException(400, "ossKey 不能为空");
@@ -169,26 +127,15 @@ public class RagController {
             throw new BusinessException(400, "docType 必须为 pdf、markdown 或 text");
         }
 
-        RagDocument doc = ragService.registerDocument(ossKey, title, region, docType);
+        RagDocument doc = ragService.registerDocument(ossKey, title, region, docType,
+                sourceType, sourceName, sourceUrl, metadataJson);
         return Result.success(doc);
     }
 
-    /**
-     * Triggers async ingestion for a registered document.
-     * Returns immediately; actual processing runs on the agentTaskExecutor thread pool.
-     */
     @Operation(summary = "触发 RAG 文档异步入库",
-               description = "立即返回，后台线程执行：OSS下载→分块→向量化→DashVector→MySQL。")
-    /**
-     * 处理ingestDocument。
-     * @param id 主键ID
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
-     */
+            description = "立即返回，后台线程执行：OSS 下载 -> 分块 -> 向量化 -> MySQL/DashVector。")
     @PostMapping("/documents/{id}/ingest")
-    public Result<Void> ingestDocument(
-            @PathVariable Long id,
-            HttpServletRequest request) {
+    public Result<Void> ingestDocument(@PathVariable Long id, HttpServletRequest request) {
         requireAdmin(request);
 
         RagDocument doc = ragDocumentMapper.findById(id);
@@ -200,21 +147,38 @@ public class RagController {
         return Result.success();
     }
 
-    /**
-     * Returns the current status and metadata of a document.
-     */
+    @PostMapping("/documents/{id}/retry")
+    public Result<Void> retryDocument(@PathVariable Long id, HttpServletRequest request) {
+        requireAdmin(request);
+        ragService.retryIngest(id);
+        return Result.success();
+    }
+
+    @PostMapping("/documents/{id}/disable")
+    public Result<Void> disableDocument(@PathVariable Long id, HttpServletRequest request) {
+        requireAdmin(request);
+        ragService.disableDocument(id);
+        return Result.success();
+    }
+
+    @PostMapping("/documents/{id}/reenable")
+    public Result<Void> reenableDocument(@PathVariable Long id, HttpServletRequest request) {
+        requireAdmin(request);
+        ragService.reenableDocument(id);
+        return Result.success();
+    }
+
+    @PostMapping("/documents/{id}/delete")
+    public Result<Void> deleteDocument(@PathVariable Long id, HttpServletRequest request) {
+        requireAdmin(request);
+        ragService.deleteDocument(id);
+        return Result.success();
+    }
+
     @Operation(summary = "查询 RAG 文档状态",
-               description = "返回 rag_documents 记录，通过 status 字段判断入库进度（pending/indexed/failed）。")
-    /**
-     * 获取document。
-     * @param id 主键ID
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
-     */
+            description = "返回 rag_documents 记录，通过 status 字段判断入库进度（pending/indexing/indexed/failed/disabled）。")
     @GetMapping("/documents/{id}")
-    public Result<RagDocument> getDocument(
-            @PathVariable Long id,
-            HttpServletRequest request) {
+    public Result<RagDocument> getDocument(@PathVariable Long id, HttpServletRequest request) {
         requireAdmin(request);
 
         RagDocument doc = ragDocumentMapper.findById(id);
@@ -224,38 +188,18 @@ public class RagController {
         return Result.success(doc);
     }
 
-    /**
-     * Returns all registered RAG documents (admin list view).
-     */
     @Operation(summary = "列出所有 RAG 文档",
-               description = "返回 rag_documents 全量列表，按创建时间倒序（管理员用）。")
-    /**
-     * 获取。
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
-     */
+            description = "返回 rag_documents 全量列表，按创建时间倒序（管理员用）。")
     @GetMapping("/documents")
     public Result<List<RagDocument>> listDocuments(HttpServletRequest request) {
         requireAdmin(request);
         return Result.success(ragDocumentMapper.findAll());
     }
 
-    /**
-     * Manual retrieval test endpoint.
-     * Query params: text (required), region (optional), topK (optional, default 5).
-     */
     @Operation(summary = "手动测试 RAG 检索",
-               description = "用指定文本查询 DashVector，返回最相关的 chunk 文本列表（管理员调试用）。")
-    /**
-     * 处理queryChunks。
-     * @param text 文本内容
-     * @param region 区域信息
-     * @param topK t op K 参数
-     * @param request 请求参数
-     * @return 返回统一封装后的响应结果。
-     */
+            description = "用指定文本执行 Hybrid RAG，返回召回 chunk、来源、分数和融合排序依据（管理员调试用）。")
     @GetMapping("/query")
-    public Result<List<String>> queryChunks(
+    public Result<List<RagSearchResult>> queryChunks(
             @RequestParam String text,
             @RequestParam(required = false) String region,
             @RequestParam(defaultValue = "5") int topK,
@@ -266,10 +210,26 @@ public class RagController {
             throw new BusinessException(400, "text 不能为空");
         }
         if (topK < 1 || topK > 20) {
-            throw new BusinessException(400, "topK 必须在 1–20 之间");
+            throw new BusinessException(400, "topK 必须在 1-20 之间");
         }
 
-        List<String> chunks = ragService.queryChunks(text, region, topK);
-        return Result.success(chunks);
+        return Result.success(ragService.hybridSearch(text, region, topK));
     }
+
+    @Operation(summary = "结构化 RAG 检索")
+    @PostMapping("/search")
+    public Result<List<RagSearchResult>> search(@RequestBody RagSearchRequest body,
+                                                HttpServletRequest request) {
+        if (JwtAuthInterceptor.getUserId(request) == null) {
+            throw new BusinessException(401, "未认证");
+        }
+        if (body == null || body.text() == null || body.text().isBlank()) {
+            throw new BusinessException(400, "text 不能为空");
+        }
+        int topK = body.topK() == null ? 5 : body.topK();
+        if (topK < 1 || topK > 20) throw new BusinessException(400, "topK 必须在 1-20 之间");
+        return Result.success(ragService.hybridSearch(body.text().trim(), body.region(), topK));
+    }
+
+    public record RagSearchRequest(String text, String region, Integer topK) {}
 }

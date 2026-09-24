@@ -11,7 +11,7 @@ import java.util.List;
 
 public interface TaskService {
 
-    TaskResponse createTask(Long userId, int userLevel, CreateTaskRequest request);
+    TaskResponse createTask(Long userId, int userLevel, CreateTaskRequest request, String requestIp);
 
     TaskResponse getTask(String taskUuid, Long requestingUserId);
 
@@ -20,6 +20,10 @@ public interface TaskService {
     void cancelTask(String taskUuid, Long requestingUserId);
 
     TaskResponse resumeTask(String taskUuid, Long requestingUserId);
+
+    TaskResponse confirmPendingToolReplay(String taskUuid, Long requestingUserId);
+
+    TaskResponse skipPendingToolReplay(String taskUuid, Long requestingUserId);
 
     TaskResponse confirmOriginSelection(String taskUuid, Long requestingUserId, ConfirmOriginSelectionRequest request);
 

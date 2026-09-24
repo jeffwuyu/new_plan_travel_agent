@@ -6,25 +6,16 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Extracts text from plain-text and Markdown documents.
- *
- * <p>Decodes bytes as UTF-8 and normalises whitespace:
- * <ul>
- *   <li>Converts Windows-style line endings ({@code \r\n}) and bare {@code \r} to {@code \n}.</li>
- *   <li>Collapses three or more consecutive blank lines into a single blank line.</li>
- *   <li>Strips leading and trailing whitespace from the result.</li>
- * </ul>
- *
- * <p>This extractor is used for {@code docType} values of {@code "text"} and
- * {@code "markdown"}.
+ * 纯文本和 Markdown 提取器，按 UTF-8 解码并归一化换行与连续空行。
  */
 @Component
 public class PlainTextExtractor implements DocumentTextExtractor {
 
     /**
-     * 处理extract。
-     * @param rawBytes r aw By te s 参数
-     * @return 返回处理结果。
+     * 从文本类文档字节中提取纯文本。
+     *
+     * @param rawBytes UTF-8 文本字节
+     * @return 清理换行和首尾空白后的文本
      */
     @Override
     public String extract(byte[] rawBytes) {

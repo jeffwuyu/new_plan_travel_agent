@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelagent.mapper.PlanRouteMapJobMapper">
+
+    <resultMap id="jobResultMap" type="PlanRouteMapJob">
+        <id property="id" column="id"/>
+        <result property="routeMapId" column="route_map_id"/>
+        <result property="planId" column="plan_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="dayNumber" column="day_number"/>
+        <result property="style" column="style"/>
+        <result property="status" column="status"/>
+        <result property="triggerType" column="trigger_type"/>
+        <result property="lockedBy" column="locked_by"/>
+        <result property="lockedUntil" column="locked_until"/>
+        <result property="attempts" column="attempts"/>
+        <result property="maxAttempts" column="max_attempts"/>
+        <result property="errorCode" column="error_code"/>
+        <result property="errorMessage" column="error_message"/>
+        <result property="availableAt" column="available_at"/>
+        <result property="startedAt" column="started_at"/>
+        <result property="completedAt" column="completed_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="PlanRouteMapJob" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO plan_route_map_jobs (
+            route_map_id, plan_id, user_id, day_number, style, status, trigger_type,
+            locked_by, locked_until, attempts, max_attempts, error_code, error_message,
+            available_at, started_at, completed_at, created_at, updated_at
+        )
+        VALUES (
+            #{routeMapId}, #{planId}, #{userId}, #{dayNumber}, #{style},
+            COALESCE(#{status}, 'queued'), #{triggerType},
+            #{lockedBy}, #{lockedUntil}, COALESCE(#{attempts}, 0), COALESCE(#{maxAttempts}, 3),
+            #{errorCode}, #{errorMessage}, COALESCE(#{availableAt}, NOW()),
+            #{startedAt}, #{completedAt}, NOW(), NOW()
+        )
+    </insert>
+
+    <select id="findById" resultMap="jobResultMap">
+        SELECT * FROM plan_route_map_jobs WHERE id = #{id} LIMIT 1
+    </select>
+
+    <select id="findLatestByRouteMapId" resultMap="jobResultMap">
+        SELECT * FROM plan_route_map_jobs
+        WHERE route_map_id = #{routeMapId}
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <select id="findDispatchable" resultMap="jobResultMap">
+        SELECT * FROM plan_route_map_jobs
+        WHERE status IN ('queued', 'retrying')
+          AND available_at &lt;= #{now}
+        ORDER BY available_at ASC, id ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="markRunning">
+        UPDATE plan_route_map_jobs
+        SET status = 'running',
+            locked_by = #{lockedBy},
+            locked_until = #{lockedUntil},
+            attempts = attempts + 1,
+            started_at = NOW(),
+            updated_at = NOW()
+        WHERE id = #{id}
+          AND status IN ('queued', 'retrying')
+    </update>
+
+    <update id="markSucceeded">
+        UPDATE plan_route_map_jobs
+        SET status = 'succeeded',
+            completed_at = NOW(),
+            locked_until = NULL,
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="markFailed">
+        UPDATE plan_route_map_jobs
+        SET status = #{status},
+            error_code = #{errorCode},
+            error_message = #{errorMessage},
+            available_at = #{availableAt},
+            completed_at = CASE WHEN #{status} = 'dead_letter' THEN NOW() ELSE completed_at END,
+            locked_until = NULL,
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="markDeadLetter">
+        UPDATE plan_route_map_jobs
+        SET status = 'dead_letter',
+            error_code = #{errorCode},
+            error_message = #{errorMessage},
+            completed_at = NOW(),
+            locked_until = NULL,
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+</mapper>

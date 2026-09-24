@@ -3,12 +3,14 @@ package com.travelagent.controller;
 import com.travelagent.exception.TaskNotFoundException;
 import com.travelagent.filter.JwtAuthInterceptor;
 import com.travelagent.mapper.TaskMapper;
+import com.travelagent.model.dto.Result;
 import com.travelagent.model.dto.TaskExecutionProgressResponse;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.entity.TaskExecutionEvent;
 import com.travelagent.model.enums.TaskStatus;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
+import com.travelagent.service.notification.SseTicketService;
 import com.travelagent.service.task.TaskProgressService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -58,6 +61,27 @@ public class SseController {
     @Autowired private SseNotificationService sseNotificationService;
     @Autowired private TaskMapper             taskMapper;
     @Autowired private TaskProgressService    taskProgressService;
+    @Autowired private SseTicketService       sseTicketService;
+
+    @Operation(summary = "签发任务 SSE 短期 ticket",
+               description = "需要 JWT，仅任务所有者可签发。EventSource 可使用 ?sseTicket= 订阅，避免长 JWT 暴露在 URL。")
+    @PostMapping("/{taskUuid}/stream-ticket")
+    public Result<Map<String, Object>> issueStreamTicket(@PathVariable String taskUuid, HttpServletRequest request) {
+        Long requestUserId = JwtAuthInterceptor.getUserId(request);
+        Task task = taskMapper.findByUuid(taskUuid);
+        if (task == null) {
+            throw new TaskNotFoundException(taskUuid);
+        }
+        if (!task.getUserId().equals(requestUserId)) {
+            return Result.forbidden("无权访问此任务的事件流");
+        }
+        String ticket = sseTicketService.issue(requestUserId, taskUuid);
+        return Result.success(Map.of(
+                "taskUuid", taskUuid,
+                "ticket", ticket,
+                "queryParam", "sseTicket"
+        ));
+    }
 
     @Operation(summary = "订阅任务实时进展 (SSE)",
                description = "返回 text/event-stream。需要 JWT，仅任务所有者可订阅。")

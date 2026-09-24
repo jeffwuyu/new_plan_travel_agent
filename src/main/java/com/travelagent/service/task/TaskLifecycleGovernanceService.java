@@ -121,7 +121,8 @@ public class TaskLifecycleGovernanceService {
      * process-start snapshot.
      */
     public RecoveryScanResult scanExpiredExecutionLeases(String trigger, Long afterId, int batchSize) {
-        List<String> statuses = List.of(TaskStatus.PLANNING.getCode(), TaskStatus.TOOL_CALLING.getCode());
+        List<String> statuses = List.of(TaskStatus.PLANNING.getCode(), TaskStatus.TOOL_CALLING.getCode(),
+                TaskStatus.RESUMING.getCode());
         long cursor = afterId == null ? 0L : Math.max(0L, afterId);
         int claimed = 0;
         int skipped = 0;

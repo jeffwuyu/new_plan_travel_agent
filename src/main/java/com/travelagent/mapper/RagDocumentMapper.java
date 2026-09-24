@@ -21,10 +21,30 @@ public interface RagDocumentMapper {
     /** Finds a document by its unique OSS object key. Returns null if not found. */
     RagDocument findByOssKey(@Param("ossKey") String ossKey);
 
+    /** Finds indexed documents by source type, preserving source separation. */
+    List<RagDocument> findBySourceType(@Param("sourceType") String sourceType);
+
     /** Updates the status and optional error message for a document. */
     int updateStatus(@Param("id") Long id,
                      @Param("status") String status,
                      @Param("errorMessage") String errorMessage);
+
+    /** Updates status, progress, retry count, and structured error information. */
+    int updateLifecycle(@Param("id") Long id,
+                        @Param("status") String status,
+                        @Param("ingestProgress") Integer ingestProgress,
+                        @Param("retryCount") Integer retryCount,
+                        @Param("lastErrorCode") String lastErrorCode,
+                        @Param("errorMessage") String errorMessage);
+
+    /** Increments retry count before a manual reingest attempt. */
+    int incrementRetryCount(@Param("id") Long id);
+
+    /** Marks a document disabled so it no longer participates in retrieval. */
+    int disableDocument(@Param("id") Long id);
+
+    /** Clears disabled marker and returns the document to pending state. */
+    int reenableDocument(@Param("id") Long id);
 
     /** Returns all documents with the given status. */
     List<RagDocument> findByStatus(@Param("status") String status);

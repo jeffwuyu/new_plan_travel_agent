@@ -1,5 +1,6 @@
 package com.travelagent.model.dto;
 
+import com.travelagent.agent.context.AgentSessionState;
 import com.travelagent.model.entity.TaskExecutionEvent;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,6 +14,7 @@ import java.util.Map;
 @NoArgsConstructor
 public class TaskExecutionProgressResponse {
 
+    private String contractVersion = "task-progress.v2";
     private String taskUuid;
     private String currentStatus;
     private Integer totalTokensUsed;
@@ -28,8 +30,10 @@ public class TaskExecutionProgressResponse {
     private List<LocationCandidateItem> locationCandidates = new ArrayList<>();
     private List<SelectionOptionItem> selectionOptions = new ArrayList<>();
     private List<LocationCandidateItem> recommendationCandidates = new ArrayList<>();
+    private SelectionPromptDto selectionPrompt;
     private Map<String, Object> currentContext = new LinkedHashMap<>();
     private Map<String, Object> weatherContext = new LinkedHashMap<>();
     private ResolvedLocation selectedOrigin;
     private ResolvedLocation selectedDestination;
+    private AgentSessionState sessionState;
 }

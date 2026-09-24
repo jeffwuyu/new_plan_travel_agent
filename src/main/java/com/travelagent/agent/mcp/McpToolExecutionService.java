@@ -191,6 +191,7 @@ public class McpToolExecutionService {
             normalized.put("windDirection", stringOrDefault(firstForecast.get("daywind"), stringOrDefault(firstForecast.get("nightwind"), "")));
             normalized.put("windPower", stringOrDefault(firstForecast.get("daypower"), stringOrDefault(firstForecast.get("nightpower"), "")));
             normalized.put("humidity", "");
+            normalized.put("forecastDays", normalizeForecastDays(forecasts));
             return normalized;
         }
 
@@ -200,6 +201,28 @@ public class McpToolExecutionService {
         normalized.put("windPower", stringOrDefault(findFirstValue(source, "windpower", "windPower"), ""));
         normalized.put("humidity", stringOrDefault(findFirstValue(source, "humidity"), ""));
         return normalized;
+    }
+
+    private List<Map<String, Object>> normalizeForecastDays(List<?> forecasts) {
+        List<Map<String, Object>> days = new ArrayList<>();
+        for (Object item : forecasts) {
+            if (!(item instanceof Map<?, ?> forecast)) {
+                continue;
+            }
+            Map<String, Object> day = new LinkedHashMap<>();
+            day.put("date", stringOrDefault(forecast.get("date"), ""));
+            day.put("week", stringOrDefault(forecast.get("week"), ""));
+            day.put("dayWeather", stringOrDefault(forecast.get("dayweather"), stringOrDefault(forecast.get("dayWeather"), "")));
+            day.put("nightWeather", stringOrDefault(forecast.get("nightweather"), stringOrDefault(forecast.get("nightWeather"), "")));
+            day.put("tempHigh", stringOrDefault(forecast.get("daytemp"), stringOrDefault(forecast.get("tempHigh"), "")));
+            day.put("tempLow", stringOrDefault(forecast.get("nighttemp"), stringOrDefault(forecast.get("tempLow"), "")));
+            day.put("dayWind", stringOrDefault(forecast.get("daywind"), stringOrDefault(forecast.get("dayWind"), "")));
+            day.put("nightWind", stringOrDefault(forecast.get("nightwind"), stringOrDefault(forecast.get("nightWind"), "")));
+            day.put("dayWindPower", stringOrDefault(forecast.get("daypower"), stringOrDefault(forecast.get("dayWindPower"), "")));
+            day.put("nightWindPower", stringOrDefault(forecast.get("nightpower"), stringOrDefault(forecast.get("nightWindPower"), "")));
+            days.add(day);
+        }
+        return days;
     }
 
     /**

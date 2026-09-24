@@ -1,15 +1,14 @@
 package com.travelagent.service.task.impl;
 
 import com.travelagent.agent.context.CompletedStep;
-import com.travelagent.agent.context.DailyTimeWindow;
-import com.travelagent.agent.context.PlanningConfig;
-import com.travelagent.agent.context.RetryState;
+import com.travelagent.agent.context.PendingToolCall;
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.agent.memory.UserPreferenceMemoryService;
 import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.planner.TaskExecutionDispatcher;
+import com.travelagent.agent.requirements.TravelConstraints;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
-import com.travelagent.client.amap.AmapClient;
 import com.travelagent.exception.BusinessException;
 import com.travelagent.exception.TaskNotFoundException;
 import com.travelagent.mapper.TaskMapper;
@@ -18,8 +17,6 @@ import com.travelagent.model.dto.CreateTaskRequest;
 import com.travelagent.model.dto.LocationCandidateItem;
 import com.travelagent.model.dto.NodeChatRequest;
 import com.travelagent.model.dto.RewindTaskRequest;
-import com.travelagent.model.dto.ResolvedLocation;
-import com.travelagent.model.dto.SelectionOptionItem;
 import com.travelagent.model.dto.TaskResponse;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.entity.UserQuotaConfig;
@@ -27,7 +24,6 @@ import com.travelagent.model.enums.TaskStatus;
 import com.travelagent.service.agent.AgentService;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
-import com.travelagent.service.task.OriginCandidateService;
 import com.travelagent.service.task.TaskProgressService;
 import com.travelagent.service.task.TaskService;
 import com.travelagent.service.user.QuotaService;
@@ -40,10 +36,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -55,33 +47,38 @@ import java.util.stream.Collectors;
 public class TaskServiceImpl implements TaskService {
 
     private static final Logger log = LoggerFactory.getLogger(TaskServiceImpl.class);
-    private static final int ESTIMATED_MINUTES_PER_STOP = 150;
     private static final String PAUSE_REASON_RESUME_DISPATCH_FAILED = "resume_dispatch_failed";
+    private static final String PAUSE_REASON_USER_CANCELLED = "user_cancelled";
+    private static final String PAUSE_REASON_PENDING_TOOL_REPLAY_CONFIRMATION = "pending_tool_replay_requires_confirmation";
+    private static final String PAUSE_REASON_PENDING_TOOL_SKIPPED = "pending_tool_skipped";
 
     @Autowired private TaskMapper taskMapper;
     @Autowired private QuotaService quotaService;
     @Autowired private AgentStateMachine stateMachine;
     @Autowired private SseNotificationService sseNotificationService;
     @Autowired private JsonUtil jsonUtil;
-    @Autowired private OriginCandidateService originCandidateService;
-    @Autowired private AmapClient amapClient;
     @Autowired private AgentService agentService;
     @Autowired private TaskProgressService taskProgressService;
     @Autowired private TaskRewindHandler rewindHandler;
     @Autowired private TaskExecutionDispatcher taskExecutionDispatcher;
+    @Autowired private TaskCheckpointCodec checkpointCodec;
+    @Autowired private TaskInitialCheckpointBuilder initialCheckpointBuilder;
+    @Autowired private TaskSelectionConfirmationHandler selectionConfirmationHandler;
+    @Autowired(required = false) private UserPreferenceMemoryService userPreferenceMemoryService;
 
     /**
-     * 创建task。
-     * @param userId 用户ID
+     * 创建旅行规划任务，完成配额校验、任务落库和初始 checkpoint 持久化。
+     *
+     * @param userId 用户 ID
      * @param userLevel 用户等级
-     * @param request 请求参数
-     * @return 返回处理结果。
+     * @param request 创建任务请求
+     * @return 新任务响应
      */
     @Override
     @Transactional
-    public TaskResponse createTask(Long userId, int userLevel, CreateTaskRequest request) {
+    public TaskResponse createTask(Long userId, int userLevel, CreateTaskRequest request, String requestIp) {
         quotaService.checkDailyQuota(userId, userLevel);
-        validateCreateRequest(request);
+        initialCheckpointBuilder.validateCreateRequest(request);
 
         UserQuotaConfig config = quotaService.getQuotaConfig(userLevel);
         int activeCount = taskMapper.countActiveByUserId(userId);
@@ -95,46 +92,51 @@ public class TaskServiceImpl implements TaskService {
         task.setUserId(userId);
         task.setStatus(TaskStatus.PENDING.getCode());
         task.setRegion(request.getRegion());
-        task.setSchemaVersion("1.0");
+        task.setRequestIp(requestIp);
+        task.setSchemaVersion(TaskCheckpoint.CURRENT_SCHEMA_VERSION);
         task.setTotalTokensUsed(0);
         taskMapper.insert(task);
 
-        TaskCheckpoint checkpoint = buildInitialCheckpoint(task, request);
+        TaskCheckpoint checkpoint = initialCheckpointBuilder.build(task, request, config.getMaxPlanSteps());
+        rememberUserInput(task.getUserId(), checkpoint.getStructuredConstraints(), request.getUserIntent(), "task_create");
         task.setCheckpointJson(jsonUtil.toJson(checkpoint));
         taskMapper.updateCheckpoint(task);
 
         log.info("Created task uuid={} for userId={}", task.getTaskUuid(), userId);
-        return TaskResponse.from(task, checkpoint);
+        return toResponse(task, checkpoint);
     }
 
     /**
-     * 获取task。
+     * 查询当前用户可访问的单个任务。
+     *
      * @param taskUuid 任务唯一标识
-     * @param requestingUserId 发起请求的用户ID
-     * @return 返回处理结果。
+     * @param requestingUserId 发起请求的用户 ID
+     * @return 任务响应
      */
     @Override
     public TaskResponse getTask(String taskUuid, Long requestingUserId) {
         Task task = loadAndVerifyOwnership(taskUuid, requestingUserId);
-        return TaskResponse.from(task, parseCheckpoint(task));
+        return toResponse(task);
     }
 
     /**
-     * 获取。
-     * @param userId 用户ID
-     * @return 返回处理后的列表结果。
+     * 查询用户的任务列表。
+     *
+     * @param userId 用户 ID
+     * @return 任务响应列表
      */
     @Override
     public List<TaskResponse> listTasks(Long userId) {
         return taskMapper.findByUserId(userId).stream()
-                .map(task -> TaskResponse.from(task, parseCheckpoint(task)))
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     /**
-     * 取消task。
+     * 取消未终态任务，并同步 checkpoint、进度事件和 SSE。
+     *
      * @param taskUuid 任务唯一标识
-     * @param requestingUserId 发起请求的用户ID
+     * @param requestingUserId 发起请求的用户 ID
      */
     @Override
     @Transactional
@@ -146,17 +148,37 @@ public class TaskServiceImpl implements TaskService {
         }
 
         TaskStatus next = stateMachine.transition(current, AgentEvent.CANCEL);
-        taskMapper.updateStatus(task.getId(), next.getCode());
+        TaskCheckpoint checkpoint = parseCheckpoint(task);
+        if (checkpoint != null) {
+            checkpoint.setCurrentState(next.getCode());
+            checkpoint.setPauseReason(PAUSE_REASON_USER_CANCELLED);
+            checkpoint.setPendingToolCall(null);
+            task.setStatus(next.getCode());
+            task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+            taskMapper.updateCheckpoint(task);
+        }
+        taskMapper.updateStatus(task, next.getCode());
+
+        Map<String, Object> payload = Map.of(
+                "status", next.getCode(),
+                "taskUuid", taskUuid,
+                "reason", PAUSE_REASON_USER_CANCELLED
+        );
+        taskProgressService.recordEvent(taskUuid, "CANCELLED", next.getCode(),
+                checkpoint != null ? checkpoint.getCurrentStepIndex() : null,
+                checkpoint != null ? checkpoint.totalPlannedSteps() : null,
+                "Task cancelled by user", payload);
         sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE,
-                Map.of("status", next.getCode(), "taskUuid", taskUuid));
+                payload);
         sseNotificationService.completeEmitter(taskUuid);
     }
 
     /**
-     * 恢复task。
+     * 恢复暂停任务，并在事务提交后重新派发到 Agent 执行器。
+     *
      * @param taskUuid 任务唯一标识
-     * @param requestingUserId 发起请求的用户ID
-     * @return 返回处理结果。
+     * @param requestingUserId 发起请求的用户 ID
+     * @return 恢复后的任务响应
      */
     @Override
     @Transactional
@@ -178,18 +200,31 @@ public class TaskServiceImpl implements TaskService {
 
         TaskStatus next = stateMachine.transition(current, AgentEvent.RESUME);
         task.setStatus(next.getCode());
-        taskMapper.updateStatus(task.getId(), next.getCode());
+        taskMapper.updateStatus(task, next.getCode());
         scheduleResumeDispatch(taskUuid, "manual_resume");
         Task updated = taskMapper.findByUuid(taskUuid);
-        return TaskResponse.from(updated, parseCheckpoint(updated));
+        return toResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public TaskResponse confirmPendingToolReplay(String taskUuid, Long requestingUserId) {
+        return decidePendingToolReplay(taskUuid, requestingUserId, true);
+    }
+
+    @Override
+    @Transactional
+    public TaskResponse skipPendingToolReplay(String taskUuid, Long requestingUserId) {
+        return decidePendingToolReplay(taskUuid, requestingUserId, false);
     }
 
     /**
-     * 确认originselection。
+     * 确认当前待处理的起点、分支或景点候选。
+     *
      * @param taskUuid 任务唯一标识
-     * @param requestingUserId 发起请求的用户ID
-     * @param request 请求参数
-     * @return 返回处理结果。
+     * @param requestingUserId 发起请求的用户 ID
+     * @param request 选择确认请求
+     * @return 更新后的任务响应
      */
     @Override
     @Transactional
@@ -204,69 +239,19 @@ public class TaskServiceImpl implements TaskService {
         if (checkpoint == null) {
             throw new BusinessException(400, "task checkpoint is missing");
         }
-        String pendingInputType = resolvePendingInputType(checkpoint, request);
-        LocationCandidateItem candidate = null;
-
-        if ("origin_selection".equals(pendingInputType)) {
-            List<LocationCandidateItem> pendingCandidates = resolvePendingCandidates(checkpoint, pendingInputType);
-            if (pendingCandidates.isEmpty()) {
-                throw new BusinessException(400, "no pending candidates available");
-            }
-            candidate = pendingCandidates.stream()
-                    .filter(item -> item.getCandidateId().equals(request.getSelectedCandidateId()))
-                    .findFirst()
-                    .orElseThrow(() -> new BusinessException(400, "selected candidate does not belong to this task"));
-            if (checkpoint.isOriginConfirmed()) {
-                throw new BusinessException(400, "origin has already been selected");
-            }
-            checkpoint.setSelectedOrigin(toResolvedLocation(candidate, request));
-            checkpoint.setOriginConfirmed(true);
-            checkpoint.setLocationCandidates(List.of());
-        } else if ("selection_branch".equals(pendingInputType)) {
-            SelectionOptionItem option = resolvePendingSelectionOption(checkpoint, request.getSelectedCandidateId());
-            checkpoint.setSelectedBranchType(option.getBranchType());
-            Map<String, Object> mergedContext = checkpoint.getCurrentContext() == null
-                    ? new LinkedHashMap<>()
-                    : new LinkedHashMap<>(checkpoint.getCurrentContext());
-            mergedContext.put("selectedBranchType", option.getBranchType());
-            checkpoint.setCurrentContext(mergedContext);
-        } else if ("attraction_selection".equals(pendingInputType)
-                || "poi_candidate_selection".equals(pendingInputType)
-                || "route_candidate_selection".equals(pendingInputType)) {
-            List<LocationCandidateItem> pendingCandidates = resolvePendingCandidates(checkpoint, pendingInputType);
-            if (pendingCandidates.isEmpty()) {
-                throw new BusinessException(400, "no pending candidates available");
-            }
-            candidate = pendingCandidates.stream()
-                    .filter(item -> item.getCandidateId().equals(request.getSelectedCandidateId()))
-                    .findFirst()
-                    .orElseThrow(() -> new BusinessException(400, "selected candidate does not belong to this task"));
-            checkpoint.setSelectedAttractionCandidate(mergeSelectedCandidate(candidate, request));
-        } else {
-            throw new BusinessException(400, "unsupported pending input type: " + pendingInputType);
-        }
-
-        checkpoint.setPendingInputType(null);
-        checkpoint.setSelectionStage(null);
-        checkpoint.setSelectionOptions(List.of());
-        checkpoint.setRecommendationCandidates(List.of());
-        if (!"selection_branch".equals(pendingInputType)) {
-            checkpoint.setCurrentContext(new LinkedHashMap<>());
-        }
-        if ("origin_selection".equals(pendingInputType)) {
-            checkpoint.setWeatherContext(new LinkedHashMap<>());
-        }
-        checkpoint.setCurrentState(TaskStatus.RESUMING.getCode());
-        checkpoint.setPauseReason(null);
-        checkpoint.setResumableAt(null);
+        TaskSelectionConfirmationHandler.SelectionConfirmationResult selectionResult =
+                selectionConfirmationHandler.applySelection(checkpoint, request);
+        String pendingInputType = selectionResult.pendingInputType();
+        selectionConfirmationHandler.clearSelectionState(checkpoint, pendingInputType, TaskStatus.RESUMING.getCode());
         task.setStatus(TaskStatus.RESUMING.getCode());
         task.setCheckpointJson(jsonUtil.toJson(checkpoint));
 
         TaskStatus next = stateMachine.transition(current, AgentEvent.USER_INPUT_RECEIVED);
-        taskMapper.updateStatus(task.getId(), next.getCode());
+        taskMapper.updateStatus(task, next.getCode());
         taskMapper.updateCheckpoint(task);
 
-        Map<String, Object> payload = buildSelectionConfirmedPayload(taskUuid, pendingInputType, checkpoint, candidate, request);
+        Map<String, Object> payload = selectionConfirmationHandler.buildSelectionConfirmedPayload(
+                taskUuid, checkpoint, selectionResult, request);
         sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_CONFIRMED, payload);
         sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE, Map.of(
                 "status", next.getCode(),
@@ -276,15 +261,16 @@ public class TaskServiceImpl implements TaskService {
         scheduleResumeDispatch(taskUuid, "user_selection_confirmed");
 
         Task updated = taskMapper.findByUuid(taskUuid);
-        return TaskResponse.from(updated, checkpoint);
+        return toResponse(updated, checkpoint);
     }
 
     /**
-     * 回退task。
+     * 将任务回退到指定已完成步骤，并重新派发后续规划。
+     *
      * @param taskUuid 任务唯一标识
-     * @param requestingUserId 发起请求的用户ID
-     * @param request 请求参数
-     * @return 返回处理结果。
+     * @param requestingUserId 发起请求的用户 ID
+     * @param request 回退请求
+     * @return 回退后的任务响应
      */
     @Override
     @Transactional
@@ -332,15 +318,16 @@ public class TaskServiceImpl implements TaskService {
         ));
         scheduleResumeDispatch(taskUuid, "rewind");
 
-        return TaskResponse.from(task, checkpoint);
+        return toResponse(task, checkpoint);
     }
 
     /**
-     * 刷新nodeselection。
+     * 在等待用户选择时，根据新的用户偏好刷新当前候选。
+     *
      * @param taskUuid 任务唯一标识
-     * @param requestingUserId 发起请求的用户ID
-     * @param request 请求参数
-     * @return 返回处理结果。
+     * @param requestingUserId 发起请求的用户 ID
+     * @param request 节点偏好输入
+     * @return 刷新后的任务响应
      */
     @Override
     @Transactional
@@ -366,6 +353,10 @@ public class TaskServiceImpl implements TaskService {
                 : new LinkedHashMap<>(checkpoint.getCurrentContext());
         currentContext.put("userPreferencePrompt", request.getMessage().trim());
         checkpoint.setCurrentContext(currentContext);
+        checkpoint.recordUserFeedback("node_chat", request.getMessage().trim(), Map.of(
+                "pendingInputType", pendingInputType
+        ));
+        rememberUserInput(task.getUserId(), checkpoint.getStructuredConstraints(), request.getMessage().trim(), "node_chat");
         checkpoint.setSelectedAttractionCandidate(null);
         checkpoint.setPendingInputType(null);
         checkpoint.setSelectionStage(null);
@@ -376,10 +367,10 @@ public class TaskServiceImpl implements TaskService {
         if ("selection_branch".equals(pendingInputType)) {
             checkpoint.setSelectedBranchType(null);
         } else if ("route_candidate_selection".equals(pendingInputType)) {
-            checkpoint.setSelectedBranchType("route_plan");
-        } else if ("poi_candidate_selection".equals(pendingInputType) || "attraction_selection".equals(pendingInputType)) {
+            checkpoint.setSelectedBranchType("rag_route");
+        } else if ("attraction_selection".equals(pendingInputType)) {
             if (checkpoint.getSelectedBranchType() == null || checkpoint.getSelectedBranchType().isBlank()) {
-                checkpoint.setSelectedBranchType("nearby_poi");
+                checkpoint.setSelectedBranchType("rag_route");
             }
         } else {
             throw new BusinessException(400, "unsupported pending input type for node preference: " + pendingInputType);
@@ -435,199 +426,38 @@ public class TaskServiceImpl implements TaskService {
                 "Waiting for refreshed user selection", payload);
         sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_REQUIRED, payload);
 
-        return TaskResponse.from(task, checkpoint);
+        return toResponse(task, checkpoint);
     }
 
     /**
-     * 获取taskentity。
+     * 读取任务实体并校验所有权，供内部协作服务复用。
+     *
      * @param taskUuid 任务唯一标识
-     * @param requestingUserId 发起请求的用户ID
-     * @return 返回处理结果。
+     * @param requestingUserId 发起请求的用户 ID
+     * @return 任务实体
      */
     @Override
     public Task getTaskEntity(String taskUuid, Long requestingUserId) {
         return loadAndVerifyOwnership(taskUuid, requestingUserId);
     }
 
-    /**
-     * 校验createrequest。
-     * @param request 请求参数
-     */
-    private void validateCreateRequest(CreateTaskRequest request) {
-        if (request.getStartTime() == null || request.getEndTime() == null
-                || !request.getEndTime().isAfter(request.getStartTime())) {
-            throw new BusinessException(400, "end time must be later than start time");
+    private void rememberUserInput(Long userId, TravelConstraints constraints, String message, String source) {
+        if (userPreferenceMemoryService == null || userId == null || message == null || message.isBlank()) {
+            return;
         }
-        if ((request.getFullDayStartTime() == null) != (request.getFullDayEndTime() == null)) {
-            throw new BusinessException(400, "full day start time and end time must be provided together");
-        }
-        if (request.getFullDayStartTime() != null
-                && !request.getFullDayEndTime().isAfter(request.getFullDayStartTime())) {
-            throw new BusinessException(400, "full day end time must be later than full day start time");
-        }
-    }
-
-    /**
-     * 构建initialcheckpoint。
-     * @param task 任务实体
-     * @param req r eq 参数
-     * @return 返回处理结果。
-     */
-    private TaskCheckpoint buildInitialCheckpoint(Task task, CreateTaskRequest req) {
-        int totalDays = calculateTotalDays(req.getStartTime(), req.getEndTime());
-        PlanningConfig config = buildPlanningConfig(req, totalDays);
-        List<DailyTimeWindow> dailyWindows = buildDailyWindows(config);
-        int totalAvailableMinutes = totalAvailableMinutes(dailyWindows);
-        int dynamicTargetSteps = computeDynamicTargetSteps(totalAvailableMinutes, config);
-        config.setDynamicTargetSteps(dynamicTargetSteps);
-
-        TaskCheckpoint cp = new TaskCheckpoint();
-        cp.setSchemaVersion("1.0");
-        cp.setTaskId(task.getId());
-        cp.setUserId(task.getUserId());
-        cp.setTaskUuid(task.getTaskUuid());
-        cp.setCurrentState(TaskStatus.PENDING.getCode());
-        cp.setRegion(req.getRegion());
-        cp.setUserIntent(req.getUserIntent());
-        cp.setStartLocationQuery(req.getStartLocationQuery());
-        cp.setEndLocationQuery(req.getEndLocationQuery());
-        cp.setTripStartTime(req.getStartTime());
-        cp.setTripEndTime(req.getEndTime());
-        cp.setPlanningConfig(config);
-        cp.setCurrentStepIndex(0);
-        cp.setRetryState(new RetryState(0, 3));
-        cp.setDailyTimeWindows(dailyWindows);
-        cp.setUsedTimeBudgetMin(0);
-        cp.setProjectedReturnToDestinationMin(0);
-        cp.setRemainingTimeBudgetMin(Math.max(0, totalAvailableMinutes - config.getDestinationBufferMin()));
-        cp.setLocationCandidates(originCandidateService.generateCandidates(req.getRegion(), req.getStartLocationQuery()));
-        cp.setRecommendationCandidates(new ArrayList<>(cp.getLocationCandidates()));
-        cp.setSelectionOptions(new ArrayList<>());
-        cp.setSelectionStage("origin_selection");
-        cp.setSelectedBranchType(null);
-        cp.setCurrentContext(new LinkedHashMap<>());
-        cp.setWeatherContext(new LinkedHashMap<>());
-        cp.setSelectedDestination(resolveDestination(req.getRegion(), req.getEndLocationQuery()));
-        cp.setOriginConfirmed(false);
-        cp.setPauseReason(null);
-        return cp;
-    }
-
-    /**
-     * 构建planningconfig。
-     * @param req r eq 参数
-     * @param totalDays t ot al Da ys 参数
-     * @return 返回处理结果。
-     */
-    private PlanningConfig buildPlanningConfig(CreateTaskRequest req, int totalDays) {
-        PlanningConfig config = new PlanningConfig();
-        config.setTotalDays(totalDays);
-        config.setPreferenceKeywords(req.getPreferenceKeywords());
-        config.setTravelMode(req.getTravelMode());
-        config.setStartLocationQuery(req.getStartLocationQuery());
-        config.setEndLocationQuery(req.getEndLocationQuery());
-        config.setStartTime(req.getStartTime());
-        config.setEndTime(req.getEndTime());
-        config.setFullDayStartTime(req.getFullDayStartTime());
-        config.setFullDayEndTime(req.getFullDayEndTime());
-        return config;
-    }
-
-    /**
-     * 处理calculateTotalDays。
-     * @param startTime s ta rt Ti me 参数
-     * @param endTime e nd Ti me 参数
-     * @return 返回处理结果。
-     */
-    private int calculateTotalDays(LocalDateTime startTime, LocalDateTime endTime) {
-        LocalDate startDate = startTime.toLocalDate();
-        LocalDate endDate = endTime.toLocalDate();
-        return (int) (Duration.between(startDate.atStartOfDay(), endDate.atStartOfDay()).toDays() + 1);
-    }
-
-    /**
-     * 构建dailywindows。
-     * @param config 配置对象
-     * @return 返回处理后的列表结果。
-     */
-    private List<DailyTimeWindow> buildDailyWindows(PlanningConfig config) {
-        List<DailyTimeWindow> windows = new ArrayList<>();
-        LocalDateTime tripStart = config.getStartTime();
-        LocalDateTime tripEnd = config.getEndTime();
-        LocalTime fullDayStart = config.resolveFullDayStartTime();
-        LocalTime fullDayEnd = config.resolveFullDayEndTime();
-
-        for (int i = 0; i < config.getTotalDays(); i++) {
-            LocalDate currentDate = tripStart.toLocalDate().plusDays(i);
-            LocalDateTime dayStart;
-            LocalDateTime dayEnd;
-            if (config.getTotalDays() == 1) {
-                dayStart = tripStart;
-                dayEnd = tripEnd;
-            } else if (i == 0) {
-                dayStart = tripStart;
-                dayEnd = LocalDateTime.of(currentDate, fullDayEnd);
-            } else if (i == config.getTotalDays() - 1) {
-                dayStart = LocalDateTime.of(currentDate, fullDayStart);
-                dayEnd = tripEnd;
-            } else {
-                dayStart = LocalDateTime.of(currentDate, fullDayStart);
-                dayEnd = LocalDateTime.of(currentDate, fullDayEnd);
-            }
-            windows.add(new DailyTimeWindow(i + 1, dayStart, dayEnd));
-        }
-        return windows;
-    }
-
-    /**
-     * 处理totalAvailableMinutes。
-     * @param windows w in do ws 参数
-     * @return 返回处理结果。
-     */
-    private int totalAvailableMinutes(List<DailyTimeWindow> windows) {
-        return windows.stream().mapToInt(DailyTimeWindow::availableMinutes).sum();
-    }
-
-    /**
-     * 处理computeDynamicTargetSteps。
-     * @param totalAvailableMinutes t ot al Av ai la bl eM in ut es 参数
-     * @param config 配置对象
-     * @return 返回处理结果。
-     */
-    private int computeDynamicTargetSteps(int totalAvailableMinutes, PlanningConfig config) {
-        int effectiveMinutes = Math.max(0, totalAvailableMinutes - config.getDestinationBufferMin());
-        return Math.max(1, effectiveMinutes / ESTIMATED_MINUTES_PER_STOP);
-    }
-
-    /**
-     * 解析并确定destination。
-     * @param region 区域信息
-     * @param endLocationQuery e nd Lo ca ti on Qu er y 参数
-     * @return 返回处理结果。
-     */
-    private ResolvedLocation resolveDestination(String region, String endLocationQuery) {
-        ResolvedLocation destination = new ResolvedLocation();
-        destination.setName(endLocationQuery);
-        destination.setRegion(region);
-        destination.setSource("query");
         try {
-            Map<String, Object> geocode = amapClient.geocode(endLocationQuery, region);
-            destination.setLatitude(((Number) geocode.get("lat")).doubleValue());
-            destination.setLongitude(((Number) geocode.get("lng")).doubleValue());
-            destination.setAdcode(String.valueOf(geocode.getOrDefault("adcode", "")));
-            destination.setSource("geocode");
-            destination.setCandidateId("geo:" + endLocationQuery.trim().toLowerCase());
+            userPreferenceMemoryService.upsertFromConversation(userId, constraints, message, source);
         } catch (Exception e) {
-            log.warn("Failed to geocode destination '{}': {}", endLocationQuery, e.getMessage());
+            log.warn("Failed to update user memory userId={} source={}: {}", userId, source, e.getMessage());
         }
-        return destination;
     }
 
     /**
-     * 加载andverifyownership。
+     * 加载任务并校验当前用户是否有权访问。
+     *
      * @param taskUuid 任务唯一标识
-     * @param requestingUserId 发起请求的用户ID
-     * @return 返回处理结果。
+     * @param requestingUserId 发起请求的用户 ID
+     * @return 任务实体
      */
     private Task loadAndVerifyOwnership(String taskUuid, Long requestingUserId) {
         Task task = taskMapper.findByUuid(taskUuid);
@@ -641,37 +471,105 @@ public class TaskServiceImpl implements TaskService {
     }
 
     /**
-     * 解析checkpoint。
+     * 解析任务 checkpoint。
+     *
      * @param task 任务实体
-     * @return 返回处理结果。
+     * @return checkpoint，缺失或解析失败时返回 null
      */
     private TaskCheckpoint parseCheckpoint(Task task) {
-        if (task.getCheckpointJson() == null || task.getCheckpointJson().isBlank()) {
-            return null;
+        if (checkpointCodec == null) {
+            checkpointCodec = new TaskCheckpointCodec(jsonUtil);
         }
-        try {
-            return jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
-        } catch (Exception e) {
-            log.warn("Failed to parse checkpoint for task={}: {}", task.getTaskUuid(), e.getMessage());
-            return null;
-        }
+        return checkpointCodec.parse(task);
     }
 
     /**
-     * 解析并确定pendinginputtype。
-     * @param checkpoint 任务检查点数据
-     * @param request 请求参数
-     * @return 返回处理结果。
+     * 组装任务响应。
+     *
+     * @param task 任务实体
+     * @return 任务响应
      */
-    private String resolvePendingInputType(TaskCheckpoint checkpoint, ConfirmOriginSelectionRequest request) {
-        return resolvePendingInputType(checkpoint, request.getPendingInputType());
+    private TaskResponse toResponse(Task task) {
+        if (checkpointCodec == null) {
+            checkpointCodec = new TaskCheckpointCodec(jsonUtil);
+        }
+        return checkpointCodec.toResponse(task);
     }
 
     /**
-     * 解析并确定pendinginputtype。
+     * 使用已解析 checkpoint 组装任务响应。
+     *
+     * @param task 任务实体
+     * @param checkpoint 已解析 checkpoint
+     * @return 任务响应
+     */
+    private TaskResponse toResponse(Task task, TaskCheckpoint checkpoint) {
+        if (checkpointCodec == null) {
+            checkpointCodec = new TaskCheckpointCodec(jsonUtil);
+        }
+        return checkpointCodec.toResponse(task, checkpoint);
+    }
+
+    private TaskResponse decidePendingToolReplay(String taskUuid, Long requestingUserId, boolean confirmReplay) {
+        Task task = loadAndVerifyOwnership(taskUuid, requestingUserId);
+        TaskStatus current = TaskStatus.fromCode(task.getStatus());
+        if (current != TaskStatus.PAUSED && current != TaskStatus.AWAITING_USER_INPUT) {
+            throw new BusinessException(400, "only paused or awaiting_user_input tasks can handle pending tool replay");
+        }
+
+        TaskCheckpoint checkpoint = parseCheckpoint(task);
+        if (checkpoint == null) {
+            throw new BusinessException(400, "task checkpoint is missing");
+        }
+        PendingToolCall pending = checkpoint.getPendingToolCall();
+        if (pending == null) {
+            throw new BusinessException(400, "no pending tool call to handle");
+        }
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("taskUuid", taskUuid);
+        payload.put("toolName", pending.getToolName());
+        payload.put("idempotencyKey", pending.getIdempotencyKey());
+        payload.put("decision", confirmReplay ? "confirm" : "skip");
+
+        if (confirmReplay) {
+            pending.setManualReplayApproved(true);
+            checkpoint.setPauseReason(null);
+        } else {
+            checkpoint.setPendingToolCall(null);
+            checkpoint.setPauseReason(PAUSE_REASON_PENDING_TOOL_SKIPPED);
+        }
+        checkpoint.setResumableAt(null);
+        checkpoint.setCurrentState(TaskStatus.RESUMING.getCode());
+
+        task.setStatus(TaskStatus.RESUMING.getCode());
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+        taskMapper.updateCheckpoint(task);
+        taskMapper.updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
+
+        String eventType = confirmReplay ? "PENDING_TOOL_REPLAY_CONFIRMED" : "PENDING_TOOL_SKIPPED";
+        String message = confirmReplay
+                ? "Pending tool replay confirmed: " + pending.getToolName()
+                : "Pending tool skipped: " + pending.getToolName();
+        taskProgressService.recordEvent(taskUuid, eventType, TaskStatus.RESUMING.getCode(),
+                checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(), message, payload);
+        sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE, Map.of(
+                "status", TaskStatus.RESUMING.getCode(),
+                "taskUuid", taskUuid,
+                "pendingToolName", pending.getToolName(),
+                "pendingToolDecision", confirmReplay ? "confirm" : "skip"
+        ));
+        scheduleResumeDispatch(taskUuid, confirmReplay ? "pending_tool_confirmed" : "pending_tool_skipped");
+
+        return toResponse(task, checkpoint);
+    }
+
+    /**
+     * 校验请求中的输入类型与 checkpoint 中的待处理类型是否一致。
+     *
      * @param checkpoint 任务检查点数据
-     * @param requestType r eq ue st Ty pe 参数
-     * @return 返回处理结果。
+     * @param requestType 请求声明的输入类型
+     * @return 最终待处理输入类型
      */
     private String resolvePendingInputType(TaskCheckpoint checkpoint, String requestType) {
         String checkpointType = checkpoint.getPendingInputType();
@@ -685,138 +583,16 @@ public class TaskServiceImpl implements TaskService {
     }
 
     /**
-     * 解析并确定pendingcandidates。
-     * @param checkpoint 任务检查点数据
-     * @param pendingInputType 待处理输入类型
-     * @return 返回处理后的列表结果。
-     */
-    private List<LocationCandidateItem> resolvePendingCandidates(TaskCheckpoint checkpoint, String pendingInputType) {
-        if ("origin_selection".equals(pendingInputType)) {
-            return checkpoint.getLocationCandidates() == null ? List.of() : checkpoint.getLocationCandidates();
-        }
-        if ("attraction_selection".equals(pendingInputType)
-                || "poi_candidate_selection".equals(pendingInputType)
-                || "route_candidate_selection".equals(pendingInputType)) {
-            return checkpoint.getRecommendationCandidates() == null ? List.of() : checkpoint.getRecommendationCandidates();
-        }
-        return List.of();
-    }
-
-    /**
-     * 解析并确定pendingselectionoption。
-     * @param checkpoint 任务检查点数据
-     * @param selectedOptionId s el ec te dO pt io nI d 参数
-     * @return 返回处理结果。
-     */
-    private SelectionOptionItem resolvePendingSelectionOption(TaskCheckpoint checkpoint, String selectedOptionId) {
-        List<SelectionOptionItem> options = checkpoint.getSelectionOptions() == null
-                ? List.of()
-                : checkpoint.getSelectionOptions();
-        if (options.isEmpty()) {
-            throw new BusinessException(400, "no pending selection options available");
-        }
-        return options.stream()
-                .filter(option -> option.getOptionId().equals(selectedOptionId))
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(400, "selected option does not belong to this task"));
-    }
-
-    /**
-     * 将数据转换为resolvedlocation。
-     * @param candidate 候选项
-     * @param request 请求参数
-     * @return 返回处理结果。
-     */
-    private ResolvedLocation toResolvedLocation(LocationCandidateItem candidate, ConfirmOriginSelectionRequest request) {
-        ResolvedLocation resolvedLocation = new ResolvedLocation();
-        resolvedLocation.setCandidateId(candidate.getCandidateId());
-        resolvedLocation.setName(request.getSelectedCandidateName());
-        resolvedLocation.setRegion(candidate.getRegion());
-        resolvedLocation.setDistrict(candidate.getDistrict());
-        resolvedLocation.setAddress(candidate.getAddress());
-        Double lat = request.getSelectedLat() != null ? request.getSelectedLat() : candidate.getLatitude();
-        Double lng = request.getSelectedLng() != null ? request.getSelectedLng() : candidate.getLongitude();
-        if (lat == null || lng == null) {
-            throw new BusinessException(400, "所选地点缺少坐标信息，请重新搜索或选择其他候选");
-        }
-        resolvedLocation.setLatitude(lat);
-        resolvedLocation.setLongitude(lng);
-        resolvedLocation.setAdcode(candidate.getAdcode());
-        resolvedLocation.setSource(candidate.getSource());
-        return resolvedLocation;
-    }
-
-    /**
-     * 合并selectedcandidate。
-     * @param candidate 候选项
-     * @param request 请求参数
-     * @return 返回处理结果。
-     */
-    private LocationCandidateItem mergeSelectedCandidate(LocationCandidateItem candidate, ConfirmOriginSelectionRequest request) {
-        LocationCandidateItem selected = new LocationCandidateItem();
-        selected.setCandidateId(candidate.getCandidateId());
-        selected.setCandidateType(candidate.getCandidateType());
-        selected.setBranchType(candidate.getBranchType());
-        selected.setName(request.getSelectedCandidateName());
-        selected.setTargetAttractionName(candidate.getTargetAttractionName());
-        selected.setRegion(candidate.getRegion());
-        selected.setDistrict(candidate.getDistrict());
-        selected.setCategory(candidate.getCategory());
-        selected.setAddress(candidate.getAddress());
-        selected.setLatitude(request.getSelectedLat() != null ? request.getSelectedLat() : candidate.getLatitude());
-        selected.setLongitude(request.getSelectedLng() != null ? request.getSelectedLng() : candidate.getLongitude());
-        selected.setAdcode(candidate.getAdcode());
-        selected.setSource(candidate.getSource());
-        selected.setScore(candidate.getScore());
-        selected.setRouteSummary(candidate.getRouteSummary());
-        selected.setVisitDurationMin(candidate.getVisitDurationMin());
-        selected.setEstimatedTotalDurationMin(candidate.getEstimatedTotalDurationMin());
-        selected.setWeatherSuitability(candidate.getWeatherSuitability());
-        selected.setExplanations(candidate.getExplanations() == null ? List.of() : candidate.getExplanations());
-        selected.setHighlights(candidate.getHighlights() == null ? List.of() : candidate.getHighlights());
-        selected.setRouteStops(candidate.getRouteStops() == null ? List.of() : candidate.getRouteStops());
-        return selected;
-    }
-
-    /**
-     * 构建selectionconfirmedpayload。
+     * 安排恢复派发，事务内调用时延后到提交后执行。
+     *
      * @param taskUuid 任务唯一标识
-     * @param pendingInputType 待处理输入类型
-     * @param checkpoint 任务检查点数据
-     * @param candidate 候选项
-     * @param request 请求参数
-     * @return 返回处理后的映射结果。
-     */
-    private Map<String, Object> buildSelectionConfirmedPayload(String taskUuid,
-                                                               String pendingInputType,
-                                                               TaskCheckpoint checkpoint,
-                                                               LocationCandidateItem candidate,
-                                                               ConfirmOriginSelectionRequest request) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("taskUuid", taskUuid);
-        payload.put("pendingInputType", pendingInputType);
-        if (candidate != null && !"origin_selection".equals(pendingInputType)) {
-            payload.put("selectedCandidate", mergeSelectedCandidate(candidate, request));
-        }
-        if (checkpoint.getSelectedBranchType() != null) {
-            payload.put("selectedBranchType", checkpoint.getSelectedBranchType());
-        }
-        if (checkpoint.getSelectedOrigin() != null) {
-            payload.put("selectedOrigin", checkpoint.getSelectedOrigin());
-        }
-        return payload;
-    }
-
-    /**
-     * 处理scheduleResumeDispatch。
-     * @param taskUuid 任务唯一标识
-     * @param trigger t ri gg er 参数
+     * @param trigger 恢复触发来源
      */
     private void scheduleResumeDispatch(String taskUuid, String trigger) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 /**
-                 * 处理afterCommit。
+                 * 事务提交后再派发，避免执行线程读取到未提交的 checkpoint。
                  */
                 @Override
                 public void afterCommit() {
@@ -829,9 +605,10 @@ public class TaskServiceImpl implements TaskService {
     }
 
     /**
-     * 处理dispatchResumeAfterCommit。
+     * 在事务提交后派发恢复任务。
+     *
      * @param taskUuid 任务唯一标识
-     * @param trigger t ri gg er 参数
+     * @param trigger 恢复触发来源
      */
     private void dispatchResumeAfterCommit(String taskUuid, String trigger) {
         try {
@@ -843,10 +620,11 @@ public class TaskServiceImpl implements TaskService {
     }
 
     /**
-     * 处理markResumeDispatchFailed。
+     * 恢复派发失败时把任务回落到可重试暂停状态。
+     *
      * @param taskUuid 任务唯一标识
-     * @param exception 异常对象
-     * @param trigger t ri gg er 参数
+     * @param exception 派发异常
+     * @param trigger 恢复触发来源
      */
     private void markResumeDispatchFailed(String taskUuid, Exception exception, String trigger) {
         Task freshTask = taskMapper.findByUuid(taskUuid);

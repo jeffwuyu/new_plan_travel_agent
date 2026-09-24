@@ -1,6 +1,7 @@
 package com.travelagent.mapper;
 
 import com.travelagent.model.entity.RagChunk;
+import com.travelagent.service.rag.RagSearchMatch;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -15,11 +16,32 @@ public interface RagChunkMapper {
     /** Batch-inserts a list of chunks. Returns the number of rows inserted. */
     int insertBatch(@Param("chunks") List<RagChunk> chunks);
 
+    /** PostgreSQL/pgvector insert path that fills embedding_vector for ANN search. */
+    int insertBatchPostgres(@Param("chunks") List<RagChunk> chunks);
+
     /** Returns all chunks for a document, ordered by chunk_index ascending. */
     List<RagChunk> findByDocumentId(@Param("documentId") Long documentId);
 
     /** Finds a chunk by its DashVector vector ID. Returns null if not found. */
     RagChunk findByDashvectorId(@Param("dashvectorId") String dashvectorId);
+
+    /** PostgreSQL pgvector ANN search; callers may fall back when the database is not PostgreSQL. */
+    List<RagSearchMatch> searchByPgVector(@Param("queryVector") String queryVector,
+                                          @Param("region") String region,
+                                          @Param("sourceTypes") List<String> sourceTypes,
+                                          @Param("limit") int limit);
+
+    /** PostgreSQL Full-Text Search keyword recall; exposed as the BM25 leg of hybrid RAG. */
+    List<RagSearchMatch> searchByFullText(@Param("queryText") String queryText,
+                                          @Param("region") String region,
+                                          @Param("sourceTypes") List<String> sourceTypes,
+                                          @Param("limit") int limit);
+
+    /** MySQL-compatible keyword fallback for local runtime and tests without PostgreSQL FTS. */
+    List<RagSearchMatch> searchByKeywordLike(@Param("queryText") String queryText,
+                                             @Param("region") String region,
+                                             @Param("sourceTypes") List<String> sourceTypes,
+                                             @Param("limit") int limit);
 
     /** Deletes all chunks belonging to a document. Returns row count. */
     int deleteByDocumentId(@Param("documentId") Long documentId);

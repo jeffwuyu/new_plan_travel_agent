@@ -10,17 +10,45 @@
         <result property="chunkIndex"    column="chunk_index"/>
         <result property="chunkText"     column="chunk_text"/>
         <result property="dashvectorId"  column="dashvector_id"/>
+        <result property="embeddingJson" column="embedding_json"/>
+        <result property="embeddingVector" column="embedding_vector"/>
+        <result property="searchText"    column="search_text"/>
+        <result property="metadataJson"  column="metadata_json"/>
         <result property="tokenCount"    column="token_count"/>
         <result property="createdAt"     column="created_at"/>
     </resultMap>
 
+    <resultMap id="ragSearchMatchResultMap" type="com.travelagent.service.rag.RagSearchMatch">
+        <id     property="chunkId"        column="chunk_id"/>
+        <result property="documentId"     column="document_id"/>
+        <result property="chunkText"      column="chunk_text"/>
+        <result property="title"          column="title"/>
+        <result property="region"         column="region"/>
+        <result property="sourceType"     column="source_type"/>
+        <result property="sourceName"     column="source_name"/>
+        <result property="sourceUrl"      column="source_url"/>
+        <result property="vectorScore"    column="vector_score"/>
+        <result property="bm25Score"      column="bm25_score"/>
+        <result property="freshnessScore" column="freshness_score"/>
+    </resultMap>
+
     <insert id="insertBatch" parameterType="java.util.List">
         INSERT INTO rag_chunks (document_id, chunk_index, chunk_text, dashvector_id,
-                                token_count, created_at)
+                                embedding_json, search_text, metadata_json, token_count, created_at)
         VALUES
         <foreach collection="chunks" item="c" separator=",">
             (#{c.documentId}, #{c.chunkIndex}, #{c.chunkText}, #{c.dashvectorId},
-             #{c.tokenCount}, NOW())
+             #{c.embeddingJson}, #{c.searchText}, #{c.metadataJson}, #{c.tokenCount}, NOW())
+        </foreach>
+    </insert>
+
+    <insert id="insertBatchPostgres" parameterType="java.util.List">
+        INSERT INTO rag_chunks (document_id, chunk_index, chunk_text, dashvector_id,
+                                embedding_vector, embedding_json, search_text, metadata_json, token_count, created_at)
+        VALUES
+        <foreach collection="chunks" item="c" separator=",">
+            (#{c.documentId}, #{c.chunkIndex}, #{c.chunkText}, #{c.dashvectorId},
+             #{c.embeddingVector,jdbcType=OTHER}::vector, #{c.embeddingJson}, #{c.searchText}, #{c.metadataJson}, #{c.tokenCount}, NOW())
         </foreach>
     </insert>
 
@@ -32,6 +60,89 @@
 
     <select id="findByDashvectorId" resultMap="ragChunkResultMap">
         SELECT * FROM rag_chunks WHERE dashvector_id = #{dashvectorId} LIMIT 1
+    </select>
+
+    <sql id="sourceTypeFilter">
+        <if test="sourceTypes != null and sourceTypes.size() > 0">
+            AND d.source_type IN
+            <foreach collection="sourceTypes" item="sourceType" open="(" separator="," close=")">
+                #{sourceType}
+            </foreach>
+        </if>
+    </sql>
+
+    <select id="searchByPgVector" resultMap="ragSearchMatchResultMap">
+        SELECT c.id AS chunk_id,
+               c.document_id,
+               c.chunk_text,
+               d.title,
+               d.region,
+               d.source_type,
+               d.source_name,
+               d.source_url,
+               1 - (c.embedding_vector &lt;=&gt; #{queryVector,jdbcType=OTHER}::vector) AS vector_score,
+               0 AS bm25_score,
+               0 AS freshness_score
+        FROM rag_chunks c
+        JOIN rag_documents d ON d.id = c.document_id
+        WHERE d.status = 'indexed'
+          AND c.embedding_vector IS NOT NULL
+        <if test="region != null and region != ''">
+          AND d.region = #{region}
+        </if>
+        <include refid="sourceTypeFilter"/>
+        ORDER BY c.embedding_vector &lt;=&gt; #{queryVector,jdbcType=OTHER}::vector ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="searchByFullText" resultMap="ragSearchMatchResultMap">
+        SELECT c.id AS chunk_id,
+               c.document_id,
+               c.chunk_text,
+               d.title,
+               d.region,
+               d.source_type,
+               d.source_name,
+               d.source_url,
+               0 AS vector_score,
+               ts_rank_cd(c.search_tsv, websearch_to_tsquery('simple', #{queryText})) AS bm25_score,
+               0 AS freshness_score
+        FROM rag_chunks c
+        JOIN rag_documents d ON d.id = c.document_id
+        WHERE d.status = 'indexed'
+          AND c.search_tsv @@ websearch_to_tsquery('simple', #{queryText})
+        <if test="region != null and region != ''">
+          AND d.region = #{region}
+        </if>
+        <include refid="sourceTypeFilter"/>
+        ORDER BY bm25_score DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="searchByKeywordLike" resultMap="ragSearchMatchResultMap">
+        SELECT c.id AS chunk_id,
+               c.document_id,
+               c.chunk_text,
+               d.title,
+               d.region,
+               d.source_type,
+               d.source_name,
+               d.source_url,
+               0 AS vector_score,
+               1 AS bm25_score,
+               0 AS freshness_score
+        FROM rag_chunks c
+        JOIN rag_documents d ON d.id = c.document_id
+        WHERE d.status = 'indexed'
+          AND (c.search_text LIKE CONCAT('%', #{queryText}, '%')
+               OR c.chunk_text LIKE CONCAT('%', #{queryText}, '%')
+               OR d.title LIKE CONCAT('%', #{queryText}, '%'))
+        <if test="region != null and region != ''">
+          AND d.region = #{region}
+        </if>
+        <include refid="sourceTypeFilter"/>
+        ORDER BY c.created_at DESC
+        LIMIT #{limit}
     </select>
 
     <delete id="deleteByDocumentId">

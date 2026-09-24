@@ -25,6 +25,9 @@ public class Plan {
     private LocalTime fullDayStartTime;
     private LocalTime fullDayEndTime;
     private Integer destinationBufferMin;
+    private String accommodationStatus;
+    private String accommodationFailureReason;
     private LocalDateTime createdAt;
     private List<PlanStep> steps;
+    private List<PlanAccommodation> accommodations;
 }

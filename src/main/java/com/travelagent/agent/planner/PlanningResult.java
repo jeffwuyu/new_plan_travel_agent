@@ -7,16 +7,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 初始化PlanningResult 实例。
- * @param attractionName 景点名称
- * @param totalTokens t ot al To ke ns 参数
- * @param recommendationCandidates r ec om me nd at io nC an di da te s 参数
- * @param pendingInputType 待处理输入类型
- * @param selectionStage 选择阶段
- * @param selectedBranchType s el ec te dB ra nc hT yp e 参数
- * @param selectionOptions s el ec ti on Op ti on s 参数
- * @param currentContext c ur re nt Co nt ex t 参数
- * @param weatherContext w ea th er Co nt ex t 参数
+ * 单轮 Markov 规划结果，承载直接命中的景点、候选选择数据和本轮 LLM token 消耗。
+ *
+ * @param attractionName 可直接执行工具调用的景点名称
+ * @param totalTokens 本轮规划消耗的 token 数
+ * @param recommendationCandidates 需要用户或自动策略确认的景点候选
+ * @param pendingInputType 前端待输入类型，为空表示无需用户选择
+ * @param selectionStage 当前选择阶段
+ * @param selectedBranchType 已选分支类型，用于多分支推荐上下文
+ * @param selectionOptions 分支选择项
+ * @param currentContext 前端展示和恢复规划所需的当前上下文
+ * @param weatherContext 天气相关上下文
  */
 public record PlanningResult(String attractionName,
                              int totalTokens,
@@ -29,10 +30,11 @@ public record PlanningResult(String attractionName,
                              Map<String, Object> weatherContext) {
 
     /**
-     * 处理forAttraction。
+     * 创建一个无需用户选择、可直接执行工具调用的规划结果。
+     *
      * @param attractionName 景点名称
-     * @param totalTokens t ot al To ke ns 参数
-     * @return 返回处理结果。
+     * @param totalTokens 本轮规划消耗的 token 数
+     * @return 直接景点规划结果
      */
     public static PlanningResult forAttraction(String attractionName, int totalTokens) {
         return new PlanningResult(attractionName, totalTokens, List.of(), null, null, null,
@@ -40,11 +42,12 @@ public record PlanningResult(String attractionName,
     }
 
     /**
-     * 处理forBranchSelection。
-     * @param selectionOptions s el ec ti on Op ti on s 参数
-     * @param currentContext c ur re nt Co nt ex t 参数
-     * @param weatherContext w ea th er Co nt ex t 参数
-     * @return 返回处理结果。
+     * 创建需要用户先选择推荐分支的规划结果。
+     *
+     * @param selectionOptions 分支选择项
+     * @param currentContext 当前规划上下文
+     * @param weatherContext 天气上下文
+     * @return 分支选择规划结果
      */
     public static PlanningResult forBranchSelection(List<SelectionOptionItem> selectionOptions,
                                                     Map<String, Object> currentContext,
@@ -56,15 +59,16 @@ public record PlanningResult(String attractionName,
     }
 
     /**
-     * 处理forCandidates。
-     * @param recommendationCandidates r ec om me nd at io nC an di da te s 参数
-     * @param totalTokens t ot al To ke ns 参数
-     * @param pendingInputType 待处理输入类型
+     * 创建需要在景点候选中选择一个目标的规划结果。
+     *
+     * @param recommendationCandidates 推荐候选列表
+     * @param totalTokens 本轮规划消耗的 token 数
+     * @param pendingInputType 前端待输入类型
      * @param selectionStage 选择阶段
-     * @param selectedBranchType s el ec te dB ra nc hT yp e 参数
-     * @param currentContext c ur re nt Co nt ex t 参数
-     * @param weatherContext w ea th er Co nt ex t 参数
-     * @return 返回处理结果。
+     * @param selectedBranchType 已选分支类型
+     * @param currentContext 当前规划上下文
+     * @param weatherContext 天气上下文
+     * @return 候选选择规划结果
      */
     public static PlanningResult forCandidates(List<LocationCandidateItem> recommendationCandidates,
                                                int totalTokens,
@@ -81,8 +85,9 @@ public record PlanningResult(String attractionName,
     }
 
     /**
-     * 判断requiresUserSelection。
-     * @return 是否满足当前条件。
+     * 判断本轮规划是否需要用户或自动选择策略确认。
+     *
+     * @return 需要选择时返回 true
      */
     public boolean requiresUserSelection() {
         return pendingInputType != null && !pendingInputType.isBlank();

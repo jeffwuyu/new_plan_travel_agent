@@ -103,6 +103,9 @@ public class TaskCheckpoint {
         if (schemaVersion == null || schemaVersion.isBlank()) {
             schemaVersion = "1.0";
         }
+        if (!"1.0".equals(schemaVersion) && !CURRENT_SCHEMA_VERSION.equals(schemaVersion)) {
+            throw new IllegalArgumentException("Unsupported checkpoint schema version: " + schemaVersion);
+        }
         if ("1.0".equals(schemaVersion)) {
             schemaVersion = CURRENT_SCHEMA_VERSION;
         }

@@ -1,12 +1,14 @@
 package com.travelagent.agent.context;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.travelagent.agent.requirements.TravelConstraints;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -23,12 +25,22 @@ public class PlanningConfig {
     private int dynamicTargetSteps = 3;
     private List<String> preferenceKeywords;
     private String travelMode = "driving";
+    private String provinceName;
+    private String cityName;
+    private String districtName;
+    private String adcode;
     private String startLocationQuery;
     private String endLocationQuery;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private LocalTime fullDayStartTime;
     private LocalTime fullDayEndTime;
+    private BigDecimal totalBudgetYuan;
+    private BigDecimal lodgingBudgetPerNightYuan;
+    private List<String> accommodationTypes;
+    private TravelConstraints structuredConstraints;
+    private Integer adultCount = 2;
+    private Integer roomCount = 1;
     private int defaultVisitDurationMin = 120;
     private int destinationBufferMin = 30;
     private int minContinueBudgetMin = 90;

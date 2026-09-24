@@ -202,6 +202,11 @@ public class MultiLevelCacheServiceImpl implements MultiLevelCacheService {
             case CacheConfig.QUOTA_CONFIG     -> Duration.ofMinutes(10);
             case CacheConfig.TASK_STATUS      -> Duration.ofMinutes(1);
             case CacheConfig.RAG_CHUNK        -> Duration.ofMinutes(30);
+            case CacheConfig.WEB_REALTIME     -> Duration.ofHours(2);
+            case CacheConfig.WEATHER_REALTIME -> Duration.ofMinutes(30);
+            case CacheConfig.MAP_ROUTE        -> Duration.ofMinutes(20);
+            case CacheConfig.BOOKING_STATUS   -> Duration.ofMinutes(30);
+            case CacheConfig.SESSION_STATE    -> Duration.ofMinutes(10);
             default -> Duration.ofMinutes(30);
         };
     }

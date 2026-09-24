@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelagent.config.AgentMcpProperties;
+import com.travelagent.validation.JsonSchemaValidationException;
+import com.travelagent.validation.JsonSchemaValidationService;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -17,6 +19,7 @@ public class McpToolInvoker {
     private final McpToolCatalog toolCatalog;
     private final McpSessionClient sessionClient;
     private final ObjectMapper objectMapper;
+    private final JsonSchemaValidationService jsonSchemaValidationService;
 
     /**
      * 初始化McpToolInvoker 实例。
@@ -28,11 +31,13 @@ public class McpToolInvoker {
     public McpToolInvoker(AgentMcpProperties properties,
                           McpToolCatalog toolCatalog,
                           McpSessionClient sessionClient,
-                          ObjectMapper objectMapper) {
+                          ObjectMapper objectMapper,
+                          JsonSchemaValidationService jsonSchemaValidationService) {
         this.properties = properties;
         this.toolCatalog = toolCatalog;
         this.sessionClient = sessionClient;
         this.objectMapper = objectMapper;
+        this.jsonSchemaValidationService = jsonSchemaValidationService;
     }
 
     /**
@@ -42,10 +47,12 @@ public class McpToolInvoker {
      * @return 返回处理结果。
      */
     public McpToolCallResult callTool(String toolName, Map<String, Object> arguments) {
-        toolCatalog.requireTool(toolName);
+        McpToolDefinition toolDefinition = toolCatalog.requireTool(toolName);
+        Map<String, Object> safeArguments = arguments == null ? Map.of() : arguments;
+        validateArguments(toolName, toolDefinition, safeArguments);
         JsonNode resultNode = sessionClient.sendRequest("tools/call", Map.of(
                 "name", toolName,
-                "arguments", arguments == null ? Map.of() : arguments
+                "arguments", safeArguments
         ), Duration.ofMillis(properties.getRequestTimeoutMs()));
 
         boolean isError = resultNode.has("isError") && resultNode.get("isError").asBoolean(false);
@@ -53,6 +60,20 @@ public class McpToolInvoker {
         List<Map<String, Object>> content = nodeToList(resultNode.get("content"));
         Map<String, Object> raw = nodeToMap(resultNode);
         return new McpToolCallResult(isError, structuredContent, content, raw);
+    }
+
+    private void validateArguments(String toolName, McpToolDefinition toolDefinition, Map<String, Object> arguments) {
+        if (toolDefinition.inputSchema() == null || toolDefinition.inputSchema().isEmpty()) {
+            return;
+        }
+        try {
+            jsonSchemaValidationService.validateOrThrow(
+                    "MCP arguments for " + toolName,
+                    arguments,
+                    toolDefinition.inputSchema());
+        } catch (JsonSchemaValidationException e) {
+            throw new McpException(e.getMessage(), e);
+        }
     }
 
     /**

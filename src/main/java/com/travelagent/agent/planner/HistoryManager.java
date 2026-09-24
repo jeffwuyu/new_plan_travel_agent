@@ -1,9 +1,14 @@
 package com.travelagent.agent.planner;
 
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.agent.prompt.PromptAssembly;
+import com.travelagent.agent.prompt.PromptSectionType;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.client.dashscope.LlmCallResult;
 import com.travelagent.service.llm.LlmUsageAccountingService;
+import com.travelagent.agent.context.CompletedStep;
+import com.travelagent.agent.requirements.MissingField;
+import com.travelagent.agent.requirements.TravelConstraints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -150,17 +155,22 @@ public class HistoryManager {
                 + "-history-compress-" + history.size();
 
         try {
-            String summaryPrompt =
-                    "Summarize the following travel planning conversation in a concise paragraph " +
-                    "(max 200 words). Preserve key decisions, selected attractions, and constraints:\n\n"
-                    + oldHistoryText;
+            String summaryPrompt = "Compress the travel planning conversation into short-term session memory.";
+            PromptAssembly prompt = PromptAssembly.create()
+                    .add(PromptSectionType.SYSTEM, "You are a lossless short-term memory compressor for a travel planning assistant.")
+                    .add(PromptSectionType.POLICY, "Preserve the current task target so planning can continue after old messages are removed. Return strict JSON only, with no markdown fences or commentary.")
+                    .add(PromptSectionType.CURRENT_GOAL, "Current task context:\n" + buildCheckpointContext(checkpoint))
+                    .add(PromptSectionType.CONVERSATION, oldHistoryText)
+                    .add(PromptSectionType.OUTPUT_FORMAT, """
+                            Use this exact shape:
+                            {"goal":"string","hardConstraints":["string"],"confirmedPreferences":["string"],"selectedAttractions":["string"],"rejectedOrAvoid":["string"],"openQuestions":["string"],"latestUserIntent":"string"}.
+                            """);
 
             LlmCallResult summaryResult = llmClient.callWithUsage(
                     checkpoint.getTaskId(),
                     checkpoint.getUserId(),
                     "history_compress",
-                    "You are a concise conversation summarizer for a travel planning assistant. " +
-                            "Produce a single paragraph summary only - no headings, no bullet points.",
+                    prompt,
                     List.of(),
                     summaryPrompt,
                     compressKey
@@ -173,16 +183,137 @@ public class HistoryManager {
 
             Map<String, Object> summaryEntry = new LinkedHashMap<>();
             summaryEntry.put("role", "system");
-            summaryEntry.put("content", "[Prior conversation summary] " + summaryResult.content().trim());
+            summaryEntry.put("content", "[Short-term session memory] " + normalizeStructuredSummary(summaryResult.content(), checkpoint));
 
             List<Map<String, Object>> compressed = new ArrayList<>();
             compressed.add(summaryEntry);
             compressed.addAll(recent);
             return compressed;
         } catch (Exception e) {
-            log.warn("[HistoryManager] Summary compression failed for task={}, dropping old messages: {}",
+            log.warn("[HistoryManager] Summary compression failed for task={}, using local structured fallback: {}",
                     checkpoint.getTaskUuid(), e.getMessage());
-            return recent;
+            Map<String, Object> summaryEntry = new LinkedHashMap<>();
+            summaryEntry.put("role", "system");
+            summaryEntry.put("content", "[Short-term session memory] " + buildLocalStructuredSummary(checkpoint));
+            List<Map<String, Object>> compressed = new ArrayList<>();
+            compressed.add(summaryEntry);
+            compressed.addAll(recent);
+            return compressed;
         }
+    }
+
+    private String normalizeStructuredSummary(String content, TaskCheckpoint checkpoint) {
+        if (content == null || content.isBlank()) {
+            return buildLocalStructuredSummary(checkpoint);
+        }
+        String trimmed = content.trim();
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            return trimmed;
+        }
+        return buildLocalStructuredSummary(checkpoint) + "\nmodelSummary=" + quote(trimmed);
+    }
+
+    private String buildCheckpointContext(TaskCheckpoint checkpoint) {
+        if (checkpoint == null) {
+            return "{}";
+        }
+        return buildLocalStructuredSummary(checkpoint);
+    }
+
+    private String buildLocalStructuredSummary(TaskCheckpoint checkpoint) {
+        TravelConstraints constraints = checkpoint == null ? null : checkpoint.getStructuredConstraints();
+        List<String> hardConstraints = new ArrayList<>();
+        List<String> confirmedPreferences = new ArrayList<>();
+        List<String> rejectedOrAvoid = new ArrayList<>();
+        List<String> openQuestions = new ArrayList<>();
+
+        if (constraints != null) {
+            add(hardConstraints, "destination=" + constraints.getDestination());
+            add(hardConstraints, "departure=" + constraints.getDeparture());
+            add(hardConstraints, constraints.getDays() == null ? null : "days=" + constraints.getDays());
+            add(hardConstraints, constraints.getBudgetYuan() == null ? null : "budgetCny=" + constraints.getBudgetYuan());
+            add(hardConstraints, constraints.getPeopleCount() == null ? null : "peopleCount=" + constraints.getPeopleCount());
+            add(confirmedPreferences, constraints.getTravelPace() == null ? null : "pace=" + constraints.getTravelPace());
+            add(confirmedPreferences, constraints.getHotelPreference() == null ? null : "hotel=" + constraints.getHotelPreference());
+            add(confirmedPreferences, constraints.getFoodPreference() == null ? null : "food=" + constraints.getFoodPreference());
+            addAll(confirmedPreferences, constraints.getAttractionPreference());
+            addAll(confirmedPreferences, constraints.getTransportPreference());
+            addAll(confirmedPreferences, constraints.getSpecialGroups());
+            addAll(rejectedOrAvoid, constraints.getAvoid());
+            if (constraints.getMissingFields() != null) {
+                for (MissingField field : constraints.getMissingFields()) {
+                    if (field != null) {
+                        add(openQuestions, field.getName());
+                    }
+                }
+            }
+        }
+
+        String goal = checkpoint == null ? "" : firstNonBlank(
+                checkpoint.getUserIntent(),
+                checkpoint.getRegion() == null ? null : "Plan trip for " + checkpoint.getRegion());
+        List<String> selectedAttractions = checkpoint == null || checkpoint.getCompletedSteps() == null
+                ? List.of()
+                : checkpoint.getCompletedSteps().stream()
+                .map(CompletedStep::getAttractionName)
+                .filter(this::notBlank)
+                .toList();
+
+        return "{"
+                + "\"goal\":" + quote(goal) + ","
+                + "\"hardConstraints\":" + quoteArray(hardConstraints) + ","
+                + "\"confirmedPreferences\":" + quoteArray(confirmedPreferences) + ","
+                + "\"selectedAttractions\":" + quoteArray(selectedAttractions) + ","
+                + "\"rejectedOrAvoid\":" + quoteArray(rejectedOrAvoid) + ","
+                + "\"openQuestions\":" + quoteArray(openQuestions) + ","
+                + "\"latestUserIntent\":" + quote(goal)
+                + "}";
+    }
+
+    private void addAll(List<String> target, List<String> values) {
+        if (values == null) {
+            return;
+        }
+        for (String value : values) {
+            add(target, value);
+        }
+    }
+
+    private void add(List<String> target, String value) {
+        if (notBlank(value) && !target.contains(value.trim())) {
+            target.add(value.trim());
+        }
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (notBlank(value)) {
+                return value.trim();
+            }
+        }
+        return "";
+    }
+
+    private String quoteArray(List<String> values) {
+        return values == null ? "[]" : values.stream()
+                .filter(this::notBlank)
+                .map(this::quote)
+                .collect(Collectors.joining(",", "[", "]"));
+    }
+
+    private String quote(String value) {
+        if (value == null) {
+            return "\"\"";
+        }
+        return "\"" + value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\r", " ")
+                .replace("\n", " ")
+                + "\"";
+    }
+
+    private boolean notBlank(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }

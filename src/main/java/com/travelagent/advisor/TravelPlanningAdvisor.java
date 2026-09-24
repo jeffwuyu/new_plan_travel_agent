@@ -2,6 +2,7 @@ package com.travelagent.advisor;
 
 import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.PlanningConfig;
+import com.travelagent.agent.prompt.PromptSectionType;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.AdvisorChain;
@@ -40,7 +41,7 @@ public class TravelPlanningAdvisor implements BaseAdvisor {
             return request;
         }
         return request.mutate()
-                .prompt(appendSystemText(request.prompt(), addition))
+                .prompt(PromptAdvisorSupport.appendSection(request.prompt(), PromptSectionType.POLICY, addition))
                 .build();
     }
 

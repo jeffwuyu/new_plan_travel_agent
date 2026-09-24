@@ -1,13 +1,15 @@
 package com.travelagent.agent.planner;
 
 import com.travelagent.advisor.AdvisorContextKeys;
+import com.travelagent.agent.memory.UserPreferenceMemoryService;
 import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.agent.prompt.PromptAssembly;
+import com.travelagent.agent.prompt.PromptSectionType;
 import com.travelagent.agent.tools.WeatherTool;
-import com.travelagent.model.dto.NearbyPoiRecommendationRequest;
-import com.travelagent.model.dto.RoutePoint;
-import com.travelagent.model.dto.SelectionOptionItem;
+import com.travelagent.model.dto.LocationCandidateItem;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.format.DateTimeFormatter;
@@ -15,22 +17,25 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.travelagent.agent.planner.PlannerUtils.*;
+import static com.travelagent.agent.planner.PlannerUtils.firstNonBlank;
 
-/**
- * 负责所有 LLM Prompt 的构建，无副作用，无外部调用。
- */
 @Component
 public class PlannerPromptBuilder {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
-    /**
-     * 构建systemprompt。
-     * @param cp c p 参数
-     * @return 返回处理结果。
-     */
+    private final UserPreferenceMemoryService userPreferenceMemoryService;
+
+    public PlannerPromptBuilder() {
+        this(null);
+    }
+
+    @Autowired
+    public PlannerPromptBuilder(UserPreferenceMemoryService userPreferenceMemoryService) {
+        this.userPreferenceMemoryService = userPreferenceMemoryService;
+    }
+
     public String buildSystemPrompt(TaskCheckpoint cp) {
         StringBuilder sb = new StringBuilder();
         sb.append("You are a professional travel planner. Help the user plan an itinerary for ")
@@ -43,14 +48,21 @@ public class PlannerPromptBuilder {
                 .append("\n");
         if (cp.getPlanningConfig() != null) {
             sb.append("Travel mode: ").append(cp.getPlanningConfig().getTravelMode()).append("\n");
-            sb.append("Full-day default window: ")
-                    .append(cp.getPlanningConfig().resolveFullDayStartTime())
-                    .append("-")
-                    .append(cp.getPlanningConfig().resolveFullDayEndTime())
-                    .append("\n");
+            sb.append("Total trip days: ").append(cp.getPlanningConfig().getTotalDays())
+                    .append("; keep the itinerary distributed by dayNumber and never compress a multi-day trip into one day.\n");
             sb.append("Remaining planning budget: ")
                     .append(cp.getRemainingTimeBudgetMin())
                     .append(" minutes.\n");
+            if (cp.getPlanningConfig().getTotalBudgetYuan() != null) {
+                sb.append("Total user budget: CNY ")
+                        .append(cp.getPlanningConfig().getTotalBudgetYuan())
+                        .append(".\n");
+            }
+            if (cp.getPlanningConfig().getLodgingBudgetPerNightYuan() != null) {
+                sb.append("Lodging budget per night: CNY ")
+                        .append(cp.getPlanningConfig().getLodgingBudgetPerNightYuan())
+                        .append("; lodging prices must come from OTA availability data, not from the model.\n");
+            }
             sb.append("Reserve at least ")
                     .append(cp.getPlanningConfig().getDestinationBufferMin())
                     .append(" minutes buffer before trip end.\n");
@@ -64,31 +76,28 @@ public class PlannerPromptBuilder {
         return sb.toString();
     }
 
-    /**
-     * 构建stepprompt。
-     * @param cp c p 参数
-     * @return 返回处理结果。
-     */
     public String buildStepPrompt(TaskCheckpoint cp) {
         int stepIndex = cp.getCurrentStepIndex();
         int totalSteps = cp.totalPlannedSteps();
         int dayNumber = resolveDayNumber(cp);
-        long orderInDay = cp.getCompletedSteps() == null ? 1L
-                : cp.getCompletedSteps().stream().filter(step -> step.getDayNumber() == dayNumber).count() + 1;
         DailyTimeWindow dayWindow = cp.getDailyWindow(dayNumber);
-        String travelMode = nullToEmpty(cp.getPlanningConfig().getTravelMode());
         StringBuilder sb = new StringBuilder();
         sb.append("Recommend attraction ")
-                .append(orderInDay)
+                .append(stepIndex + 1)
                 .append(" for day ")
                 .append(dayNumber)
                 .append(" (overall ")
                 .append(stepIndex + 1)
                 .append("/")
                 .append(totalSteps)
-                .append(").\n");
-        sb.append("Region: ").append(cp.getRegion())
-                .append(", travel mode: ").append(travelMode).append(".\n");
+                .append(")")
+                .append(".\n");
+        sb.append("Region: ").append(cp.getRegion()).append(".\n");
+        if (cp.getPlanningConfig() != null && cp.getPlanningConfig().getTotalDays() > 1) {
+            sb.append("This is a multi-day trip. Choose a stop that fits day ")
+                    .append(dayNumber)
+                    .append(" and leave future days available for later steps.\n");
+        }
         if (dayWindow != null) {
             sb.append("Today's time window: ")
                     .append(dayWindow.getStartTime().format(DATE_TIME_FORMATTER))
@@ -99,7 +108,7 @@ public class PlannerPromptBuilder {
         sb.append("Remaining total planning budget: ")
                 .append(cp.getRemainingTimeBudgetMin())
                 .append(" minutes.\n");
-        if (cp.getSelectedOrigin() != null && cp.getCompletedSteps().isEmpty()) {
+        if (cp.getSelectedOrigin() != null && (cp.getCompletedSteps() == null || cp.getCompletedSteps().isEmpty())) {
             sb.append("Start from ")
                     .append(cp.getSelectedOrigin().getName())
                     .append(" (")
@@ -128,62 +137,89 @@ public class PlannerPromptBuilder {
             }
             sb.append("\n");
         }
-        sb.append("Prefer attractions that fit the remaining time instead of forcing only three scenes.");
         return sb.toString();
     }
 
-    /**
-     * 构建routecandidatesystemprompt。
-     * @param cp c p 参数
-     * @param request 请求参数
-     * @param weatherContext w ea th er Co nt ex t 参数
-     * @return 返回处理结果。
-     */
     public String buildRouteCandidateSystemPrompt(TaskCheckpoint cp,
-                                                   PlanNextAttractionRequest request,
-                                                   Map<String, Object> weatherContext) {
+                                                  PlanNextAttractionRequest request,
+                                                  Map<String, Object> weatherContext) {
+        String profile = buildLongTermUserProfile(cp);
         return """
                 You are a travel route planner. Return strict JSON only.
-                Generate 3 route candidates for the next leg of the trip.
-                Each route must fit the remaining budget and weather constraints.
+                Context priority: current user request and explicit task constraints > short-term session memory > tool/RAG facts > long-term user profile.
+                Long-term user profile is low priority and must never override current-session requirements.
+                You must choose only from the provided ranked RAG candidates.
+                Generate up to 3 next-attraction candidates. Keep each routeId exactly equal to one provided candidateId.
+                Each candidate must fit the remaining budget and current weather constraints.
                 JSON schema:
                 {
                   "routes": [
                     {
-                      "routeId": "route-1",
+                      "routeId": "candidateId-from-input",
                       "title": "string",
                       "targetAttractionName": "string",
                       "stops": ["string"],
-                      "reasonHighlights": ["历史氛围", "地标打卡", "夜景体验"],
+                      "reasonHighlights": ["history", "city icon", "photo spot"],
                       "reason": "string",
                       "estimatedTotalDurationMin": 120,
                       "weatherSuitability": "string"
                     }
                   ]
                 }
-                The field reasonHighlights must contain 2 to 4 short Chinese keywords or phrases.
-                reasonHighlights should explain why this attraction or route is worth visiting.
-                Focus on attraction value, atmosphere, theme, city identity, photos, culture, food, family appeal, or night vibe.
-                Do not use process-style reasons such as 顺路, 天气合适, 路线推荐, 时间预算内.
-                """;
+                reasonHighlights must contain 2 to 4 short attraction-value keywords.
+                Do not invent attractions outside the candidate list.
+                """ + (profile.isBlank() ? "" : "\n" + profile + "\n");
     }
 
-    /**
-     * 构建routecandidateuserprompt。
-     * @param cp c p 参数
-     * @param request 请求参数
-     * @param weatherContext w ea th er Co nt ex t 参数
-     * @return 返回处理结果。
-     */
+    public PromptAssembly buildRouteCandidatePrompt(TaskCheckpoint cp,
+                                                    PlanNextAttractionRequest request,
+                                                    Map<String, Object> weatherContext,
+                                                    List<LocationCandidateItem> candidates) {
+        String profile = buildLongTermUserProfile(cp);
+        return PromptAssembly.create()
+                .add(PromptSectionType.SYSTEM, "You are a travel route planner. Return strict JSON only.")
+                .add(PromptSectionType.POLICY, """
+                        Context priority: current user request and explicit task constraints > short-term session memory > tool/RAG facts > long-term user profile.
+                        Long-term user profile is low priority and must never override current-session requirements.
+                        You must choose only from the provided ranked RAG candidates.
+                        Generate up to 3 next-attraction candidates. Keep each routeId exactly equal to one provided candidateId.
+                        Each candidate must fit the remaining budget and current weather constraints.
+                        Do not invent attractions outside the candidate list.
+                        """)
+                .add(PromptSectionType.MEMORY, buildRouteMemory(cp, profile))
+                .add(PromptSectionType.CURRENT_GOAL, buildRouteCurrentGoal(cp, request))
+                .add(PromptSectionType.OBSERVATION, buildRouteObservation(cp, request, weatherContext, candidates))
+                .add(PromptSectionType.OUTPUT_FORMAT, """
+                        JSON schema:
+                        {
+                          "routes": [
+                            {
+                              "routeId": "candidateId-from-input",
+                              "title": "string",
+                              "targetAttractionName": "string",
+                              "stops": ["string"],
+                              "reasonHighlights": ["history", "city icon", "photo spot"],
+                              "reason": "string",
+                              "estimatedTotalDurationMin": 120,
+                              "weatherSuitability": "string"
+                            }
+                          ]
+                        }
+                        reasonHighlights must contain 2 to 4 short attraction-value keywords.
+                        Return candidates only. routeId must match one candidateId above.
+                        """);
+    }
+
     public String buildRouteCandidateUserPrompt(TaskCheckpoint cp,
-                                                 PlanNextAttractionRequest request,
-                                                 Map<String, Object> weatherContext) {
+                                                PlanNextAttractionRequest request,
+                                                Map<String, Object> weatherContext,
+                                                List<LocationCandidateItem> candidates) {
         StringBuilder sb = new StringBuilder();
         sb.append("Region: ").append(cp.getRegion()).append("\n");
         sb.append("Current position: ").append(firstNonBlank(request.getCurrentPositionName(), "unknown")).append("\n");
         sb.append("Travel mode: ").append(firstNonBlank(request.getTravelMode(), "driving")).append("\n");
         sb.append("Remaining budget: ").append(cp.getRemainingTimeBudgetMin()).append(" minutes\n");
-        sb.append("Visited POIs: ").append(request.getVisitedPoiNames()).append("\n");
+        sb.append("Visited attractions: ").append(request.getVisitedPoiNames()).append("\n");
         sb.append("Destination constraint: ")
                 .append(cp.getSelectedDestination() != null ? cp.getSelectedDestination().getName() : "none")
                 .append("\n");
@@ -193,15 +229,20 @@ public class PlannerPromptBuilder {
             sb.append("Current node preference: ").append(request.getNodePreferencePrompt()).append("\n");
         }
         sb.append("User intent: ").append(cp.getUserIntent()).append("\n");
-        sb.append("Return route candidates only. reasonHighlights must be concise attraction-value keywords, not route/weather/process phrases.");
+        sb.append("Ranked RAG candidates:\n");
+        for (LocationCandidateItem candidate : candidates == null ? List.<LocationCandidateItem>of() : candidates) {
+            sb.append("- candidateId: ").append(candidate.getCandidateId()).append("\n");
+            sb.append("  name: ").append(candidate.getName()).append("\n");
+            sb.append("  score: ").append(candidate.getScore()).append("\n");
+            sb.append("  routeSummary: ").append(candidate.getRouteSummary()).append("\n");
+            sb.append("  estimatedTotalDurationMin: ").append(candidate.getEstimatedTotalDurationMin()).append("\n");
+            sb.append("  weatherSuitability: ").append(candidate.getWeatherSuitability()).append("\n");
+            sb.append("  reasons: ").append(candidate.getExplanations()).append("\n");
+        }
+        sb.append("Return candidates only. routeId must match one candidateId above.");
         return sb.toString();
     }
 
-    /**
-     * 构建finalsummarysystemprompt。
-     * @param cp c p 参数
-     * @return 返回处理结果。
-     */
     public String buildFinalSummarySystemPrompt(TaskCheckpoint cp) {
         String preferenceKeywords = "";
         if (cp.getPlanningConfig() != null
@@ -218,11 +259,6 @@ public class PlannerPromptBuilder {
                 preferenceKeywords);
     }
 
-    /**
-     * 构建finalsummaryusermessage。
-     * @param cp c p 参数
-     * @return 返回处理结果。
-     */
     public String buildFinalSummaryUserMessage(TaskCheckpoint cp) {
         StringBuilder sb = new StringBuilder(PromptTemplates.FINAL_SUMMARY_USER_PREFIX);
         for (CompletedStep s : cp.getCompletedSteps()) {
@@ -252,12 +288,20 @@ public class PlannerPromptBuilder {
         return sb.toString();
     }
 
-    /**
-     * 构建advisorcontext。
-     * @param cp c p 参数
-     * @param ragChunks r ag Ch un ks 参数
-     * @return 返回处理后的映射结果。
-     */
+    public PromptAssembly buildFinalSummaryPrompt(TaskCheckpoint cp) {
+        return PromptAssembly.create()
+                .add(PromptSectionType.SYSTEM, buildFinalSummarySystemPrompt(cp))
+                .add(PromptSectionType.POLICY, """
+                        Do not invent phone numbers, addresses, prices, URLs, opening hours, booking status, ticket availability, weather, or traffic times.
+                        These facts may be used only when they are present in tool result evidence.
+                        If a tool did not return a fact, say that the tool did not return it or that official confirmation is needed; never fill it in from general knowledge.
+                        """)
+                .add(PromptSectionType.MEMORY, buildCompletedStepsMemory(cp))
+                .add(PromptSectionType.CURRENT_GOAL, "Generate the final structured travel summary for the completed itinerary.")
+                .add(PromptSectionType.OBSERVATION, buildFinalSummaryUserMessage(cp))
+                .add(PromptSectionType.OUTPUT_FORMAT, "Return strict JSON only, matching the schema described above. Do not use markdown fences or commentary.");
+    }
+
     public Map<String, Object> buildAdvisorContext(TaskCheckpoint cp, List<String> ragChunks) {
         Map<String, Object> context = new LinkedHashMap<>();
         context.put(AdvisorContextKeys.REGION, cp.getRegion());
@@ -269,28 +313,100 @@ public class PlannerPromptBuilder {
         context.put(AdvisorContextKeys.CURRENT_DAY_NUMBER, resolveDayNumber(cp));
         context.put("remainingTimeBudgetMin", cp.getRemainingTimeBudgetMin());
         context.put("destinationName", cp.getSelectedDestination() != null ? cp.getSelectedDestination().getName() : null);
+        String profile = buildLongTermUserProfile(cp);
+        if (!profile.isBlank()) {
+            context.put(AdvisorContextKeys.LONG_TERM_USER_PROFILE, profile);
+        }
         if (ragChunks != null && !ragChunks.isEmpty()) {
             context.put(AdvisorContextKeys.RAG_CHUNKS, ragChunks);
         }
         context.put(AdvisorContextKeys.RESPONSE_SCHEMA, Map.of(
                 "type", "object",
-                "required", List.of("attractionName", "reason")
+                "required", List.of("routes")
         ));
         return context;
     }
 
-    /**
-     * 构建selectioncontext。
-     * @param cp c p 参数
-     * @param request 请求参数
-     * @param weatherContext w ea th er Co nt ex t 参数
-     * @param branchType b ra nc hT yp e 参数
-     * @return 返回处理后的映射结果。
-     */
+    String buildLongTermUserProfile(TaskCheckpoint cp) {
+        if (userPreferenceMemoryService == null || cp == null || cp.getUserId() == null) {
+            return "";
+        }
+        return userPreferenceMemoryService.buildPromptProfile(cp.getUserId(), cp.getStructuredConstraints());
+    }
+
+    private String buildRouteMemory(TaskCheckpoint cp, String longTermProfile) {
+        StringBuilder sb = new StringBuilder();
+        if (longTermProfile != null && !longTermProfile.isBlank()) {
+            sb.append(longTermProfile.trim());
+        }
+        String completed = buildCompletedStepsMemory(cp);
+        if (!completed.isBlank()) {
+            if (!sb.isEmpty()) {
+                sb.append("\n\n");
+            }
+            sb.append(completed);
+        }
+        return sb.toString();
+    }
+
+    private String buildCompletedStepsMemory(TaskCheckpoint cp) {
+        if (cp == null || cp.getCompletedSteps() == null || cp.getCompletedSteps().isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder("Completed itinerary steps:\n");
+        for (CompletedStep step : cp.getCompletedSteps()) {
+            sb.append("- Step ").append(step.getStepIndex())
+                    .append(" day ").append(step.getDayNumber())
+                    .append(": ").append(step.getAttractionName());
+            if (step.getLat() != null && step.getLng() != null) {
+                sb.append(" (").append(step.getLat()).append(", ").append(step.getLng()).append(")");
+            }
+            sb.append("\n");
+        }
+        return sb.toString().trim();
+    }
+
+    private String buildRouteCurrentGoal(TaskCheckpoint cp, PlanNextAttractionRequest request) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Region: ").append(cp.getRegion()).append("\n");
+        sb.append(buildStepPrompt(cp).trim()).append("\n");
+        sb.append("Current position: ").append(firstNonBlank(request.getCurrentPositionName(), "unknown")).append("\n");
+        sb.append("Travel mode: ").append(firstNonBlank(request.getTravelMode(), "driving")).append("\n");
+        if (request.getNodePreferencePrompt() != null && !request.getNodePreferencePrompt().isBlank()) {
+            sb.append("Current node preference: ").append(request.getNodePreferencePrompt()).append("\n");
+        }
+        sb.append("User intent: ").append(cp.getUserIntent());
+        return sb.toString();
+    }
+
+    private String buildRouteObservation(TaskCheckpoint cp,
+                                         PlanNextAttractionRequest request,
+                                         Map<String, Object> weatherContext,
+                                         List<LocationCandidateItem> candidates) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Visited attractions: ").append(request.getVisitedPoiNames()).append("\n");
+        sb.append("Destination constraint: ")
+                .append(cp.getSelectedDestination() != null ? cp.getSelectedDestination().getName() : "none")
+                .append("\n");
+        sb.append("Weather summary: ").append(weatherContext.getOrDefault("summary", "none")).append("\n");
+        sb.append("Weather constraints: ").append(weatherContext.getOrDefault("constraintHints", List.of())).append("\n");
+        sb.append("Ranked RAG candidates:\n");
+        for (LocationCandidateItem candidate : candidates == null ? List.<LocationCandidateItem>of() : candidates) {
+            sb.append("- candidateId: ").append(candidate.getCandidateId()).append("\n");
+            sb.append("  name: ").append(candidate.getName()).append("\n");
+            sb.append("  score: ").append(candidate.getScore()).append("\n");
+            sb.append("  routeSummary: ").append(candidate.getRouteSummary()).append("\n");
+            sb.append("  estimatedTotalDurationMin: ").append(candidate.getEstimatedTotalDurationMin()).append("\n");
+            sb.append("  weatherSuitability: ").append(candidate.getWeatherSuitability()).append("\n");
+            sb.append("  reasons: ").append(candidate.getExplanations()).append("\n");
+        }
+        return sb.toString().trim();
+    }
+
     public Map<String, Object> buildSelectionContext(TaskCheckpoint cp,
-                                                      PlanNextAttractionRequest request,
-                                                      Map<String, Object> weatherContext,
-                                                      String branchType) {
+                                                     PlanNextAttractionRequest request,
+                                                     Map<String, Object> weatherContext,
+                                                     String branchType) {
         Map<String, Object> context = new LinkedHashMap<>();
         context.put("currentPositionName", request.getCurrentPositionName());
         context.put("currentLat", request.getCurrentLat());
@@ -306,88 +422,15 @@ public class PlannerPromptBuilder {
         return context;
     }
 
-    /**
-     * 构建branchselectionoptions。
-     * @param weatherContext w ea th er Co nt ex t 参数
-     * @return 返回处理后的列表结果。
-     */
-    public List<SelectionOptionItem> buildBranchSelectionOptions(Map<String, Object> weatherContext) {
-        SelectionOptionItem nearby = new SelectionOptionItem();
-        nearby.setOptionId("nearby_poi");
-        nearby.setBranchType("nearby_poi");
-        nearby.setLabel("附近 POI 推荐");
-        nearby.setDescription(booleanValue(weatherContext.get("shortWalkPreferred"))
-                ? "按当前天气优先推荐更近、更省步行的景点。"
-                : "基于当前位置、偏好和天气筛选附近可去景点。");
-
-        SelectionOptionItem route = new SelectionOptionItem();
-        route.setOptionId("route_plan");
-        route.setBranchType("route_plan");
-        route.setLabel("路线规划");
-        route.setDescription("结合 LLM 和 RAG 生成多条顺路路线候选，再选择下一站。");
-
-        return List.of(nearby, route);
-    }
-
-    /**
-     * 构建recommendationrequest。
-     * @param cp c p 参数
-     * @param planningRequest p la nn in gR eq ue st 参数
-     * @param weatherContext w ea th er Co nt ex t 参数
-     * @return 返回处理结果。
-     */
-    public NearbyPoiRecommendationRequest buildRecommendationRequest(TaskCheckpoint cp,
-                                                                      PlanNextAttractionRequest planningRequest,
-                                                                      Map<String, Object> weatherContext) {
-        if (cp == null || cp.getPlanningConfig() == null) {
-            return null;
-        }
-        NearbyPoiRecommendationRequest request = new NearbyPoiRecommendationRequest();
-        request.setRegion(cp.getRegion());
-        request.setTravelMode(cp.getPlanningConfig().getTravelMode());
-        request.setPreferredTags(cp.getPlanningConfig().getPreferenceKeywords());
-        request.setTopK(5);
-        request.setCurrentTime(resolveCurrentTime(cp));
-        request.setQueryType(cp.getCompletedSteps() == null || cp.getCompletedSteps().isEmpty()
-                ? "nearby" : "itinerary_fill");
-        request.setWeatherCondition(stringValue(weatherContext.get("weather")));
-        request.setTemperature(parseInteger(weatherContext.get("temperature")));
-        request.setIndoorPreferred(booleanValue(weatherContext.get("indoorPreferred")));
-        request.setShortWalkPreferred(booleanValue(weatherContext.get("shortWalkPreferred")));
-        request.setAvoidRain(booleanValue(weatherContext.get("avoidRain")));
-        request.setAvoidWind(booleanValue(weatherContext.get("avoidWind")));
-        request.setWeatherSummary(stringValue(weatherContext.get("summary")));
-        if (planningRequest != null && planningRequest.getCurrentPositionName() != null) {
-            request.setCurrentPoiName(planningRequest.getCurrentPositionName());
-            request.setCurrentLat(planningRequest.getCurrentLat());
-            request.setCurrentLng(planningRequest.getCurrentLng());
-        }
-        if (cp.getCompletedSteps() != null && !cp.getCompletedSteps().isEmpty()) {
-            request.setSelectedPoiNames(cp.getCompletedSteps().stream()
-                    .map(CompletedStep::getAttractionName)
-                    .toList());
-            request.setRoutePoints(cp.getCompletedSteps().stream()
-                    .filter(step -> step.getLat() != null && step.getLng() != null)
-                    .map(step -> new RoutePoint(step.getLat(), step.getLng(), step.getAttractionName()))
-                    .toList());
-        }
-        return request;
-    }
-
     String resolveCurrentTime(TaskCheckpoint cp) {
         DailyTimeWindow window = cp.getDailyWindow(resolveDayNumber(cp));
         if (window == null || window.getStartTime() == null) {
             return null;
         }
-        int offsetWithinTrip = cp.getUsedTimeBudgetMin() == null ? 0 : cp.getUsedTimeBudgetMin();
-        return window.getStartTime().plusMinutes(offsetWithinTrip).format(TIME_FORMATTER);
+        int offsetWithinDay = resolveOffsetWithinDay(cp, window);
+        return window.getStartTime().plusMinutes(offsetWithinDay).format(TIME_FORMATTER);
     }
 
-    /**
-     * 解析并确定daynumber。
-     * @param cp c p 参数
-     * @return 返回处理结果。
-     */
     private int resolveDayNumber(TaskCheckpoint cp) {
         int remaining = cp.getUsedTimeBudgetMin() == null ? 0 : cp.getUsedTimeBudgetMin();
         if (cp.getDailyTimeWindows() == null || cp.getDailyTimeWindows().isEmpty()) {
@@ -403,11 +446,23 @@ public class PlannerPromptBuilder {
         return cp.getDailyTimeWindows().get(cp.getDailyTimeWindows().size() - 1).getDayNumber();
     }
 
-    /**
-     * 处理nullToEmpty。
-     * @param s s 参数
-     * @return 返回处理结果。
-     */
+    private int resolveOffsetWithinDay(TaskCheckpoint cp, DailyTimeWindow currentWindow) {
+        int remaining = cp.getUsedTimeBudgetMin() == null ? 0 : cp.getUsedTimeBudgetMin();
+        if (cp.getDailyTimeWindows() == null || cp.getDailyTimeWindows().isEmpty()) {
+            return remaining;
+        }
+        for (DailyTimeWindow window : cp.getDailyTimeWindows()) {
+            if (window.getDayNumber() == currentWindow.getDayNumber()) {
+                return Math.max(0, Math.min(remaining, window.availableMinutes()));
+            }
+            remaining -= window.availableMinutes();
+            if (remaining < 0) {
+                return 0;
+            }
+        }
+        return Math.max(0, remaining);
+    }
+
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;
     }

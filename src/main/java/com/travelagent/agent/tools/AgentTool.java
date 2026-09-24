@@ -22,6 +22,22 @@ public interface AgentTool {
      */
     String getName();
 
+    default String getSource() {
+        return getName();
+    }
+
+    default boolean isRealtime() {
+        return true;
+    }
+
+    default PendingToolReplayPolicy getReplayPolicy() {
+        return PendingToolReplayPolicy.AUTO_REPLAY;
+    }
+
+    default Map<String, Object> inputSchema() {
+        return Map.of();
+    }
+
     /**
      * Execute the tool.
      *

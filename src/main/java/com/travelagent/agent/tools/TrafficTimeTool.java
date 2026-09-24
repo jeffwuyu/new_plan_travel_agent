@@ -52,6 +52,27 @@ public class TrafficTimeTool implements AgentTool {
         return NAME;
     }
 
+    @Override
+    public String getSource() {
+        return "amap:route";
+    }
+
+    @Override
+    public Map<String, Object> inputSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "required", java.util.List.of("originLng", "originLat", "destLng", "destLat"),
+                "properties", Map.of(
+                        "originLng", Map.of("type", "number", "minimum", -180, "maximum", 180),
+                        "originLat", Map.of("type", "number", "minimum", -90, "maximum", 90),
+                        "destLng", Map.of("type", "number", "minimum", -180, "maximum", 180),
+                        "destLat", Map.of("type", "number", "minimum", -90, "maximum", 90),
+                        "travelMode", Map.of("type", "string", "enum", java.util.List.of("driving", "walking", "transit", "bicycling"))
+                )
+        );
+    }
+
     /**
      * 处理execute。
      * @param arguments 工具调用参数

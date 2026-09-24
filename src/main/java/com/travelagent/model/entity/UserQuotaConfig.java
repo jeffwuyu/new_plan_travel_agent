@@ -33,6 +33,9 @@ public class UserQuotaConfig {
     /** Max total planning steps per task */
     private Integer maxPlanSteps;
 
+    /** Daily limit for newly created route map records; null falls back to route-map config. */
+    private Integer routeMapDailyLimit;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

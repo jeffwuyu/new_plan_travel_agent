@@ -24,6 +24,17 @@ public class RagChunk {
     /** DashVector vector ID, set after upsert */
     private String dashvectorId;
 
+    /** JSON fallback for the embedding vector when pgvector is not available. */
+    private String embeddingJson;
+
+    /** PostgreSQL pgvector literal, e.g. [0.1,0.2], used by postgres-rag.sql runtime schema. */
+    private String embeddingVector;
+
+    /** Text materialized for PostgreSQL Full-Text Search / fallback keyword search. */
+    private String searchText;
+
+    private String metadataJson;
+
     private Integer tokenCount;
 
     private LocalDateTime createdAt;

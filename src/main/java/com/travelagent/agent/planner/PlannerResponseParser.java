@@ -4,8 +4,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.model.dto.LocationCandidateItem;
-import com.travelagent.model.dto.RecommendationFeatureBreakdown;
 import com.travelagent.util.JsonUtil;
+import com.travelagent.validation.JsonSchemaValidationException;
+import com.travelagent.validation.JsonSchemaValidationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +28,69 @@ public class PlannerResponseParser {
 
     private static final Logger log = LoggerFactory.getLogger(PlannerResponseParser.class);
 
+    private static final Map<String, Object> ATTRACTION_NAME_SCHEMA = Map.of(
+            "type", "object",
+            "additionalProperties", false,
+            "required", List.of("attractionName"),
+            "properties", Map.of(
+                    "attractionName", Map.of("type", "string", "minLength", 1),
+                    "reason", Map.of("type", "string")
+            )
+    );
+
+    private static final Map<String, Object> ROUTE_CANDIDATES_SCHEMA = Map.of(
+            "type", "object",
+            "additionalProperties", false,
+            "required", List.of("routes"),
+            "properties", Map.of(
+                    "routes", Map.of(
+                            "type", "array",
+                            "maxItems", 3,
+                            "items", Map.of(
+                                    "type", "object",
+                                    "additionalProperties", false,
+                                    "required", List.of("routeId", "title", "targetAttractionName", "stops", "reason", "estimatedTotalDurationMin", "weatherSuitability"),
+                                    "properties", Map.of(
+                                            "routeId", Map.of("type", "string", "minLength", 1),
+                                            "title", Map.of("type", "string", "minLength", 1),
+                                            "targetAttractionName", Map.of("type", "string", "minLength", 1),
+                                            "stops", Map.of("type", "array", "minItems", 1, "items", Map.of("type", "string", "minLength", 1)),
+                                            "reasonHighlights", Map.of("type", "array", "minItems", 2, "maxItems", 4, "items", Map.of("type", "string", "minLength", 1, "maxLength", 24)),
+                                            "reason", Map.of("type", "string", "minLength", 1),
+                                            "estimatedTotalDurationMin", Map.of("type", "integer", "minimum", 1, "maximum", 1440),
+                                            "weatherSuitability", Map.of("type", "string")
+                                    )
+                            )
+                    )
+            )
+    );
+
+    private static final Map<String, Object> FINAL_SUMMARY_SCHEMA = Map.of(
+            "type", "object",
+            "additionalProperties", false,
+            "required", List.of("title", "summary", "steps"),
+            "properties", Map.of(
+                    "title", Map.of("type", "string", "minLength", 1),
+                    "summary", Map.of("type", "string", "minLength", 1),
+                    "steps", Map.of(
+                            "type", "array",
+                            "items", Map.of(
+                                    "type", "object",
+                                    "additionalProperties", false,
+                                    "required", List.of("stepOrder", "estimatedDurationMin", "llmDescription"),
+                                    "properties", Map.of(
+                                            "stepOrder", Map.of("type", "integer", "minimum", 0),
+                                            "estimatedDurationMin", Map.of("type", "integer", "minimum", 45, "maximum", 360),
+                                            "llmDescription", Map.of("type", "string")
+                                    )
+                            )
+                    )
+            )
+    );
+
     @Autowired private JsonUtil jsonUtil;
+    @Autowired(required = false) private JsonSchemaValidationService jsonSchemaValidationService;
+    @Autowired(required = false) private LlmOutputSemanticValidator semanticValidator;
 
     /**
      * 解析llmattractionname。
@@ -43,6 +106,7 @@ public class PlannerResponseParser {
         try {
             String cleaned = LlmResponseSanitizer.sanitize(llmResponse);
             Map<String, Object> parsed = jsonUtil.fromJson(cleaned, new TypeReference<>() {});
+            validateParsed("LLM attraction name response", parsed, ATTRACTION_NAME_SCHEMA);
             Object name = parsed.get("attractionName");
             if (name != null && !name.toString().isBlank()) {
                 return name.toString().trim();
@@ -67,6 +131,10 @@ public class PlannerResponseParser {
         try {
             String cleaned = LlmResponseSanitizer.sanitize(llmResponse);
             Map<String, Object> parsed = jsonUtil.fromJson(cleaned, new TypeReference<>() {});
+            validateParsed("LLM route candidates response", parsed, ROUTE_CANDIDATES_SCHEMA);
+            if (semanticValidator != null) {
+                parsed = semanticValidator.filterRouteCandidates(parsed, weatherContext);
+            }
             Object routesObj = parsed.get("routes");
             if (!(routesObj instanceof List<?> rawRoutes)) {
                 return List.of();
@@ -114,6 +182,7 @@ public class PlannerResponseParser {
         try {
             String cleaned = LlmResponseSanitizer.sanitize(llmResponse);
             Map<String, Object> parsed = jsonUtil.fromJson(cleaned, new TypeReference<>() {});
+            validateParsed("LLM final summary response", parsed, FINAL_SUMMARY_SCHEMA);
             String title = stringOrDefault(parsed.get("title"),
                     cp.getRegion() + " " + cp.getPlanningConfig().getTotalDays() + " Day Trip");
             String summary = stringOrDefault(parsed.get("summary"), cp.getUserIntent());
@@ -145,9 +214,9 @@ public class PlannerResponseParser {
      * @param weatherContext w ea th er Co nt ex t 参数
      * @return 返回处理结果。
      */
-    public String resolveWeatherSuitability(RecommendationFeatureBreakdown features,
+    public String resolveWeatherSuitability(Object features,
                                              Map<String, Object> weatherContext) {
-        if (features != null && Boolean.TRUE.equals(features.getWeatherFriendly())) {
+        if (false) {
             return "天气适配较好";
         }
         return firstNonBlank(stringValue(weatherContext.get("summary")), "常规适配");
@@ -169,6 +238,18 @@ public class PlannerResponseParser {
             ));
         }
         return new FinalSummaryResult(title, cp.getUserIntent(), steps);
+    }
+
+    private void validateParsed(String target, Map<String, Object> parsed, Map<String, Object> schema) {
+        if (jsonSchemaValidationService == null) {
+            return;
+        }
+        try {
+            jsonSchemaValidationService.validateOrThrow(target, parsed, schema);
+        } catch (JsonSchemaValidationException e) {
+            log.warn("[PlannerResponseParser] {} schema validation failed: {}", target, e.getMessage());
+            throw e;
+        }
     }
 
     /**

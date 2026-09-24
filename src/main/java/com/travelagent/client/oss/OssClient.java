@@ -13,6 +13,8 @@ import jakarta.annotation.PreDestroy;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
+import java.util.Date;
 
 /**
  * 中文注释：客户端类，封装阿里云 OSS SDK，提供 RAG 文档的上传、下载、删除操作。
@@ -62,6 +64,10 @@ public class OssClient {
      * @param contentType c on te nt Ty pe 参数
      */
     public void uploadDocument(String ossKey, byte[] content, String contentType) {
+        uploadObject(ossKey, content, contentType);
+    }
+
+    public void uploadObject(String ossKey, byte[] content, String contentType) {
         log.debug("Uploading to OSS: key={}, size={}", ossKey, content.length);
         com.aliyun.oss.model.ObjectMetadata meta = new com.aliyun.oss.model.ObjectMetadata();
         meta.setContentType(contentType);
@@ -76,6 +82,10 @@ public class OssClient {
      * @return 返回处理结果。
      */
     public byte[] downloadDocument(String ossKey) {
+        return downloadObject(ossKey);
+    }
+
+    public byte[] downloadObject(String ossKey) {
         log.debug("Downloading from OSS: key={}", ossKey);
         OSSObject obj = ossClient.getObject(bucketName, ossKey);
         try (InputStream is = obj.getObjectContent()) {
@@ -85,6 +95,15 @@ public class OssClient {
         } catch (IOException e) {
             throw new RuntimeException("Failed to read OSS object: " + ossKey, e);
         }
+    }
+
+    public String generateSignedUrl(String ossKey, Duration ttl) {
+        Date expiration = new Date(System.currentTimeMillis() + ttl.toMillis());
+        return ossClient.generatePresignedUrl(bucketName, ossKey, expiration).toString();
+    }
+
+    public boolean bucketExists() {
+        return ossClient.doesBucketExist(bucketName);
     }
 
     /**
