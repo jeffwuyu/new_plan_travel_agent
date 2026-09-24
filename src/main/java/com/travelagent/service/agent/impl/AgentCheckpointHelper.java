@@ -384,6 +384,8 @@ public class AgentCheckpointHelper {
         if (checkpoint.getSchemaVersion() == null || checkpoint.getSchemaVersion().isBlank()) {
             checkpoint.setSchemaVersion(task.getSchemaVersion() == null ? "1.0" : task.getSchemaVersion());
         }
+        checkpoint.setLeaseToken(task.getLeaseToken());
+        checkpoint.setRecoveryAttempt(task.getRecoveryAttempts() == null ? 0 : task.getRecoveryAttempts());
     }
 
     /**
