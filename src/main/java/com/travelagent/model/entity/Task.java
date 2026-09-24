@@ -32,8 +32,20 @@ public class Task {
      */
     private String status;
 
+    /** Monotonic database fencing revision. */
+    private Long revision = 1L;
+
+    /** Current execution lease fencing token, null when unclaimed. */
+    private String leaseToken;
+
+    private LocalDateTime leaseExpiresAt;
+
+    private String executionOwner;
+
     /** Target region, e.g. "西安市" */
     private String region;
+
+    private String requestIp;
 
     /**
      * Full JSON snapshot of AgentContext at the last checkpoint.

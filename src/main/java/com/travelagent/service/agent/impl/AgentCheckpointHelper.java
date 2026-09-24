@@ -1,15 +1,19 @@
 package com.travelagent.service.agent.impl;
 
 import com.travelagent.agent.context.CompletedStep;
+import com.travelagent.agent.context.AgentSessionState;
 import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.agent.scratchpad.ScratchpadManagementService;
 import com.travelagent.agent.tools.GeocodeTool;
 import com.travelagent.agent.tools.TrafficTimeTool;
 import com.travelagent.agent.tools.WeatherTool;
+import com.travelagent.mapper.TaskCheckpointArtifactMapper;
 import com.travelagent.client.amap.AmapClient;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.mapper.UserMapper;
 import com.travelagent.model.entity.Task;
+import com.travelagent.service.task.TaskLifecycleGovernanceService;
 import com.travelagent.util.JsonUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -18,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Checkpoint 的加载/保存、时间预算计算、CompletedStep 构建。
@@ -30,7 +35,10 @@ public class AgentCheckpointHelper {
     @Autowired private TaskMapper taskMapper;
     @Autowired private UserMapper userMapper;
     @Autowired private JsonUtil jsonUtil;
+    @Autowired(required = false) private TaskLifecycleGovernanceService lifecycleGovernanceService;
+    @Autowired(required = false) private TaskCheckpointArtifactMapper artifactMapper;
     @Autowired(required = false) private AmapClient amapClient;
+    @Autowired(required = false) private ScratchpadManagementService scratchpadManagementService;
 
     /**
      * 加载checkpoint。
@@ -39,10 +47,16 @@ public class AgentCheckpointHelper {
      */
     public TaskCheckpoint loadCheckpoint(Task task) {
         if (task.getCheckpointJson() == null || task.getCheckpointJson().isBlank()) {
-            return new TaskCheckpoint();
+            TaskCheckpoint checkpoint = new TaskCheckpoint();
+            hydrateTaskMetadata(task, checkpoint);
+            checkpoint.migrateToCurrentSchema();
+            return checkpoint;
         }
         try {
-            return jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
+            TaskCheckpoint checkpoint = jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
+            hydrateTaskMetadata(task, checkpoint);
+            checkpoint.migrateToCurrentSchema();
+            return checkpoint;
         } catch (Exception e) {
             throw new RuntimeException("Checkpoint deserialization failed for task=" + task.getTaskUuid(), e);
         }
@@ -54,9 +68,110 @@ public class AgentCheckpointHelper {
      * @param checkpoint 任务检查点数据
      */
     public void saveCheckpoint(Task task, TaskCheckpoint checkpoint) {
+        hydrateTaskMetadata(task, checkpoint);
+        if (scratchpadManagementService != null) {
+            scratchpadManagementService.compact(checkpoint);
+        }
+        persistLargeArtifacts(task, checkpoint);
+        checkpoint.prepareForStorage();
+        task.setSchemaVersion(TaskCheckpoint.CURRENT_SCHEMA_VERSION);
         task.setCheckpointJson(jsonUtil.toJson(checkpoint));
         task.setStatus(checkpoint.getCurrentState());
-        taskMapper.updateCheckpoint(task);
+        if (lifecycleGovernanceService != null
+                && task.getLeaseToken() != null && !task.getLeaseToken().isBlank()) {
+            lifecycleGovernanceService.saveCheckpointWithLease(task, task.getLeaseToken());
+        } else {
+            taskMapper.updateCheckpoint(task);
+        }
+    }
+
+    private void persistLargeArtifacts(Task task, TaskCheckpoint checkpoint) {
+        if (artifactMapper == null || task == null || checkpoint == null
+                || task.getTaskUuid() == null || task.getTaskUuid().isBlank()) {
+            return;
+        }
+        checkpoint.migrateToCurrentSchema();
+        writeArtifact(task, "llm_history", checkpoint.getLlmConversationHistory());
+        writeArtifact(task, "rag_results", checkpoint.getRagResults());
+        writeArtifact(task, "summaries", checkpoint.getIntermediateSummaries());
+        writeArtifact(task, "validator_results", checkpoint.getValidatorResults());
+        writeArtifact(task, "user_feedback", checkpoint.getUserFeedback());
+        writeArtifact(task, "failure_reasons", checkpoint.getFailureReasons());
+        writeArtifact(task, "tool_results", checkpoint.getToolResults());
+        writeArtifact(task, "react_scratchpad", checkpoint.getReactScratchpad());
+    }
+
+    private void writeArtifact(Task task, String artifactType, Object payload) {
+        int itemCount = itemCount(payload);
+        if (itemCount <= 0) {
+            return;
+        }
+        artifactMapper.upsertArtifact(
+                task.getTaskUuid(),
+                task.getId(),
+                artifactType,
+                jsonUtil.toJson(payload),
+                itemCount,
+                TaskCheckpoint.CURRENT_SCHEMA_VERSION);
+    }
+
+    public boolean writeRawObservationArtifact(Task task, String artifactType, Object payload) {
+        if (artifactMapper == null || task == null || task.getTaskUuid() == null || task.getTaskUuid().isBlank()) {
+            return false;
+        }
+        int itemCount = itemCount(payload);
+        if (itemCount <= 0) {
+            return false;
+        }
+        artifactMapper.upsertArtifact(
+                task.getTaskUuid(),
+                task.getId(),
+                artifactType,
+                jsonUtil.toJson(payload),
+                itemCount,
+                TaskCheckpoint.CURRENT_SCHEMA_VERSION);
+        return true;
+    }
+
+    private int itemCount(Object payload) {
+        if (payload instanceof List<?> list) {
+            return list.size();
+        }
+        if (payload instanceof Map<?, ?> map) {
+            return map.size();
+        }
+        return payload == null ? 0 : 1;
+    }
+
+    public AgentSessionState loadSessionState(Task task) {
+        return loadCheckpoint(task).toSessionState();
+    }
+
+    public AgentSessionState saveSessionState(Task task, AgentSessionState sessionState) {
+        TaskCheckpoint checkpoint = loadCheckpoint(task);
+        checkpoint.applySessionState(sessionState);
+        hydrateTaskMetadata(task, checkpoint);
+        saveCheckpoint(task, checkpoint);
+        return checkpoint.toSessionState();
+    }
+
+    public AgentSessionState updateSessionState(Task task, Consumer<AgentSessionState> mutator) {
+        AgentSessionState state = loadSessionState(task);
+        if (mutator != null) {
+            mutator.accept(state);
+        }
+        return saveSessionState(task, state);
+    }
+
+    public AgentSessionState recoverSessionState(Task task) {
+        TaskCheckpoint checkpoint = loadCheckpoint(task);
+        hydrateTaskMetadata(task, checkpoint);
+        checkpoint.refreshSubtaskStatesFromPlan();
+        if (checkpoint.getCurrentState() == null || checkpoint.getCurrentState().isBlank()) {
+            checkpoint.setCurrentState(task.getStatus());
+        }
+        saveCheckpoint(task, checkpoint);
+        return checkpoint.toSessionState();
     }
 
     /**
@@ -243,6 +358,32 @@ public class AgentCheckpointHelper {
 
     int valueOrZero(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private void hydrateTaskMetadata(Task task, TaskCheckpoint checkpoint) {
+        if (task == null || checkpoint == null) {
+            return;
+        }
+        if (checkpoint.getTaskId() == null) {
+            checkpoint.setTaskId(task.getId());
+        }
+        if (checkpoint.getUserId() == null) {
+            checkpoint.setUserId(task.getUserId());
+        }
+        if (checkpoint.getTaskUuid() == null || checkpoint.getTaskUuid().isBlank()) {
+            checkpoint.setTaskUuid(task.getTaskUuid());
+        }
+        if ((checkpoint.getCurrentState() == null || checkpoint.getCurrentState().isBlank())
+                && task.getStatus() != null) {
+            checkpoint.setCurrentState(task.getStatus());
+        }
+        if ((checkpoint.getRegion() == null || checkpoint.getRegion().isBlank())
+                && task.getRegion() != null) {
+            checkpoint.setRegion(task.getRegion());
+        }
+        if (checkpoint.getSchemaVersion() == null || checkpoint.getSchemaVersion().isBlank()) {
+            checkpoint.setSchemaVersion(task.getSchemaVersion() == null ? "1.0" : task.getSchemaVersion());
+        }
     }
 
     /**

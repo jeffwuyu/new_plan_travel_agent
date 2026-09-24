@@ -9,7 +9,12 @@
         <result property="taskUuid"        column="task_uuid"/>
         <result property="userId"          column="user_id"/>
         <result property="status"          column="status"/>
+        <result property="revision"        column="revision"/>
+        <result property="leaseToken"      column="lease_token"/>
+        <result property="leaseExpiresAt"  column="lease_expires_at"/>
+        <result property="executionOwner"  column="execution_owner"/>
         <result property="region"          column="region"/>
+        <result property="requestIp"       column="request_ip"/>
         <result property="checkpointJson"  column="checkpoint_json"/>
         <result property="schemaVersion"   column="schema_version"/>
         <result property="totalTokensUsed" column="total_tokens_used"/>
@@ -20,9 +25,9 @@
     </resultMap>
 
     <insert id="insert" parameterType="Task" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO tasks (task_uuid, user_id, status, region, schema_version, total_tokens_used,
+        INSERT INTO tasks (task_uuid, user_id, status, region, request_ip, schema_version, total_tokens_used,
                            created_at, updated_at)
-        VALUES (#{taskUuid}, #{userId}, #{status}, #{region}, #{schemaVersion}, 0,
+        VALUES (#{taskUuid}, #{userId}, #{status}, #{region}, #{requestIp}, #{schemaVersion}, 0,
                 NOW(), NOW())
     </insert>
 
@@ -36,6 +41,13 @@
 
     <select id="findByUserId" resultMap="taskResultMap">
         SELECT * FROM tasks WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findActiveByUserId" resultMap="taskResultMap">
+        SELECT * FROM tasks
+        WHERE user_id = #{userId}
+          AND status IN ('pending', 'planning', 'tool_calling', 'awaiting_user_input', 'paused', 'resuming')
         ORDER BY created_at DESC
     </select>
 
@@ -60,6 +72,14 @@
         LIMIT #{limit}
     </select>
 
+    <select id="findStaleByStatus" resultMap="taskResultMap">
+        SELECT * FROM tasks
+        WHERE status = #{status}
+          AND updated_at &lt; #{before}
+        ORDER BY updated_at ASC
+        LIMIT #{limit}
+    </select>
+
     <!--
         Admin cross-status paginated query.
         checkpoint_json intentionally excluded (MEDIUMTEXT, not needed in admin view).
@@ -67,7 +87,7 @@
     -->
     <select id="findAllWithFilter" resultMap="taskResultMap">
         SELECT id, task_uuid, user_id, status, region,
-               schema_version, total_tokens_used, error_message,
+               request_ip, schema_version, total_tokens_used, error_message,
                created_at, updated_at, completed_at
         FROM tasks
         <where>
@@ -85,33 +105,132 @@
           AND status IN ('pending', 'planning', 'tool_calling', 'awaiting_user_input', 'resuming')
     </select>
 
-    <update id="updateStatus">
-        UPDATE tasks SET status = #{status}, updated_at = NOW()
+    <update id="updateStatusIfRevision">
+        UPDATE tasks SET status = #{status}, revision = revision + 1, updated_at = NOW()
         <if test="status == 'completed' or status == 'failed' or status == 'cancelled'">
             , completed_at = NOW()
         </if>
-        WHERE id = #{id}
+        WHERE id = #{id} AND revision = #{expectedRevision}
+        <choose>
+            <when test="leaseToken != null and leaseToken != ''">
+                AND lease_token = #{leaseToken} AND lease_expires_at &gt; NOW()
+            </when>
+            <otherwise>
+                AND lease_token IS NULL
+            </otherwise>
+        </choose>
     </update>
 
-    <update id="updateCheckpoint" parameterType="Task">
+    <update id="resetForAdminRedispatchIfRevision">
+        UPDATE tasks
+        SET status = #{status},
+            checkpoint_json = #{checkpointJson},
+            execution_owner = NULL,
+            lease_token = NULL,
+            lease_expires_at = NULL,
+            revision = revision + 1,
+            error_message = NULL,
+            completed_at = NULL,
+            updated_at = NOW()
+        WHERE id = #{id} AND revision = #{expectedRevision}
+          AND (lease_token IS NULL OR lease_expires_at &lt;= NOW())
+    </update>
+
+    <update id="transitionStatusIfCurrent">
+        UPDATE tasks
+        SET status = #{nextStatus},
+            checkpoint_json = #{checkpointJson},
+            error_message = #{errorMessage},
+            execution_owner = NULL, lease_token = NULL, lease_expires_at = NULL,
+            revision = revision + 1,
+            updated_at = NOW()
+        <if test="nextStatus == 'completed' or nextStatus == 'failed' or nextStatus == 'cancelled'">
+            , completed_at = NOW()
+        </if>
+        WHERE id = #{id}
+          AND status = #{expectedStatus}
+          AND revision = #{expectedRevision}
+          AND (lease_token IS NULL OR lease_expires_at &lt;= NOW())
+    </update>
+
+    <update id="claimExecution">
+        UPDATE tasks
+        SET execution_owner = #{owner}, lease_token = #{leaseToken},
+            lease_expires_at = #{leaseExpiresAt}, revision = revision + 1,
+            updated_at = NOW()
+        WHERE id = #{id} AND status = #{expectedStatus}
+          AND revision = #{expectedRevision}
+          AND (lease_expires_at IS NULL OR lease_expires_at &lt;= NOW())
+    </update>
+
+    <update id="renewExecutionLease">
+        UPDATE tasks
+        SET lease_expires_at = #{leaseExpiresAt}, revision = revision + 1, updated_at = NOW()
+        WHERE id = #{id} AND lease_token = #{leaseToken}
+          AND lease_expires_at &gt; NOW()
+    </update>
+
+    <update id="updateCheckpointIfOwned">
+        UPDATE tasks
+        SET checkpoint_json = #{task.checkpointJson}, status = #{task.status},
+            schema_version = #{task.schemaVersion}, total_tokens_used = #{task.totalTokensUsed},
+            revision = revision + 1, updated_at = NOW()
+        WHERE id = #{task.id} AND revision = #{expectedRevision}
+          AND lease_token = #{leaseToken} AND lease_expires_at &gt; NOW()
+    </update>
+
+    <update id="clearExpiredLease">
+        UPDATE tasks
+        SET execution_owner = NULL, lease_token = NULL, lease_expires_at = NULL,
+            revision = revision + 1, updated_at = NOW()
+        WHERE id = #{id} AND revision = #{expectedRevision}
+          AND lease_expires_at IS NOT NULL AND lease_expires_at &lt;= #{now}
+    </update>
+
+    <insert id="insertOperationIfAbsent">
+        INSERT IGNORE INTO task_operations (user_id, task_uuid, operation_id, operation_type, result_status)
+        VALUES (#{userId}, #{taskUuid}, #{operationId}, #{operationType}, 'RUNNING')
+    </insert>
+
+    <select id="findOperation" resultType="map">
+        SELECT user_id AS userId, task_uuid AS taskUuid, operation_id AS operationId,
+               operation_type AS operationType, result_status AS resultStatus, result_json AS resultJson
+        FROM task_operations
+        WHERE user_id = #{userId} AND task_uuid = #{taskUuid} AND operation_id = #{operationId}
+        LIMIT 1
+    </select>
+
+    <update id="completeOperation">
+        UPDATE task_operations SET result_status = #{resultStatus}, result_json = #{resultJson}, updated_at = NOW()
+        WHERE user_id = #{userId} AND task_uuid = #{taskUuid} AND operation_id = #{operationId}
+          AND result_status = 'RUNNING'
+    </update>
+
+    <update id="updateCheckpointIfRevision" parameterType="Task">
         UPDATE tasks
         SET checkpoint_json  = #{checkpointJson},
             status           = #{status},
+            schema_version   = #{schemaVersion},
             total_tokens_used = #{totalTokensUsed},
+            revision         = revision + 1,
             updated_at       = NOW()
-        WHERE id = #{id}
+        WHERE id = #{id} AND revision = #{revision}
+          AND (lease_token IS NULL OR lease_expires_at &lt;= NOW())
     </update>
 
-    <update id="update" parameterType="Task">
+    <update id="updateIfRevision" parameterType="Task">
         UPDATE tasks
         <set>
             <if test="status != null">status = #{status},</if>
             <if test="checkpointJson != null">checkpoint_json = #{checkpointJson},</if>
+            <if test="requestIp != null">request_ip = #{requestIp},</if>
             <if test="totalTokensUsed != null">total_tokens_used = #{totalTokensUsed},</if>
             <if test="errorMessage != null">error_message = #{errorMessage},</if>
+            revision = revision + 1,
             updated_at = NOW()
         </set>
-        WHERE id = #{id}
+        WHERE id = #{id} AND revision = #{revision}
+          AND (lease_token IS NULL OR lease_expires_at &lt;= NOW())
     </update>
 
 </mapper>

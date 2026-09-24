@@ -3,24 +3,18 @@ package com.travelagent.service.agent.impl;
 import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.RetryState;
 import com.travelagent.agent.context.TaskCheckpoint;
-import com.travelagent.agent.planner.FinalSummaryResult;
 import com.travelagent.agent.planner.MarkovPlanner;
 import com.travelagent.agent.planner.PlanNextAttractionRequest;
 import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
-import com.travelagent.agent.tools.GeocodeTool;
-import com.travelagent.agent.tools.TrafficTimeTool;
-import com.travelagent.agent.tools.WeatherTool;
 import com.travelagent.config.DatabaseSchemaGuard;
 import com.travelagent.exception.AgentErrorCode;
 import com.travelagent.exception.AgentException;
 import com.travelagent.exception.QuotaExhaustedException;
-import com.travelagent.service.plan.PlanPersistenceService;
+import com.travelagent.exception.RateLimitExceededException;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.model.dto.LocationCandidateItem;
-import com.travelagent.model.entity.Plan;
-import com.travelagent.model.entity.PlanStep;
 import com.travelagent.model.entity.Task;
 import com.travelagent.model.enums.TaskStatus;
 import com.travelagent.monitoring.TaskMetricsService;
@@ -29,22 +23,24 @@ import com.travelagent.service.llm.LlmUsageAccountingService;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.task.TaskProgressService;
+import com.travelagent.service.task.RedisTaskLockService;
+import com.travelagent.service.task.TaskLifecycleGovernanceService;
 import com.travelagent.service.user.QuotaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.time.Duration;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Agent 主控服务：状态机转换、规划循环、Quota 处理、SSE 通知、计划持久化。
@@ -56,6 +52,7 @@ public class AgentServiceImpl implements AgentService {
     private static final Logger log = LoggerFactory.getLogger(AgentServiceImpl.class);
     private static final String PAUSE_REASON_DAILY_QUOTA = "daily_quota_exhausted";
     private static final String PAUSE_REASON_AMAP_RATE_LIMITED = "amap_rate_limited";
+    private static final String PAUSE_REASON_USER_CANCELLED = "user_cancelled";
     private static final int[] AMAP_RATE_LIMIT_BACKOFF_SECONDS = {2, 5, 10};
 
     private static final String EVT_STATE_CHANGE = "STATE_CHANGE";
@@ -64,7 +61,7 @@ public class AgentServiceImpl implements AgentService {
     private static final String EVT_RETRY = "RETRY";
     private static final String EVT_PAUSED = "PAUSED";
     private static final String EVT_COMPLETED = "COMPLETED";
-    private static final String EVT_USER_SELECTION_REQUIRED = "USER_SELECTION_REQUIRED";
+    private static final String EVT_CANCELLED = "CANCELLED";
     private static final String EVT_USER_SELECTION_CONFIRMED = "USER_SELECTION_CONFIRMED";
 
     @Autowired private TaskMapper taskMapper;
@@ -72,13 +69,28 @@ public class AgentServiceImpl implements AgentService {
     @Autowired private SseNotificationService sseNotificationService;
     @Autowired private MarkovPlanner markovPlanner;
     @Autowired private QuotaService quotaService;
-    @Autowired private PlanPersistenceService planPersistenceService;
     @Autowired private TaskProgressService taskProgressService;
+    @Autowired(required = false) private RedisTaskLockService redisTaskLockService;
+    @Autowired(required = false) private TaskLifecycleGovernanceService lifecycleGovernanceService;
     @Autowired private TaskMetricsService taskMetricsService;
     @Autowired private DatabaseSchemaGuard schemaGuard;
     @Autowired private LlmUsageAccountingService llmUsageAccountingService;
     @Autowired private AgentCheckpointHelper checkpointHelper;
     @Autowired private AgentToolExecutor toolExecutor;
+    @Autowired private AgentSelectionCoordinator selectionCoordinator;
+    @Autowired private AgentPlanFinalizationService planFinalizationService;
+    @Autowired private AgentToolStepService toolStepService;
+    @Value("${agent.task.max-recovery-attempts:3}")
+    private int maxRecoveryAttempts;
+    private final Map<String, String> executionLeaseTokens = new ConcurrentHashMap<>();
+
+    @Override
+    public void executeTask(String taskUuid, String leaseToken) {
+        if (leaseToken != null && !leaseToken.isBlank()) {
+            executionLeaseTokens.put(taskUuid, leaseToken);
+        }
+        executeTask(taskUuid);
+    }
 
     @Override
     public PlanningResult refreshNodeCandidates(Task task, TaskCheckpoint checkpoint, String taskUuid) {
@@ -96,7 +108,7 @@ public class AgentServiceImpl implements AgentService {
     }
 
     /**
-     * 处理recoverStuckTasksOnStartup。
+     * 应用启动后执行一次卡住任务恢复扫描。
      */
     @EventListener(ApplicationReadyEvent.class)
     public void recoverStuckTasksOnStartup() {
@@ -111,7 +123,7 @@ public class AgentServiceImpl implements AgentService {
     }
 
     /**
-     * 处理recoverStuckTasks。
+     * 扫描规划中或工具调用中的陈旧任务，并把可恢复任务转为 resuming。
      */
     public void recoverStuckTasks() {
         List<String> stuckStatuses = List.of(
@@ -121,6 +133,24 @@ public class AgentServiceImpl implements AgentService {
         List<Task> stuckTasks = taskMapper.findByStatusIn(stuckStatuses, 100);
         for (Task task : stuckTasks) {
             try {
+                if (redisTaskLockService != null && redisTaskLockService.hasValidLease(task.getTaskUuid())) {
+                    continue;
+                }
+                int attempts = incrementRecoveryAttempts(task.getTaskUuid());
+                if (attempts > maxRecoveryAttempts) {
+                    task.setStatus(TaskStatus.FAILED.getCode());
+                    task.setErrorMessage("Task exceeded max recovery attempts: " + maxRecoveryAttempts);
+                    taskMapper.update(task);
+                    taskProgressService.recordEvent(task.getTaskUuid(), "RECOVERY_EXHAUSTED",
+                            TaskStatus.FAILED.getCode(), null, null,
+                            task.getErrorMessage(),
+                            Map.of("attempts", attempts, "maxRecoveryAttempts", maxRecoveryAttempts));
+                    continue;
+                }
+                taskProgressService.recordEvent(task.getTaskUuid(), "RECOVERY_CLAIMED",
+                        TaskStatus.RESUMING.getCode(), null, null,
+                        "Stale task claimed for recovery.",
+                        Map.of("attempts", attempts, "maxRecoveryAttempts", maxRecoveryAttempts));
                 taskMapper.updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
             } catch (Exception e) {
                 log.error("[AgentService] Failed to recover task uuid={}: {}", task.getTaskUuid(), e.getMessage());
@@ -128,8 +158,21 @@ public class AgentServiceImpl implements AgentService {
         }
     }
 
+    private int incrementRecoveryAttempts(String taskUuid) {
+        try {
+            if (redisTaskLockService == null) {
+                return 1;
+            }
+            return redisTaskLockService.incrementRecoveryAttempts(taskUuid);
+        } catch (Exception e) {
+            log.warn("[AgentService] Recovery counter unavailable for task={}: {}", taskUuid, e.getMessage());
+            return 1;
+        }
+    }
+
     /**
-     * 执行task。
+     * 执行或恢复指定任务的 Agent 规划流程。
+     *
      * @param taskUuid 任务唯一标识
      */
     @Override
@@ -144,14 +187,18 @@ public class AgentServiceImpl implements AgentService {
             return;
         }
 
+        String leaseToken = executionLeaseTokens.remove(taskUuid);
+        if (leaseToken != null && !leaseToken.isBlank()) {
+            task.setLeaseToken(leaseToken);
+        }
+
         MDC.put("taskUuid", taskUuid);
         try {
+            renewTaskLease(task);
             taskMetricsService.recordTaskStarted();
             runPlanningLoop(task, taskUuid, current);
         } catch (Exception e) {
-            Map<String, Object> payload = (e instanceof AgentException ae)
-                    ? ae.toEventPayload()
-                    : Map.of("code", "UNKNOWN", "message", String.valueOf(e.getMessage()), "retryable", false);
+            Map<String, Object> payload = buildErrorPayload(e, false);
             markFailed(task, taskUuid, e.getMessage(), payload);
         } finally {
             MDC.remove("taskUuid");
@@ -159,7 +206,8 @@ public class AgentServiceImpl implements AgentService {
     }
 
     /**
-     * 处理runPlanningLoop。
+     * 推进任务规划主循环，负责状态切换、候选选择、工具执行和最终落库编排。
+     *
      * @param task 任务实体
      * @param taskUuid 任务唯一标识
      * @param current 当前状态
@@ -178,7 +226,14 @@ public class AgentServiceImpl implements AgentService {
                 "Task execution started", null);
 
         if (!checkpoint.isOriginConfirmed()) {
-            handleAwaitingOriginSelection(task, checkpoint, taskUuid);
+            if (!selectionCoordinator.hasOriginCandidates(checkpoint)) {
+                markFailed(task, taskUuid, "No origin candidates were generated",
+                        Map.of("code", "NO_ORIGIN_CANDIDATES",
+                                "message", "No origin candidates were generated",
+                                "retryable", false));
+                return;
+            }
+            selectionCoordinator.awaitOriginSelection(task, checkpoint, taskUuid);
             return;
         }
 
@@ -192,12 +247,21 @@ public class AgentServiceImpl implements AgentService {
         }
 
         if (checkpoint.getPendingToolCall() != null) {
-            toolExecutor.replayPendingToolCall(task, checkpoint, taskUuid);
+            PendingToolReplayResult replayResult = toolExecutor.replayPendingToolCall(task, checkpoint, taskUuid);
+            if (replayResult == PendingToolReplayResult.PAUSED_FOR_CONFIRMATION) {
+                taskMapper.updateStatus(task.getId(), TaskStatus.PAUSED.getCode());
+                taskMetricsService.recordTaskPaused();
+                return;
+            }
         }
 
         checkpointHelper.refreshRemainingBudget(checkpoint);
 
         while (!checkpoint.isAllStepsDone() && checkpointHelper.canPlanAnotherStep(checkpoint)) {
+            if (stopIfExecutionNoLongerActive(task, taskUuid, checkpoint)) {
+                return;
+            }
+            renewTaskLease(task);
             int stepIndex = checkpoint.getCurrentStepIndex();
             int dayNumber = checkpointHelper.resolveDayNumberForOffset(checkpoint, checkpoint.getUsedTimeBudgetMin());
 
@@ -241,10 +305,27 @@ public class AgentServiceImpl implements AgentService {
                         }
                     }
                     if (planResult.requiresUserSelection()) {
-                        handleAwaitingSelection(task, checkpoint, taskUuid, stepIndex, dayNumber, planResult);
-                        return;
+                        LocationCandidateItem autoSelected = selectionCoordinator.chooseAutoCandidate(planResult).orElse(null);
+                        if (autoSelected != null) {
+                            selectionCoordinator.applyAutoSelection(task, checkpoint, taskUuid,
+                                    stepIndex, dayNumber, autoSelected, planResult);
+                            selectedCandidate = autoSelected;
+                            attractionName = selectionCoordinator.candidateAttractionName(autoSelected);
+                        } else {
+                            if (!selectionCoordinator.hasSelectionData(planResult)) {
+                                markFailed(task, taskUuid, "No selection data was generated",
+                                        Map.of("code", "NO_SELECTION_DATA",
+                                                "message", "No selection data was generated",
+                                                "retryable", false));
+                                return;
+                            }
+                            selectionCoordinator.awaitAttractionSelection(task, checkpoint, taskUuid,
+                                    stepIndex, dayNumber, planResult);
+                            return;
+                        }
+                    } else {
+                        attractionName = planResult.attractionName();
                     }
-                    attractionName = planResult.attractionName();
                 } catch (QuotaExhaustedException e) {
                     handleQuotaExhaustion(task, checkpoint, taskUuid);
                     return;
@@ -254,47 +335,9 @@ public class AgentServiceImpl implements AgentService {
                 }
             }
 
-            TaskStatus toolCalling = stateMachine.transition(TaskStatus.PLANNING, AgentEvent.START_TOOL_CALL);
-            task.setStatus(toolCalling.getCode());
-            checkpoint.setCurrentState(toolCalling.getCode());
-            taskMapper.updateStatus(task.getId(), toolCalling.getCode());
-            sendStateChange(taskUuid, checkpoint, toolCalling.getCode(), task);
-
-            Map<String, Object> geocodeResult;
-            Map<String, Object> weatherResult;
-            Map<String, Object> trafficResult = null;
-
+            AgentToolStepService.AgentToolStepResult toolResult;
             try {
-                Map<String, Object> geocodeArgs = Map.of("name", attractionName, "region", checkpoint.getRegion());
-                geocodeResult = toolExecutor.runToolWithCheckpoint(task, checkpoint, GeocodeTool.NAME, geocodeArgs, taskUuid, stepIndex);
-
-                String adcode = (String) geocodeResult.getOrDefault("adcode", "");
-                if (adcode.isBlank()) {
-                    weatherResult = Map.of("weather", "Unknown", "temperature", "", "windDirection", "", "windPower", "", "humidity", "");
-                } else {
-                    weatherResult = toolExecutor.runToolWithCheckpoint(task, checkpoint, WeatherTool.NAME, Map.of("adcode", adcode), taskUuid, stepIndex);
-                }
-
-                if (stepIndex > 0) {
-                    CompletedStep prevStep = checkpoint.getCompletedSteps().get(stepIndex - 1);
-                    trafficResult = toolExecutor.runToolWithCheckpoint(task, checkpoint, TrafficTimeTool.NAME, Map.of(
-                            "originLng", prevStep.getLng(),
-                            "originLat", prevStep.getLat(),
-                            "destLng", geocodeResult.get("lng"),
-                            "destLat", geocodeResult.get("lat"),
-                            "travelMode", checkpoint.getPlanningConfig().getTravelMode()
-                    ), taskUuid, stepIndex);
-                } else if (checkpoint.getSelectedOrigin() != null
-                        && checkpoint.getSelectedOrigin().getLatitude() != null
-                        && checkpoint.getSelectedOrigin().getLongitude() != null) {
-                    trafficResult = toolExecutor.runToolWithCheckpoint(task, checkpoint, TrafficTimeTool.NAME, Map.of(
-                            "originLng", checkpoint.getSelectedOrigin().getLongitude(),
-                            "originLat", checkpoint.getSelectedOrigin().getLatitude(),
-                            "destLng", geocodeResult.get("lng"),
-                            "destLat", geocodeResult.get("lat"),
-                            "travelMode", checkpoint.getPlanningConfig().getTravelMode()
-                    ), taskUuid, stepIndex);
-                }
+                toolResult = toolStepService.startAndRunTools(task, checkpoint, taskUuid, stepIndex, attractionName);
             } catch (QuotaExhaustedException e) {
                 handleQuotaExhaustion(task, checkpoint, taskUuid);
                 return;
@@ -303,18 +346,15 @@ public class AgentServiceImpl implements AgentService {
                 return;
             }
 
-            Map<String, Object> toolPayload = new HashMap<>();
-            toolPayload.put("geocode", geocodeResult);
-            toolPayload.put("weather", weatherResult);
-            toolPayload.put("traffic_time", trafficResult);
-            sseNotificationService.sendEvent(taskUuid, SseEvent.TOOL_RESULT, toolPayload);
+            if (stopIfExecutionNoLongerActive(task, taskUuid, checkpoint)) {
+                return;
+            }
 
-            TaskStatus backToPlanning = stateMachine.transition(TaskStatus.TOOL_CALLING, AgentEvent.TOOL_CALL_DONE);
-            task.setStatus(backToPlanning.getCode());
-            checkpoint.setCurrentState(backToPlanning.getCode());
-            taskMapper.updateStatus(task.getId(), backToPlanning.getCode());
-            sendStateChange(taskUuid, checkpoint, backToPlanning.getCode(), task);
+            toolStepService.finishToolStage(task, checkpoint, taskUuid, toolResult);
 
+            Map<String, Object> geocodeResult = toolResult.geocodeResult();
+            Map<String, Object> weatherResult = toolResult.weatherResult();
+            Map<String, Object> trafficResult = toolResult.trafficResult();
             int displayTrafficMin = trafficResult != null
                     ? ((Number) trafficResult.getOrDefault("durationMin", 0)).intValue() : 0;
             int budgetTrafficMin = checkpointHelper.shouldExcludeOriginTravelFromBudget(stepIndex, checkpoint)
@@ -368,13 +408,18 @@ public class AgentServiceImpl implements AgentService {
                     "Step " + stepIndex + " completed: " + attractionName, stepPayload);
         }
 
-        Long planId = persistPlan(task, checkpoint);
+        if (stopIfExecutionNoLongerActive(task, taskUuid, checkpoint)) {
+            return;
+        }
+
+        Long planId = planFinalizationService.finalizePlan(task, checkpoint).planId();
         TaskStatus completed = stateMachine.transition(TaskStatus.PLANNING, AgentEvent.COMPLETE);
         task.setStatus(completed.getCode());
         checkpoint.setCurrentState(completed.getCode());
         if (task.getTotalTokensUsed() == null) {
             task.setTotalTokensUsed(0);
         }
+        checkpointHelper.saveCheckpoint(task, checkpoint);
         taskMapper.updateStatus(task.getId(), completed.getCode());
         taskMetricsService.recordTaskCompleted();
         taskProgressService.recordEvent(taskUuid, EVT_COMPLETED, completed.getCode(),
@@ -390,113 +435,50 @@ public class AgentServiceImpl implements AgentService {
         sseNotificationService.completeEmitter(taskUuid);
     }
 
-    /**
-     * 处理awaitingoriginselection。
-     * @param task 任务实体
-     * @param checkpoint 任务检查点数据
-     * @param taskUuid 任务唯一标识
-     */
-    private void handleAwaitingOriginSelection(Task task, TaskCheckpoint checkpoint, String taskUuid) {
-        List<LocationCandidateItem> candidates = checkpoint.getLocationCandidates() == null
-                ? List.of()
-                : checkpoint.getLocationCandidates();
-        if (candidates.isEmpty()) {
-            markFailed(task, taskUuid, "No origin candidates were generated",
-                    Map.of("code", "NO_ORIGIN_CANDIDATES", "message", "No origin candidates were generated", "retryable", false));
-            return;
+    private boolean stopIfExecutionNoLongerActive(Task task, String taskUuid, TaskCheckpoint checkpoint) {
+        Task latest = taskMapper.findByUuid(taskUuid);
+        if (latest == null) {
+            log.warn("[AgentService] Stop execution because task disappeared: {}", taskUuid);
+            return true;
         }
 
-        TaskStatus awaiting = stateMachine.transition(TaskStatus.PLANNING, AgentEvent.USER_INPUT_REQUIRED);
-        checkpoint.setPendingInputType("origin_selection");
-        checkpoint.setSelectionStage("origin_selection");
-        checkpoint.setSelectedBranchType(null);
-        checkpoint.setSelectionOptions(List.of());
-        checkpoint.setRecommendationCandidates(new ArrayList<>(candidates));
-        checkpoint.setCurrentContext(Map.of());
-        checkpoint.setWeatherContext(Map.of());
-        checkpoint.setCurrentState(awaiting.getCode());
-        task.setStatus(awaiting.getCode());
-        checkpointHelper.saveCheckpoint(task, checkpoint);
-        taskMapper.updateStatus(task.getId(), awaiting.getCode());
+        TaskStatus latestStatus = TaskStatus.fromCode(latest.getStatus());
+        if (latestStatus == TaskStatus.CANCELLED) {
+            checkpoint.setCurrentState(TaskStatus.CANCELLED.getCode());
+            checkpoint.setPauseReason(PAUSE_REASON_USER_CANCELLED);
+            latest.setStatus(TaskStatus.CANCELLED.getCode());
+            checkpointHelper.saveCheckpoint(latest, checkpoint);
 
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("taskUuid", taskUuid);
-        payload.put("startLocationQuery", checkpoint.getStartLocationQuery());
-        payload.put("pendingInputType", "origin_selection");
-        payload.put("locationCandidates", candidates);
-        payload.put("recommendationCandidates", candidates);
-        payload.put("currentContext", Map.of());
+            Map<String, Object> payload = Map.of(
+                    "taskUuid", taskUuid,
+                    "status", TaskStatus.CANCELLED.getCode(),
+                    "reason", PAUSE_REASON_USER_CANCELLED
+            );
+            taskProgressService.recordEvent(taskUuid, EVT_CANCELLED, TaskStatus.CANCELLED.getCode(),
+                    checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(),
+                    "Task execution stopped because it was cancelled", payload);
+            sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE, payload);
+            sseNotificationService.completeEmitter(taskUuid);
+            task.setStatus(TaskStatus.CANCELLED.getCode());
+            return true;
+        }
 
-        sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_REQUIRED, payload);
-        taskProgressService.recordEvent(taskUuid, EVT_USER_SELECTION_REQUIRED, awaiting.getCode(),
-                checkpoint.getCurrentStepIndex(), checkpoint.totalPlannedSteps(),
-                "Waiting for origin selection", payload);
+        if (latestStatus.isTerminal()) {
+            log.info("[AgentService] Stop execution because task={} is already terminal: {}", taskUuid, latestStatus.getCode());
+            task.setStatus(latestStatus.getCode());
+            return true;
+        }
+        if (!latestStatus.isActive() && latestStatus != TaskStatus.PENDING) {
+            log.info("[AgentService] Stop execution because task={} moved to non-active state: {}", taskUuid, latestStatus.getCode());
+            task.setStatus(latestStatus.getCode());
+            return true;
+        }
+        return false;
     }
 
     /**
-     * 处理awaitingselection。
-     * @param task 任务实体
-     * @param checkpoint 任务检查点数据
-     * @param taskUuid 任务唯一标识
-     * @param stepIndex s te pI nd ex 参数
-     * @param dayNumber d ay Nu mb er 参数
-     * @param planResult p la nR es ul t 参数
-     */
-    private void handleAwaitingSelection(Task task,
-                                         TaskCheckpoint checkpoint,
-                                         String taskUuid,
-                                         int stepIndex,
-                                         int dayNumber,
-                                         PlanningResult planResult) {
-        boolean needsOptions = planResult.selectionOptions() != null && !planResult.selectionOptions().isEmpty();
-        boolean needsCandidates = planResult.recommendationCandidates() != null && !planResult.recommendationCandidates().isEmpty();
-        if (!needsOptions && !needsCandidates) {
-            markFailed(task, taskUuid, "No selection data was generated",
-                    Map.of("code", "NO_SELECTION_DATA", "message", "No selection data was generated", "retryable", false));
-            return;
-        }
-
-        TaskStatus awaiting = stateMachine.transition(TaskStatus.PLANNING, AgentEvent.USER_INPUT_REQUIRED);
-        Map<String, Object> currentContext = new LinkedHashMap<>();
-        if (planResult.currentContext() != null && !planResult.currentContext().isEmpty()) {
-            currentContext.putAll(planResult.currentContext());
-        } else {
-            currentContext.putAll(buildAttractionSelectionContext(checkpoint, stepIndex, dayNumber));
-        }
-        checkpoint.setPendingInputType(planResult.pendingInputType());
-        checkpoint.setSelectionStage(planResult.selectionStage());
-        checkpoint.setSelectedBranchType(planResult.selectedBranchType());
-        checkpoint.setSelectionOptions(planResult.selectionOptions() == null ? List.of() : new ArrayList<>(planResult.selectionOptions()));
-        checkpoint.setRecommendationCandidates(planResult.recommendationCandidates() == null
-                ? List.of()
-                : new ArrayList<>(planResult.recommendationCandidates()));
-        checkpoint.setCurrentContext(currentContext);
-        checkpoint.setWeatherContext(planResult.weatherContext() == null ? Map.of() : new LinkedHashMap<>(planResult.weatherContext()));
-        checkpoint.setCurrentState(awaiting.getCode());
-        task.setStatus(awaiting.getCode());
-        checkpointHelper.saveCheckpoint(task, checkpoint);
-        taskMapper.updateStatus(task.getId(), awaiting.getCode());
-
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("taskUuid", taskUuid);
-        payload.put("pendingInputType", planResult.pendingInputType());
-        payload.put("selectionStage", planResult.selectionStage());
-        payload.put("selectedBranchType", planResult.selectedBranchType());
-        payload.put("stepIndex", stepIndex);
-        payload.put("dayNumber", dayNumber);
-        payload.put("selectionOptions", checkpoint.getSelectionOptions());
-        payload.put("recommendationCandidates", checkpoint.getRecommendationCandidates());
-        payload.put("currentContext", currentContext);
-        payload.put("weatherContext", checkpoint.getWeatherContext());
-
-        sseNotificationService.sendEvent(taskUuid, SseEvent.USER_SELECTION_REQUIRED, payload);
-        taskProgressService.recordEvent(taskUuid, EVT_USER_SELECTION_REQUIRED, awaiting.getCode(),
-                stepIndex, checkpoint.totalPlannedSteps(),
-                "Waiting for user selection", payload);
-    }
-
-    /**
-     * 处理quotaexhaustion。
+     * 处理用户日配额耗尽，将任务暂停到次日零点后可恢复。
+     *
      * @param task 任务实体
      * @param checkpoint 任务检查点数据
      * @param taskUuid 任务唯一标识
@@ -520,11 +502,12 @@ public class AgentServiceImpl implements AgentService {
     }
 
     /**
-     * 处理retryorfail。
+     * 根据异常可重试性决定继续重试或标记任务失败。
+     *
      * @param task 任务实体
      * @param checkpoint 任务检查点数据
      * @param taskUuid 任务唯一标识
-     * @param exception 异常对象
+     * @param exception 本轮规划异常
      */
     private void handleRetryOrFail(Task task, TaskCheckpoint checkpoint, String taskUuid, Exception exception) {
         if (exception instanceof AgentException agentException
@@ -532,11 +515,13 @@ public class AgentServiceImpl implements AgentService {
             handleAmapRateLimit(task, checkpoint, taskUuid, agentException);
             return;
         }
+        if (exception instanceof RateLimitExceededException) {
+            markFailed(task, taskUuid, exception.getMessage(), buildErrorPayload(exception, false));
+            return;
+        }
 
         boolean retryable = !(exception instanceof AgentException ae) || ae.isRetryable();
-        Map<String, Object> errorPayload = (exception instanceof AgentException ae)
-                ? ae.toEventPayload()
-                : Map.of("code", "UNKNOWN", "message", String.valueOf(exception.getMessage()), "retryable", true);
+        Map<String, Object> errorPayload = buildErrorPayload(exception, true);
 
         if (!retryable) {
             markFailed(task, taskUuid, exception.getMessage(), errorPayload);
@@ -559,11 +544,12 @@ public class AgentServiceImpl implements AgentService {
     }
 
     /**
-     * 处理amapratelimit。
+     * 处理高德限流，优先自动退避重试，重试耗尽后暂停任务。
+     *
      * @param task 任务实体
      * @param checkpoint 任务检查点数据
      * @param taskUuid 任务唯一标识
-     * @param exception 异常对象
+     * @param exception 高德限流异常
      */
     private void handleAmapRateLimit(Task task, TaskCheckpoint checkpoint, String taskUuid, AgentException exception) {
         if (checkpoint.getRetryState() == null) {
@@ -604,12 +590,13 @@ public class AgentServiceImpl implements AgentService {
     }
 
     /**
-     * 处理pauseForAmapRateLimit。
+     * 因高德限流暂停任务，并记录可恢复时间和前端提示载荷。
+     *
      * @param task 任务实体
      * @param checkpoint 任务检查点数据
      * @param taskUuid 任务唯一标识
-     * @param exception 异常对象
-     * @param retryPayload r et ry Pa yl oa d 参数
+     * @param exception 高德限流异常
+     * @param retryPayload 已累计的重试上下文
      */
     private void pauseForAmapRateLimit(Task task, TaskCheckpoint checkpoint, String taskUuid,
                                        AgentException exception, Map<String, Object> retryPayload) {
@@ -637,8 +624,9 @@ public class AgentServiceImpl implements AgentService {
     }
 
     /**
-     * 处理sleepForRateLimitBackoff。
-     * @param seconds s ec on ds 参数
+     * 执行高德限流退避等待。
+     *
+     * @param seconds 等待秒数
      * @param taskUuid 任务唯一标识
      */
     private void sleepForRateLimitBackoff(int seconds, String taskUuid) {
@@ -651,17 +639,23 @@ public class AgentServiceImpl implements AgentService {
     }
 
     /**
-     * 处理markFailed。
+     * 将任务标记为失败，并同步 checkpoint、进度事件和 SSE。
+     *
      * @param task 任务实体
      * @param taskUuid 任务唯一标识
-     * @param errorMsg e rr or Ms g 参数
-     * @param errorPayload e rr or Pa yl oa d 参数
+     * @param errorMsg 错误摘要
+     * @param errorPayload 错误事件载荷
      */
     private void markFailed(Task task, String taskUuid, String errorMsg, Map<String, Object> errorPayload) {
         try {
             Task fresh = taskMapper.findByUuid(taskUuid);
             if (fresh != null && !TaskStatus.fromCode(fresh.getStatus()).isTerminal()) {
                 fresh.setErrorMessage(errorMsg);
+                TaskCheckpoint checkpoint = checkpointHelper.loadCheckpoint(fresh);
+                checkpoint.setCurrentState(TaskStatus.FAILED.getCode());
+                checkpoint.recordFailure(errorMsg);
+                checkpoint.recordIntermediateSummary(errorPayload);
+                checkpointHelper.saveCheckpoint(fresh, checkpoint);
                 taskMapper.updateStatus(fresh.getId(), TaskStatus.FAILED.getCode());
                 fresh.setStatus(TaskStatus.FAILED.getCode());
                 taskMapper.update(fresh);
@@ -675,8 +669,27 @@ public class AgentServiceImpl implements AgentService {
         }
     }
 
+    private Map<String, Object> buildErrorPayload(Exception exception, boolean defaultRetryable) {
+        if (exception instanceof AgentException ae) {
+            return ae.toEventPayload();
+        }
+        if (exception instanceof RateLimitExceededException) {
+            return Map.of(
+                    "code", "RATE_LIMIT_EXCEEDED",
+                    "message", String.valueOf(exception.getMessage()),
+                    "retryable", false
+            );
+        }
+        return Map.of(
+                "code", "UNKNOWN",
+                "message", String.valueOf(exception.getMessage()),
+                "retryable", defaultRetryable
+        );
+    }
+
     /**
-     * 处理sendStateChange。
+     * 推送任务状态变化 SSE。
+     *
      * @param taskUuid 任务唯一标识
      * @param checkpoint 任务检查点数据
      * @param status 状态值
@@ -695,135 +708,16 @@ public class AgentServiceImpl implements AgentService {
         sseNotificationService.sendEvent(taskUuid, SseEvent.STATE_CHANGE, payload);
     }
 
-    /**
-     * 处理persistPlan。
-     * @param task 任务实体
-     * @param checkpoint 任务检查点数据
-     * @return 返回处理结果。
-     */
-    private Long persistPlan(Task task, TaskCheckpoint checkpoint) {
-        FinalSummaryResult summary;
-        try {
-            summary = markovPlanner.generateFinalSummary(task, checkpoint, task.getTaskUuid());
-        } catch (Exception e) {
-            summary = null;
+    private void renewTaskLease(Task task) {
+        if (task != null && lifecycleGovernanceService != null
+                && task.getId() != null && task.getLeaseToken() != null
+                && !task.getLeaseToken().isBlank()) {
+            lifecycleGovernanceService.renewExecutionLease(task.getId(), task.getLeaseToken(), Duration.ofMinutes(10));
+            return;
         }
-
-        Plan plan = new Plan();
-        plan.setTaskId(task.getId());
-        plan.setUserId(task.getUserId());
-        plan.setRegion(checkpoint.getRegion());
-        plan.setTotalDays(checkpoint.getPlanningConfig().getTotalDays());
-        plan.setStartLocationQuery(checkpoint.getStartLocationQuery());
-        plan.setEndLocationQuery(checkpoint.getEndLocationQuery());
-        plan.setTripStartTime(checkpoint.getTripStartTime());
-        plan.setTripEndTime(checkpoint.getTripEndTime());
-        plan.setFullDayStartTime(checkpoint.getPlanningConfig().resolveFullDayStartTime());
-        plan.setFullDayEndTime(checkpoint.getPlanningConfig().resolveFullDayEndTime());
-        plan.setDestinationBufferMin(checkpoint.getPlanningConfig().getDestinationBufferMin());
-        if (summary != null) {
-            plan.setTitle(summary.title());
-            plan.setSummary(summary.summary());
-        } else {
-            plan.setTitle(checkpoint.getRegion() + " " + checkpoint.getPlanningConfig().getTotalDays() + "-Day Trip");
-            plan.setSummary(checkpoint.getUserIntent());
+        if (redisTaskLockService != null && task != null) {
+            redisTaskLockService.renewLease(task.getTaskUuid());
         }
-        planPersistenceService.insertPlan(plan);
-
-        List<FinalSummaryResult.StepSummary> stepSummaries = summary != null ? summary.steps() : List.of();
-        List<PlanStep> steps = buildPlanSteps(plan.getId(), checkpoint.getCompletedSteps(), stepSummaries);
-        planPersistenceService.insertSteps(steps);
-        return plan.getId();
     }
 
-    /**
-     * 构建plansteps。
-     * @param planId 计划ID
-     * @param completedSteps 已完成步骤
-     * @param stepSummaries s te pS um ma ri es 参数
-     * @return 返回处理后的列表结果。
-     */
-    private List<PlanStep> buildPlanSteps(Long planId, List<CompletedStep> completedSteps,
-                                          List<FinalSummaryResult.StepSummary> stepSummaries) {
-        Map<Integer, FinalSummaryResult.StepSummary> summaryByOrder = new LinkedHashMap<>();
-        for (FinalSummaryResult.StepSummary ss : stepSummaries) {
-            summaryByOrder.put(ss.stepOrder(), ss);
-        }
-
-        List<PlanStep> steps = new ArrayList<>();
-        for (CompletedStep cs : completedSteps) {
-            PlanStep ps = new PlanStep();
-            ps.setPlanId(planId);
-            ps.setStepOrder(cs.getStepIndex());
-            ps.setDayNumber(cs.getDayNumber());
-            ps.setAttractionName(cs.getAttractionName());
-            ps.setLatitude(cs.getLat() != null ? BigDecimal.valueOf(cs.getLat()) : null);
-            ps.setLongitude(cs.getLng() != null ? BigDecimal.valueOf(cs.getLng()) : null);
-
-            FinalSummaryResult.StepSummary ss = summaryByOrder.get(cs.getStepIndex());
-            ps.setEstimatedDurationMin(ss != null ? ss.estimatedDurationMin() : cs.getEstimatedVisitDurationMin());
-            ps.setLlmDescription(ss != null ? ss.llmDescription() : null);
-            ps.setPlannedStartTime(cs.getPlannedStartTime());
-            ps.setPlannedEndTime(cs.getPlannedEndTime());
-            ps.setTravelTimeToDestinationMin(cs.getTravelTimeToDestinationMin());
-
-            Map<String, Object> toolResults = cs.getToolCallResults();
-            if (toolResults != null) {
-                Map<?, ?> traffic = (Map<?, ?>) toolResults.get(TrafficTimeTool.NAME);
-                if (traffic != null && traffic.get("durationMin") != null) {
-                    ps.setTrafficTimeFromPrev(((Number) traffic.get("durationMin")).intValue());
-                } else {
-                    ps.setTrafficTimeFromPrev(cs.getTrafficTimeFromPrevMin());
-                }
-                Map<?, ?> weather = (Map<?, ?>) toolResults.get(WeatherTool.NAME);
-                if (weather != null) {
-                    Object weatherValue = weather.get("weather");
-                    Object temperatureValue = weather.get("temperature");
-                    String weatherText = weatherValue == null ? "" : weatherValue.toString().trim();
-                    String temperatureText = temperatureValue == null ? "" : temperatureValue.toString().trim();
-                    ps.setWeatherNote((weatherText + " " + temperatureText + " C").trim());
-                }
-            }
-            steps.add(ps);
-        }
-        return steps;
-    }
-
-    /**
-     * 构建attractionselectioncontext。
-     * @param checkpoint 任务检查点数据
-     * @param stepIndex s te pI nd ex 参数
-     * @param dayNumber d ay Nu mb er 参数
-     * @return 返回处理后的映射结果。
-     */
-    private Map<String, Object> buildAttractionSelectionContext(TaskCheckpoint checkpoint, int stepIndex, int dayNumber) {
-        Map<String, Object> context = new LinkedHashMap<>();
-        context.put("stepIndex", stepIndex);
-        context.put("dayNumber", dayNumber);
-        context.put("remainingTimeBudgetMin", checkpoint.getRemainingTimeBudgetMin());
-        context.put("projectedReturnToDestinationMin", checkpoint.getProjectedReturnToDestinationMin());
-        context.put("currentPositionName", resolveCurrentPositionName(checkpoint));
-        context.put("destinationName", checkpoint.getSelectedDestination() != null
-                ? checkpoint.getSelectedDestination().getName()
-                : checkpoint.getEndLocationQuery());
-        context.put("travelMode", checkpoint.getPlanningConfig() != null
-                ? checkpoint.getPlanningConfig().getTravelMode()
-                : null);
-        return context;
-    }
-
-    /**
-     * 解析并确定currentpositionname。
-     * @param checkpoint 任务检查点数据
-     * @return 返回处理结果。
-     */
-    private String resolveCurrentPositionName(TaskCheckpoint checkpoint) {
-        if (checkpoint.getCompletedSteps() != null && !checkpoint.getCompletedSteps().isEmpty()) {
-            return checkpoint.getCompletedSteps().get(checkpoint.getCompletedSteps().size() - 1).getAttractionName();
-        }
-        if (checkpoint.getSelectedOrigin() != null) {
-            return checkpoint.getSelectedOrigin().getName();
-        }
-        return checkpoint.getStartLocationQuery();
-    }
 }

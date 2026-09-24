@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelagent.mapper.ToolExecutionRecordMapper">
+    <insert id="insertRunning">
+        INSERT IGNORE INTO tool_execution_records
+            (task_uuid, user_id, tool_name, idempotency_key, argument_fingerprint, status, started_at, updated_at)
+        VALUES (#{taskUuid}, #{userId}, #{toolName}, #{idempotencyKey}, #{argumentFingerprint}, 'RUNNING', NOW(), NOW())
+    </insert>
+    <select id="findByKey" resultType="java.util.HashMap">
+        SELECT task_uuid, user_id, tool_name, idempotency_key, argument_fingerprint,
+               status, result_json, error_message, started_at, completed_at, updated_at
+        FROM tool_execution_records
+        WHERE task_uuid = #{taskUuid} AND idempotency_key = #{idempotencyKey}
+        LIMIT 1
+    </select>
+    <update id="resetFailedForRetry">
+        UPDATE tool_execution_records
+        SET status = 'RUNNING', argument_fingerprint = #{argumentFingerprint},
+            result_json = NULL, error_message = NULL, started_at = NOW(),
+            completed_at = NULL, updated_at = NOW()
+        WHERE task_uuid = #{taskUuid}
+          AND idempotency_key = #{idempotencyKey}
+          AND argument_fingerprint = #{argumentFingerprint}
+          AND status = 'FAILED'
+    </update>
+    <update id="finish">
+        UPDATE tool_execution_records
+        SET status = #{status}, result_json = #{resultJson}, error_message = #{errorMessage}, updated_at = NOW(),
+            completed_at = CASE WHEN #{status} IN ('SUCCEEDED', 'FAILED', 'UNKNOWN') THEN NOW() ELSE completed_at END
+        WHERE task_uuid = #{taskUuid} AND idempotency_key = #{idempotencyKey}
+    </update>
+</mapper>

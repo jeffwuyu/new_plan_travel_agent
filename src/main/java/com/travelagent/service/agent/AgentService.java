@@ -51,4 +51,9 @@ public interface AgentService {
      * @param taskUuid externally-visible UUID of the task to execute
      */
     void executeTask(String taskUuid);
+
+    /** Execute with a database fencing lease while preserving the legacy entry point. */
+    default void executeTask(String taskUuid, String leaseToken) {
+        executeTask(taskUuid);
+    }
 }
