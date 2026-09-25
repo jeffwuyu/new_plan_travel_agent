@@ -19,6 +19,13 @@ public class RagChunk {
 
     private Integer chunkIndex;
 
+    private String stableChunkId;
+    private String chunkPolicyVersion;
+    private String indexVersion;
+    private Integer sourceStart;
+    private Integer sourceEnd;
+    private String locatorJson;
+
     private String chunkText;
 
     /** DashVector vector ID, set after upsert */

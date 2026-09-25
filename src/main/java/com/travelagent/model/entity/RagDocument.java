@@ -49,6 +49,12 @@ public class RagDocument {
 
     private String errorMessage;
 
+    private Integer sourceVersion;
+    private String chunkPolicyVersion;
+    private String indexVersion;
+    private String contentHash;
+    private Boolean indexPublished;
+
     private LocalDateTime disabledAt;
 
     private LocalDateTime createdAt;

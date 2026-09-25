@@ -37,6 +37,9 @@ public interface RagDocumentMapper {
                         @Param("lastErrorCode") String lastErrorCode,
                         @Param("errorMessage") String errorMessage);
 
+    int publishIndex(@Param("id") Long id, @Param("indexVersion") String indexVersion,
+                     @Param("contentHash") String contentHash);
+
     /** Increments retry count before a manual reingest attempt. */
     int incrementRetryCount(@Param("id") Long id);
 

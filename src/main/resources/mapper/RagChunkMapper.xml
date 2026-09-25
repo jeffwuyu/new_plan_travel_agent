@@ -8,6 +8,12 @@
         <id     property="id"            column="id"/>
         <result property="documentId"    column="document_id"/>
         <result property="chunkIndex"    column="chunk_index"/>
+        <result property="stableChunkId" column="stable_chunk_id"/>
+        <result property="chunkPolicyVersion" column="chunk_policy_version"/>
+        <result property="indexVersion" column="index_version"/>
+        <result property="sourceStart" column="source_start"/>
+        <result property="sourceEnd" column="source_end"/>
+        <result property="locatorJson" column="locator_json"/>
         <result property="chunkText"     column="chunk_text"/>
         <result property="dashvectorId"  column="dashvector_id"/>
         <result property="embeddingJson" column="embedding_json"/>
@@ -33,21 +39,25 @@
     </resultMap>
 
     <insert id="insertBatch" parameterType="java.util.List">
-        INSERT INTO rag_chunks (document_id, chunk_index, chunk_text, dashvector_id,
+        INSERT INTO rag_chunks (document_id, chunk_index, stable_chunk_id, chunk_policy_version, index_version,
+                                source_start, source_end, locator_json, chunk_text, dashvector_id,
                                 embedding_json, search_text, metadata_json, token_count, created_at)
         VALUES
         <foreach collection="chunks" item="c" separator=",">
-            (#{c.documentId}, #{c.chunkIndex}, #{c.chunkText}, #{c.dashvectorId},
+            (#{c.documentId}, #{c.chunkIndex}, #{c.stableChunkId}, #{c.chunkPolicyVersion}, #{c.indexVersion},
+             #{c.sourceStart}, #{c.sourceEnd}, #{c.locatorJson}, #{c.chunkText}, #{c.dashvectorId},
              #{c.embeddingJson}, #{c.searchText}, #{c.metadataJson}, #{c.tokenCount}, NOW())
         </foreach>
     </insert>
 
     <insert id="insertBatchPostgres" parameterType="java.util.List">
-        INSERT INTO rag_chunks (document_id, chunk_index, chunk_text, dashvector_id,
+        INSERT INTO rag_chunks (document_id, chunk_index, stable_chunk_id, chunk_policy_version, index_version,
+                                source_start, source_end, locator_json, chunk_text, dashvector_id,
                                 embedding_vector, embedding_json, search_text, metadata_json, token_count, created_at)
         VALUES
         <foreach collection="chunks" item="c" separator=",">
-            (#{c.documentId}, #{c.chunkIndex}, #{c.chunkText}, #{c.dashvectorId},
+            (#{c.documentId}, #{c.chunkIndex}, #{c.stableChunkId}, #{c.chunkPolicyVersion}, #{c.indexVersion},
+             #{c.sourceStart}, #{c.sourceEnd}, #{c.locatorJson}, #{c.chunkText}, #{c.dashvectorId},
              #{c.embeddingVector,jdbcType=OTHER}::vector, #{c.embeddingJson}, #{c.searchText}, #{c.metadataJson}, #{c.tokenCount}, NOW())
         </foreach>
     </insert>
@@ -85,7 +95,7 @@
                0 AS freshness_score
         FROM rag_chunks c
         JOIN rag_documents d ON d.id = c.document_id
-        WHERE d.status = 'indexed'
+        WHERE d.status = 'indexed' AND d.index_published = 1
           AND c.embedding_vector IS NOT NULL
         <if test="region != null and region != ''">
           AND d.region = #{region}
@@ -109,7 +119,7 @@
                0 AS freshness_score
         FROM rag_chunks c
         JOIN rag_documents d ON d.id = c.document_id
-        WHERE d.status = 'indexed'
+        WHERE d.status = 'indexed' AND d.index_published = 1
           AND c.search_tsv @@ websearch_to_tsquery('simple', #{queryText})
         <if test="region != null and region != ''">
           AND d.region = #{region}
@@ -133,7 +143,7 @@
                0 AS freshness_score
         FROM rag_chunks c
         JOIN rag_documents d ON d.id = c.document_id
-        WHERE d.status = 'indexed'
+        WHERE d.status = 'indexed' AND d.index_published = 1
           AND (c.search_text LIKE CONCAT('%', #{queryText}, '%')
                OR c.chunk_text LIKE CONCAT('%', #{queryText}, '%')
                OR d.title LIKE CONCAT('%', #{queryText}, '%'))

@@ -21,6 +21,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.stream.Collectors;
 
 /**
@@ -30,6 +33,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class RagServiceImpl implements RagService {
+
+    private static final String CHUNK_POLICY_VERSION = "paragraph-v1";
 
     private static final Logger log = LoggerFactory.getLogger(RagServiceImpl.class);
 
@@ -148,6 +153,9 @@ public class RagServiceImpl implements RagService {
         doc.setStatus(STATUS_PENDING);
         doc.setIngestProgress(0);
         doc.setRetryCount(0);
+        doc.setSourceVersion(1);
+        doc.setChunkPolicyVersion(CHUNK_POLICY_VERSION);
+        doc.setIndexPublished(false);
         ragDocumentMapper.insert(doc);
         log.info("Registered RAG document id={}, ossKey={}", doc.getId(), ossKey);
         return doc;
@@ -187,6 +195,9 @@ public class RagServiceImpl implements RagService {
 
             // 按文档类型提取纯文本。
             String text = extractText(rawBytes, doc.getDocType());
+            doc.setContentHash(sha256(rawBytes));
+            doc.setIndexVersion(doc.getId() + "-v" + safeSourceVersion(doc));
+            doc.setIndexPublished(false);
             ragDocumentMapper.updateLifecycle(documentId, STATUS_INDEXING, 40,
                     safeRetryCount(doc), null, null);
 
@@ -221,6 +232,12 @@ public class RagServiceImpl implements RagService {
                 RagChunk chunk = new RagChunk();
                 chunk.setDocumentId(documentId);
                 chunk.setChunkIndex(i);
+                chunk.setStableChunkId(documentId + ":" + safeSourceVersion(doc) + ":" + i + ":" + sha256(chunkText.getBytes(StandardCharsets.UTF_8)).substring(0, 16));
+                chunk.setChunkPolicyVersion(CHUNK_POLICY_VERSION);
+                chunk.setIndexVersion(doc.getIndexVersion());
+                chunk.setSourceStart(text.indexOf(chunkText));
+                chunk.setSourceEnd(chunk.getSourceStart() < 0 ? null : chunk.getSourceStart() + chunkText.length());
+                chunk.setLocatorJson("{\"chunkIndex\":" + i + "}");
                 chunk.setChunkText(chunkText);
                 chunk.setDashvectorId(dashvectorId);
                 String vectorLiteral = retrievalService().toJsonArray(vector);
@@ -243,12 +260,25 @@ public class RagServiceImpl implements RagService {
             // 全部 chunk 写入成功后标记文档可检索。
             ragDocumentMapper.updateLifecycle(documentId, STATUS_INDEXED, 100,
                     safeRetryCount(doc), null, null);
+            ragDocumentMapper.publishIndex(documentId, doc.getIndexVersion(), doc.getContentHash());
             log.info("Ingestion complete for documentId={}, chunks={}", documentId, chunks.size());
 
         } catch (Exception e) {
             log.error("Ingestion failed for documentId={}: {}", documentId, e.getMessage(), e);
             ragDocumentMapper.updateLifecycle(documentId, STATUS_FAILED, 0,
                     safeRetryCount(doc), classifyIngestErrorCode(e), e.getMessage());
+        }
+    }
+
+    private int safeSourceVersion(RagDocument doc) {
+        return doc.getSourceVersion() == null ? 1 : doc.getSourceVersion();
+    }
+
+    private String sha256(byte[] value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+        } catch (Exception exception) {
+            throw new IllegalStateException("SHA-256 is required", exception);
         }
     }
 
