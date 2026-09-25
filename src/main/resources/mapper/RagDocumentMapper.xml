@@ -71,6 +71,7 @@
             retry_count = #{retryCount},
             last_error_code = #{lastErrorCode},
             error_message = #{errorMessage},
+            index_published = CASE WHEN #{status} = 'indexed' THEN index_published ELSE 0 END,
             updated_at = NOW()
         WHERE id = #{id}
     </update>
