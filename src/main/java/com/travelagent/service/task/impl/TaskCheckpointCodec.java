@@ -1,6 +1,7 @@
 package com.travelagent.service.task.impl;
 
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.exception.CheckpointCorruptedException;
 import com.travelagent.model.dto.TaskResponse;
 import com.travelagent.model.entity.Task;
 import com.travelagent.util.JsonUtil;
@@ -34,17 +35,27 @@ public class TaskCheckpointCodec {
      * 从任务实体解析 checkpoint。
      *
      * @param task 任务实体
-     * @return checkpoint 对象，缺失或解析失败时返回 null
+     * @return checkpoint 对象；缺失 checkpoint 返回 null
+     * @throws CheckpointCorruptedException JSON 损坏或版本不支持时抛出
      */
     public TaskCheckpoint parse(Task task) {
         if (task.getCheckpointJson() == null || task.getCheckpointJson().isBlank()) {
             return null;
         }
         try {
-            return jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
+            TaskCheckpoint checkpoint = jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
+            checkpoint.migrateToCurrentSchema();
+            return checkpoint;
+        } catch (IllegalArgumentException e) {
+            log.warn("Unsupported checkpoint for task={}: {}", task.getTaskUuid(), e.getMessage());
+            String code = e.getMessage() != null && e.getMessage().contains("schema")
+                    ? "CHECKPOINT_VERSION_UNSUPPORTED" : "CHECKPOINT_CORRUPTED";
+            throw new CheckpointCorruptedException(code,
+                    "Checkpoint cannot be resumed for task=" + task.getTaskUuid() + ": " + e.getMessage(), e);
         } catch (Exception e) {
             log.warn("Failed to parse checkpoint for task={}: {}", task.getTaskUuid(), e.getMessage());
-            return null;
+            throw new CheckpointCorruptedException("CHECKPOINT_CORRUPTED",
+                    "Checkpoint cannot be parsed for task=" + task.getTaskUuid(), e);
         }
     }
 

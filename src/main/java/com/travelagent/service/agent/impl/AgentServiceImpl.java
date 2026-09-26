@@ -11,6 +11,7 @@ import com.travelagent.agent.statemachine.AgentStateMachine;
 import com.travelagent.config.DatabaseSchemaGuard;
 import com.travelagent.exception.AgentErrorCode;
 import com.travelagent.exception.AgentException;
+import com.travelagent.exception.CheckpointCorruptedException;
 import com.travelagent.exception.QuotaExhaustedException;
 import com.travelagent.exception.RateLimitExceededException;
 import com.travelagent.mapper.TaskMapper;
@@ -662,7 +663,23 @@ public class AgentServiceImpl implements AgentService {
             Task fresh = taskMapper.findByUuid(taskUuid);
             if (fresh != null && !TaskStatus.fromCode(fresh.getStatus()).isTerminal()) {
                 fresh.setErrorMessage(errorMsg);
-                TaskCheckpoint checkpoint = checkpointHelper.loadCheckpoint(fresh);
+                TaskCheckpoint checkpoint;
+                try {
+                    checkpoint = checkpointHelper.loadCheckpoint(fresh);
+                } catch (CheckpointCorruptedException corrupted) {
+                    // Never resume from an untrusted payload. Replace it with a
+                    // minimal failure checkpoint so the task is queryable and
+                    // no provider call can be made from an unknown step.
+                    checkpoint = new TaskCheckpoint();
+                    checkpoint.setTaskId(fresh.getId());
+                    checkpoint.setUserId(fresh.getUserId());
+                    checkpoint.setTaskUuid(fresh.getTaskUuid());
+                    errorPayload = new HashMap<>(errorPayload == null ? Map.of() : errorPayload);
+                    errorPayload.put("code", corrupted.getCode());
+                    errorPayload.put("retryable", false);
+                    errorPayload.put("message", corrupted.getMessage());
+                    errorMsg = corrupted.getMessage();
+                }
                 checkpoint.setCurrentState(TaskStatus.FAILED.getCode());
                 checkpoint.recordFailure(errorMsg);
                 checkpoint.recordIntermediateSummary(errorPayload);

@@ -13,6 +13,7 @@ import com.travelagent.client.amap.AmapClient;
 import com.travelagent.mapper.TaskMapper;
 import com.travelagent.mapper.UserMapper;
 import com.travelagent.model.entity.Task;
+import com.travelagent.exception.CheckpointCorruptedException;
 import com.travelagent.service.task.TaskLifecycleGovernanceService;
 import com.travelagent.util.JsonUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,8 +58,14 @@ public class AgentCheckpointHelper {
             hydrateTaskMetadata(task, checkpoint);
             checkpoint.migrateToCurrentSchema();
             return checkpoint;
+        } catch (IllegalArgumentException e) {
+            throw new CheckpointCorruptedException(
+                    e.getMessage() != null && e.getMessage().contains("schema")
+                            ? "CHECKPOINT_VERSION_UNSUPPORTED" : "CHECKPOINT_CORRUPTED",
+                    "Checkpoint cannot be resumed for task=" + task.getTaskUuid() + ": " + e.getMessage(), e);
         } catch (Exception e) {
-            throw new RuntimeException("Checkpoint deserialization failed for task=" + task.getTaskUuid(), e);
+            throw new CheckpointCorruptedException("CHECKPOINT_CORRUPTED",
+                    "Checkpoint cannot be parsed for task=" + task.getTaskUuid(), e);
         }
     }
 
