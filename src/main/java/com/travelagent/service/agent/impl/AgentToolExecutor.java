@@ -26,6 +26,7 @@ import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.ratelimit.AgentRateLimitService;
 import com.travelagent.service.task.TaskProgressService;
+import com.travelagent.service.task.RedisTaskLockService;
 import com.travelagent.util.JsonUtil;
 import com.travelagent.validation.JsonSchemaValidationException;
 import org.slf4j.Logger;
@@ -80,6 +81,7 @@ public class AgentToolExecutor {
     @Autowired(required = false) private AgentRateLimitService agentRateLimitService;
     @Autowired(required = false) private ObservationCleaningService observationCleaningService;
     @Autowired(required = false) private ScratchpadManagementService scratchpadManagementService;
+    @Autowired(required = false) private RedisTaskLockService redisTaskLockService;
     @Autowired(required = false) private ToolExecutionRecordMapper toolExecutionRecordMapper;
 
     private final Map<String, InFlightToolCall> idempotentCalls = new ConcurrentHashMap<>();
@@ -235,7 +237,7 @@ public class AgentToolExecutor {
         while (attempt <= maxRetries) {
             try {
                 checkToolRateLimit(task);
-                Map<String, Object> output = tool.execute(arguments, idempotencyKey);
+                Map<String, Object> output = executeWithLeaseRenewal(tool, arguments, idempotencyKey, taskUuid);
                 output = cleanObservationIfNeeded(task, toolName, output, idempotencyKey);
                 ToolResultValidationResult validation = validateToolResult(tool, output);
                 ToolCallResult result = buildSuccessResult(tool, arguments, validation.getOutput(), startedAt, attempt);
@@ -346,7 +348,7 @@ public class AgentToolExecutor {
         }
         try {
             checkToolRateLimit(task);
-            tool.execute(pending.getArguments(), pending.getIdempotencyKey());
+            executeWithLeaseRenewal(tool, pending.getArguments(), pending.getIdempotencyKey(), taskUuid);
             checkpoint.setPendingToolCall(null);
             checkpointHelper.saveCheckpoint(task, checkpoint);
             return PendingToolReplayResult.REPLAYED;
@@ -356,6 +358,28 @@ public class AgentToolExecutor {
             log.warn("[AgentToolExecutor] Replay of pending tool {} failed for task={}: {}",
                     pending.getToolName(), taskUuid, e.getMessage());
             return PendingToolReplayResult.FAILED;
+        }
+    }
+
+    private Map<String, Object> executeWithLeaseRenewal(AgentTool tool,
+                                                        Map<String, Object> arguments,
+                                                        String idempotencyKey,
+                                                        String taskUuid) {
+        AutoCloseable guard = null;
+        try {
+            if (redisTaskLockService != null && taskUuid != null && !taskUuid.isBlank()) {
+                guard = redisTaskLockService.startAutoRenew(taskUuid);
+            }
+            return tool.execute(arguments, idempotencyKey);
+        } finally {
+            if (guard != null) {
+                try {
+                    guard.close();
+                } catch (Exception closeFailure) {
+                    log.debug("Failed to stop Redis lease renewer for task={}: {}", taskUuid,
+                            closeFailure.getMessage());
+                }
+            }
         }
     }
 

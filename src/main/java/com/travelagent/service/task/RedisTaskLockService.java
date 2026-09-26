@@ -13,6 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class RedisTaskLockService {
@@ -27,6 +31,11 @@ public class RedisTaskLockService {
     private final DefaultRedisScript<Long> renewLeaseScript;
     private final DefaultRedisScript<Long> releaseScript;
     private final Map<String, String> ownerTokens = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService renewScheduler = Executors.newScheduledThreadPool(1, runnable -> {
+        Thread thread = new Thread(runnable, "agent-redis-lease-renewer");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     public RedisTaskLockService(StringRedisTemplate redisTemplate,
                                 @Value("${agent.task.lock-ttl-ms:600000}") long lockTtlMs,
@@ -101,6 +110,18 @@ public class RedisTaskLockService {
         }
     }
 
+    /**
+     * Keeps a task lease alive while an external provider call is in flight.
+     * The returned guard is deliberately owner-bound; a stale worker can never
+     * renew a replacement owner's token because the Lua script checks the value.
+     */
+    public AutoCloseable startAutoRenew(String taskUuid) {
+        long interval = Math.max(250L, leaseTtl.toMillis() / 3L);
+        ScheduledFuture<?> future = renewScheduler.scheduleAtFixedRate(
+                () -> renewLease(taskUuid), interval, interval, TimeUnit.MILLISECONDS);
+        return () -> future.cancel(false);
+    }
+
     public boolean hasValidLease(String taskUuid) {
         try {
             Long ttl = redisTemplate.getExpire(leaseKey(taskUuid));
@@ -146,11 +167,13 @@ public class RedisTaskLockService {
 
     public void release(String taskUuid) {
         try {
-            redisTemplate.execute(
+            Long released = redisTemplate.execute(
                     releaseScript,
                     List.of(lockKey(taskUuid), leaseKey(taskUuid)),
                     ownerTokens.getOrDefault(taskUuid, ownerId));
-            ownerTokens.remove(taskUuid);
+            if (Long.valueOf(1L).equals(released)) {
+                ownerTokens.remove(taskUuid);
+            }
         } catch (Exception e) {
             log.warn("Redis task lock release unavailable for task={}: {}", taskUuid, e.getMessage());
         }
