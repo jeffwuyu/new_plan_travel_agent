@@ -126,7 +126,7 @@ public class MarkovPlanner {
                     currentContext, weatherContext);
         }
 
-        Map<String, Object> routeValidationContext = buildRouteValidationContext(cp, weatherContext, rankedCandidates);
+        Map<String, Object> routeValidationContext = buildRouteValidationContext(cp, request, weatherContext, rankedCandidates);
         String idempotencyKey = taskUuid + "-step" + cp.getCurrentStepIndex() + "-route-llm";
         LlmCallResult llmResult = llmClient.callStreaming(
                 task.getId(), task.getUserId(), "route_planning",
@@ -159,6 +159,7 @@ public class MarkovPlanner {
     }
 
     private Map<String, Object> buildRouteValidationContext(TaskCheckpoint cp,
+                                                            PlanNextAttractionRequest request,
                                                             Map<String, Object> weatherContext,
                                                             List<LocationCandidateItem> rankedCandidates) {
         Map<String, Object> context = new LinkedHashMap<>(weatherContext == null ? Map.of() : weatherContext);
@@ -172,6 +173,9 @@ public class MarkovPlanner {
                 .filter(value -> value != null && !value.isBlank())
                 .distinct()
                 .toList());
+        context.put("visitedPoiNames", request.getVisitedPoiNames() == null ? List.of() : request.getVisitedPoiNames());
+        context.put("currentPositionName", request.getCurrentPositionName());
+        context.put("currentAdcode", request.getCurrentAdcode());
         return context;
     }
 

@@ -28,15 +28,21 @@ public class LlmOutputSemanticValidator {
         Set<String> allowedIds = stringSet(validationContext, "allowedRouteIds", "candidateIds", "ragCandidateIds");
         Set<String> allowedNames = lowerStringSet(validationContext, "allowedAttractionNames", "candidateNames", "ragCandidateNames");
         Integer remainingBudget = positiveInteger(validationContext == null ? null : validationContext.get("remainingTimeBudgetMin"));
+        Set<String> visitedNames = lowerStringSet(validationContext, "visitedPoiNames", "visitedAttractionNames");
+        Set<String> seenTargets = new LinkedHashSet<>();
 
         List<Object> validRoutes = new ArrayList<>();
         for (Object item : routes) {
             if (!(item instanceof Map<?, ?> route)) {
                 continue;
             }
-            List<String> violations = validateRoute(route, allowedIds, allowedNames, remainingBudget);
+            List<String> violations = validateRoute(route, allowedIds, allowedNames, remainingBudget, visitedNames, seenTargets);
             if (violations.isEmpty()) {
                 validRoutes.add(item);
+                String targetName = firstNonBlank(route.get("targetAttractionName"), route.get("title"));
+                String routeId = stringValue(route.get("routeId"));
+                if (!routeId.isBlank()) seenTargets.add("id:" + routeId);
+                if (!targetName.isBlank()) seenTargets.add("name:" + targetName.toLowerCase(Locale.ROOT));
             } else {
                 log.warn("[LlmOutputSemanticValidator] Dropping invalid route candidate routeId={} reasons={}",
                         route.get("routeId"), violations);
@@ -51,7 +57,9 @@ public class LlmOutputSemanticValidator {
     private List<String> validateRoute(Map<?, ?> route,
                                        Set<String> allowedIds,
                                        Set<String> allowedNames,
-                                       Integer remainingBudget) {
+                                       Integer remainingBudget,
+                                       Set<String> visitedNames,
+                                       Set<String> seenTargets) {
         List<String> violations = new ArrayList<>();
         String routeId = stringValue(route.get("routeId"));
         if (!allowedIds.isEmpty() && !allowedIds.contains(routeId)) {
@@ -59,6 +67,16 @@ public class LlmOutputSemanticValidator {
         }
 
         String targetName = firstNonBlank(route.get("targetAttractionName"), route.get("title"));
+        String normalizedTarget = targetName.toLowerCase(Locale.ROOT);
+        if (!normalizedTarget.isBlank() && visitedNames.contains(normalizedTarget)) {
+            violations.add("target attraction was already visited");
+        }
+        if (!normalizedTarget.isBlank() && seenTargets.contains("name:" + normalizedTarget)) {
+            violations.add("duplicate target attraction in route candidates");
+        }
+        if (!routeId.isBlank() && seenTargets.contains("id:" + routeId)) {
+            violations.add("duplicate route candidate");
+        }
         if (!allowedNames.isEmpty()
                 && !targetName.isBlank()
                 && !allowedNames.contains(targetName.toLowerCase(Locale.ROOT))) {
