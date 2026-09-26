@@ -6,20 +6,23 @@
         <result property="revision" column="revision"/><result property="status" column="status"/>
         <result property="rawText" column="raw_text"/><result property="constraintsJson" column="constraints_json"/>
         <result property="questionsJson" column="questions_json"/><result property="idempotencyKey" column="idempotency_key"/>
+        <result property="confirmationIdempotencyKey" column="confirmation_idempotency_key"/>
+        <result property="confirmationSnapshotJson" column="confirmation_snapshot_json"/>
+        <result property="timezone" column="timezone"/><result property="answersJson" column="answers_json"/>
         <result property="taskUuid" column="task_uuid"/><result property="createdAt" column="created_at"/><result property="updatedAt" column="updated_at"/>
     </resultMap>
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO travel_requirement_drafts(user_id,revision,status,raw_text,constraints_json,questions_json,idempotency_key)
-        VALUES(#{userId},1,#{status},#{rawText},#{constraintsJson},#{questionsJson},#{idempotencyKey})
+        INSERT INTO travel_requirement_drafts(user_id,revision,status,raw_text,constraints_json,questions_json,idempotency_key,timezone)
+        VALUES(#{userId},1,#{status},#{rawText},#{constraintsJson},#{questionsJson},#{idempotencyKey},#{timezone})
     </insert>
     <select id="findByIdAndUser" resultMap="DraftMap">SELECT * FROM travel_requirement_drafts WHERE id=#{id} AND user_id=#{userId}</select>
     <select id="findByIdempotency" resultMap="DraftMap">SELECT * FROM travel_requirement_drafts WHERE user_id=#{userId} AND idempotency_key=#{key}</select>
     <update id="updateIfRevision">
-        UPDATE travel_requirement_drafts SET revision=revision+1,raw_text=#{rawText},constraints_json=#{constraintsJson},questions_json=#{questionsJson},status=#{status},updated_at=NOW()
+        UPDATE travel_requirement_drafts SET revision=revision+1,raw_text=#{rawText},constraints_json=#{constraintsJson},questions_json=#{questionsJson},status=#{status},timezone=#{timezone},confirmation_idempotency_key=NULL,confirmation_snapshot_json=NULL,answers_json=NULL,task_uuid=NULL,updated_at=NOW()
         WHERE id=#{id} AND user_id=#{userId} AND revision=#{revision} AND status &lt;&gt; 'CONFIRMED'
     </update>
     <update id="confirm">
-        UPDATE travel_requirement_drafts SET revision=revision+1,status='CONFIRMED',idempotency_key=#{idempotencyKey},task_uuid=#{taskUuid},updated_at=NOW()
+        UPDATE travel_requirement_drafts SET revision=revision+1,status='CONFIRMED',confirmation_idempotency_key=#{idempotencyKey},confirmation_snapshot_json=#{confirmationSnapshotJson},answers_json=#{answersJson},task_uuid=#{taskUuid},updated_at=NOW()
         WHERE id=#{id} AND user_id=#{userId} AND revision=#{revision} AND status='READY'
     </update>
 </mapper>

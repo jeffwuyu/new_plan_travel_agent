@@ -14,6 +14,10 @@ public class TravelRequirementDraft {
     private String constraintsJson;
     private String questionsJson;
     private String idempotencyKey;
+    private String confirmationIdempotencyKey;
+    private String confirmationSnapshotJson;
+    private String timezone;
+    private String answersJson;
     private String taskUuid;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

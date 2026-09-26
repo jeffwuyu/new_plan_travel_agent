@@ -13,8 +13,11 @@ public interface TravelRequirementDraftMapper {
                          @Param("revision") int revision, @Param("rawText") String rawText,
                          @Param("constraintsJson") String constraintsJson,
                          @Param("questionsJson") String questionsJson,
-                         @Param("status") String status);
+                         @Param("status") String status,
+                         @Param("timezone") String timezone);
     int confirm(@Param("id") Long id, @Param("userId") Long userId,
                 @Param("revision") int revision, @Param("idempotencyKey") String idempotencyKey,
+                @Param("confirmationSnapshotJson") String confirmationSnapshotJson,
+                @Param("answersJson") String answersJson,
                 @Param("taskUuid") String taskUuid);
 }

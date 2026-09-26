@@ -18,6 +18,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
 
 @Service
 public class TravelRequirementDraftService {
@@ -43,7 +44,8 @@ public class TravelRequirementDraftService {
             TravelRequirementDraft prior = drafts.findByIdempotency(userId, request.idempotencyKey());
             if (prior != null) return response(prior);
         }
-        TravelConstraints constraints = parser.parse(request.text());
+        ZoneId zone = zone(request.timezone());
+        TravelConstraints constraints = parser.parse(request.text(), zone);
         if (request.constraints() != null) constraints.mergeFrom(request.constraints());
         validate(constraints);
         TravelRequirementDraft draft = new TravelRequirementDraft();
@@ -53,6 +55,7 @@ public class TravelRequirementDraftService {
         draft.setQuestionsJson(json.toJson(questions(constraints)));
         draft.setStatus(ready(constraints) ? "READY" : "NEEDS_INPUT");
         draft.setIdempotencyKey(request.idempotencyKey());
+        draft.setTimezone(zone.getId());
         drafts.insert(draft);
         return response(drafts.findByIdAndUser(draft.getId(), userId));
     }
@@ -62,13 +65,14 @@ public class TravelRequirementDraftService {
         TravelRequirementDraft current = owned(userId, id);
         if (current.getRevision() != request.expectedRevision()) throw new BusinessException(409, "REVISION_CONFLICT");
         String text = request.text() == null || request.text().isBlank() ? current.getRawText() : request.text();
-        TravelConstraints constraints = parser.parse(text, json.fromJson(current.getConstraintsJson(), TravelConstraints.class));
+        ZoneId zone = zone(request.timezone() == null ? current.getTimezone() : request.timezone());
+        TravelConstraints constraints = parser.parse(text, json.fromJson(current.getConstraintsJson(), TravelConstraints.class), zone);
         if (request.constraints() != null) constraints.mergeFrom(request.constraints());
         validateTimezone(request.timezone());
         validate(constraints);
         String status = ready(constraints) ? "READY" : "NEEDS_INPUT";
         int updated = drafts.updateIfRevision(id, userId, request.expectedRevision(), text, json.toJson(constraints),
-                json.toJson(questions(constraints)), status);
+                json.toJson(questions(constraints)), status, zone.getId());
         if (updated != 1) throw new BusinessException(409, "REVISION_CONFLICT");
         return response(owned(userId, id));
     }
@@ -98,7 +102,8 @@ public class TravelRequirementDraftService {
         create.setPreferenceKeywords(c.getAttractionPreference());
         if (draft.getTaskUuid() != null) return response(draft);
         TaskResponse task = tasks.createTask(userId, userLevel, create, ip);
-        int updated = drafts.confirm(id, userId, request.expectedRevision(), request.idempotencyKey(), task.getTaskUuid());
+        int updated = drafts.confirm(id, userId, request.expectedRevision(), request.idempotencyKey(),
+                json.toJson(c), request.answers() == null ? "{}" : json.toJson(request.answers()), task.getTaskUuid());
         if (updated != 1) throw new BusinessException(409, "REVISION_CONFLICT");
         return response(owned(userId, id));
     }
@@ -125,6 +130,12 @@ public class TravelRequirementDraftService {
     private void validateTimezone(String timezone) {
         if (timezone == null || timezone.isBlank()) return;
         try { ZoneId.of(timezone); } catch (Exception exception) { throw new BusinessException(400, "INVALID_TIMEZONE"); }
+    }
+
+    private ZoneId zone(String timezone) {
+        if (timezone == null || timezone.isBlank()) return ZoneId.of("Asia/Shanghai");
+        validateTimezone(timezone);
+        return ZoneId.of(timezone);
     }
 
     private List<String> questions(TravelConstraints c) {

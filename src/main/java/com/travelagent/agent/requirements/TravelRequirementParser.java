@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,6 +33,10 @@ public class TravelRequirementParser {
     );
 
     public TravelConstraints parse(String text) {
+        return parse(text, ZoneId.systemDefault());
+    }
+
+    public TravelConstraints parse(String text, ZoneId zoneId) {
         TravelConstraints constraints = new TravelConstraints();
         String normalized = normalize(text);
         constraints.setRawText(normalized);
@@ -41,7 +47,7 @@ public class TravelRequirementParser {
                 "(?:去|到|前往)(?<value>[\\p{IsHan}A-Za-z0-9·\\-\\s]{1,30}?)(?:玩|旅游|旅行|游|[0-9一二两三四五六七八九十]+天|,|。|$)",
                 "目的地(?:是|为)?(?<value>[\\p{IsHan}A-Za-z0-9·\\-\\s]{1,30}?)(?:,|。|$)"));
         constraints.setDays(extractDays(normalized));
-        LocalDate startDate = extractStartDate(normalized);
+        LocalDate startDate = extractStartDate(normalized, zoneId == null ? ZoneId.systemDefault() : zoneId);
         constraints.setStartDate(startDate);
         if (startDate != null && constraints.getDays() != null && constraints.getDays() > 0) {
             constraints.setEndDate(startDate.plusDays(constraints.getDays() - 1L));
@@ -83,6 +89,11 @@ public class TravelRequirementParser {
         constraints.setBookingRequired(extractBookingRequired(normalized));
         constraints.setAvoid(extractAvoid(normalized));
         return constraints.refreshMissingFields();
+    }
+
+    public TravelConstraints parse(String text, TravelConstraints existing, ZoneId zoneId) {
+        if (existing == null) return parse(text, zoneId);
+        return existing.mergeFrom(parse(text, zoneId));
     }
 
     public TravelConstraints parse(String text, TravelConstraints existing) {
@@ -135,14 +146,23 @@ public class TravelRequirementParser {
         return toInt(matcher.group("num"));
     }
 
-    private LocalDate extractStartDate(String text) {
+    private LocalDate extractStartDate(String text, ZoneId zoneId) {
         Matcher matcher = Pattern.compile("(?<year>20\\d{2})[年/-](?<month>\\d{1,2})[月/-](?<day>\\d{1,2})").matcher(text);
         if (!matcher.find()) {
-            return null;
+            return extractRelativeDate(text, zoneId);
         }
-        return LocalDate.of(Integer.parseInt(matcher.group("year")),
+        LocalDate explicit = LocalDate.of(Integer.parseInt(matcher.group("year")),
                 Integer.parseInt(matcher.group("month")),
                 Integer.parseInt(matcher.group("day")));
+        return explicit;
+    }
+
+    private LocalDate extractRelativeDate(String text, ZoneId zoneId) {
+        LocalDate today = LocalDate.now(zoneId);
+        if (text.contains("后天")) return today.plusDays(2);
+        if (text.contains("明天")) return today.plusDays(1);
+        if (text.contains("今天") || text.contains("今日")) return today;
+        return null;
     }
 
     private BigDecimal extractBudget(String text) {
@@ -272,4 +292,3 @@ public class TravelRequirementParser {
         return null;
     }
 }
-
