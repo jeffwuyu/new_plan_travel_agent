@@ -36,6 +36,8 @@ public class RagRetrievalService {
     private final EmbeddingService embeddingService;
     private final RagDocumentMapper ragDocumentMapper;
     private final RagChunkMapper ragChunkMapper;
+    private final ThreadLocal<String> vectorStatus = ThreadLocal.withInitial(() -> "EMPTY");
+    private final ThreadLocal<String> keywordStatus = ThreadLocal.withInitial(() -> "EMPTY");
 
     @Value("${rag.vector-backend:postgres}")
     private String vectorBackend;
@@ -71,33 +73,48 @@ public class RagRetrievalService {
                                                 String region,
                                                 List<String> sourceTypes,
                                                 int limit) {
+        vectorStatus.set("EMPTY");
         try {
             float[] queryVector = embeddingService.embed(queryText);
             if (isDashVectorOnly()) {
-                return retrieveDashVectorFallback(queryVector, region, limit);
+                List<RagSearchResult> values = retrieveDashVectorFallback(queryVector, region, limit);
+                vectorStatus.set(values.isEmpty() ? "EMPTY" : "NORMAL");
+                return values;
             }
             List<RagSearchMatch> pgVectorMatches = ragChunkMapper.searchByPgVector(
                     toPgVectorLiteral(queryVector), region, sourceTypes, limit);
             if (pgVectorMatches != null && !pgVectorMatches.isEmpty()) {
-                return pgVectorMatches.stream()
+                List<RagSearchResult> values = pgVectorMatches.stream()
                         .map(match -> toSearchResult(match, safeScore(match.getVectorScore()), 0, "pgvector"))
                         .filter(result -> !result.chunkText().isBlank())
                         .toList();
+                vectorStatus.set(values.isEmpty() ? "EMPTY" : "NORMAL");
+                return values;
             }
-            return isDashVectorFallbackEnabled()
-                    ? retrieveDashVectorFallback(queryVector, region, limit)
-                    : List.of();
+            if (isDashVectorFallbackEnabled()) {
+                List<RagSearchResult> values = retrieveDashVectorFallback(queryVector, region, limit);
+                vectorStatus.set(values.isEmpty() ? "EMPTY" : "VECTOR_FALLBACK");
+                return values;
+            }
+            return List.of();
         } catch (Exception e) {
             log.warn("RAG vector query failed, query='{}': {}", queryText, e.getMessage());
             if (isDashVectorFallbackEnabled() || isDashVectorOnly()) {
                 try {
-                    return retrieveDashVectorFallback(embeddingService.embed(queryText), region, limit);
+                    List<RagSearchResult> values = retrieveDashVectorFallback(embeddingService.embed(queryText), region, limit);
+                    vectorStatus.set(values.isEmpty() ? "VECTOR_UNAVAILABLE" : "VECTOR_FALLBACK");
+                    return values;
                 } catch (Exception fallbackError) {
                     log.warn("RAG DashVector fallback failed, query='{}': {}", queryText, fallbackError.getMessage());
                 }
             }
+            vectorStatus.set("VECTOR_UNAVAILABLE");
             return List.of();
         }
+    }
+
+    public String lastVectorStatus() {
+        return vectorStatus.get();
     }
 
     /**
@@ -113,13 +130,16 @@ public class RagRetrievalService {
                                                  String region,
                                                  List<String> sourceTypes,
                                                  int limit) {
+        keywordStatus.set("EMPTY");
         try {
             List<RagSearchMatch> matches = ragChunkMapper.searchByFullText(queryText, region, sourceTypes, limit);
             if (matches != null && !matches.isEmpty()) {
-                return matches.stream()
+                List<RagSearchResult> values = matches.stream()
                         .map(match -> toSearchResult(match, 0, safeScore(match.getBm25Score()), "postgres-fts"))
                         .filter(result -> !result.chunkText().isBlank())
                         .toList();
+                keywordStatus.set(values.isEmpty() ? "EMPTY" : "NORMAL");
+                return values;
             }
         } catch (Exception e) {
             log.debug("PostgreSQL FTS unavailable, falling back to LIKE keyword recall: {}", e.getMessage());
@@ -127,14 +147,21 @@ public class RagRetrievalService {
 
         try {
             List<RagSearchMatch> matches = ragChunkMapper.searchByKeywordLike(queryText, region, sourceTypes, limit);
-            return matches == null ? List.of() : matches.stream()
+            List<RagSearchResult> values = matches == null ? List.of() : matches.stream()
                     .map(match -> toSearchResult(match, 0, safeScore(match.getBm25Score()), "keyword-like"))
                     .filter(result -> !result.chunkText().isBlank())
                     .toList();
+            keywordStatus.set(values.isEmpty() ? "EMPTY" : "KEYWORD_FALLBACK");
+            return values;
         } catch (Exception e) {
             log.warn("RAG keyword query failed, query='{}': {}", queryText, e.getMessage());
+            keywordStatus.set("DATABASE_UNAVAILABLE");
             return List.of();
         }
+    }
+
+    public String lastKeywordStatus() {
+        return keywordStatus.get();
     }
 
     /**

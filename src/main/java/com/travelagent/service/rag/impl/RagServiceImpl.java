@@ -370,7 +370,42 @@ public class RagServiceImpl implements RagService {
                 .retrieveVector(rewrittenQuery, region, sourceTypes, recallK);
         List<RagSearchResult> keywordResults = retrievalService()
                 .retrieveKeyword(rewrittenQuery, region, sourceTypes, recallK);
-        return fusionService().fuseResults(vectorResults, keywordResults, topK);
+        List<RagSearchResult> fused = fusionService().fuseResults(vectorResults, keywordResults, topK);
+        String vectorStatus = retrievalService().lastVectorStatus();
+        String keywordStatus = retrievalService().lastKeywordStatus();
+        String status = resolveRetrievalStatus(vectorStatus, keywordStatus, fused);
+        if (fused.isEmpty()) {
+            // Keep the legacy list response shape while making an empty result
+            // distinguishable from a dependency outage. Consumers can inspect
+            // degradedStatus without special-casing a second response type.
+            return List.of(new RagSearchResult(null, null, "", null, region,
+                    "system", "retrieval", null, 0, 0, 0, 0,
+                    "retrieval-status=" + status, null, null, status));
+        }
+        return fused.stream().map(result -> withRetrievalStatus(result, status)).toList();
+    }
+
+    private String resolveRetrievalStatus(String vectorStatus, String keywordStatus,
+                                          List<RagSearchResult> fused) {
+        if ("DATABASE_UNAVAILABLE".equals(keywordStatus)
+                && "VECTOR_UNAVAILABLE".equals(vectorStatus)) {
+            return "DATABASE_UNAVAILABLE";
+        }
+        if ("VECTOR_UNAVAILABLE".equals(vectorStatus)) {
+            return fused.isEmpty() ? "VECTOR_UNAVAILABLE" : "KEYWORD_FALLBACK";
+        }
+        if ("KEYWORD_FALLBACK".equals(keywordStatus)
+                || "VECTOR_FALLBACK".equals(vectorStatus)) {
+            return "KEYWORD_FALLBACK";
+        }
+        return fused.isEmpty() ? "EMPTY" : "NORMAL";
+    }
+
+    private RagSearchResult withRetrievalStatus(RagSearchResult result, String status) {
+        return new RagSearchResult(result.chunkId(), result.documentId(), result.chunkText(), result.title(),
+                result.region(), result.sourceType(), result.sourceName(), result.sourceUrl(), result.vectorScore(),
+                result.bm25Score(), result.freshnessScore(), result.finalScore(), result.rankReason(),
+                result.locatorJson(), result.indexVersion(), status);
     }
 
     // -----------------------------------------------------------------------
