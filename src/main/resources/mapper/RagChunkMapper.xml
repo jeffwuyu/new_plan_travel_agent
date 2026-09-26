@@ -33,6 +33,8 @@
         <result property="sourceType"     column="source_type"/>
         <result property="sourceName"     column="source_name"/>
         <result property="sourceUrl"      column="source_url"/>
+        <result property="locatorJson"    column="locator_json"/>
+        <result property="indexVersion"   column="index_version"/>
         <result property="vectorScore"    column="vector_score"/>
         <result property="bm25Score"      column="bm25_score"/>
         <result property="freshnessScore" column="freshness_score"/>
@@ -90,6 +92,8 @@
                d.source_type,
                d.source_name,
                d.source_url,
+               c.locator_json,
+               c.index_version,
                1 - (c.embedding_vector &lt;=&gt; #{queryVector,jdbcType=OTHER}::vector) AS vector_score,
                0 AS bm25_score,
                0 AS freshness_score
@@ -114,6 +118,8 @@
                d.source_type,
                d.source_name,
                d.source_url,
+               c.locator_json,
+               c.index_version,
                0 AS vector_score,
                ts_rank_cd(c.search_tsv, websearch_to_tsquery('simple', #{queryText})) AS bm25_score,
                0 AS freshness_score
@@ -138,6 +144,8 @@
                d.source_type,
                d.source_name,
                d.source_url,
+               c.locator_json,
+               c.index_version,
                0 AS vector_score,
                1 AS bm25_score,
                0 AS freshness_score

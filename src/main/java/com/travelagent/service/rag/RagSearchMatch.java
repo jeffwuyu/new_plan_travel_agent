@@ -16,6 +16,8 @@ public class RagSearchMatch {
     private String sourceType;
     private String sourceName;
     private String sourceUrl;
+    private String locatorJson;
+    private String indexVersion;
     private Double vectorScore;
     private Double bm25Score;
     private Double freshnessScore;

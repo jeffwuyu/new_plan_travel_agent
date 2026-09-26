@@ -171,7 +171,10 @@ public class RagRetrievalService {
                     0,
                     0,
                     result.score,
-                    "vectorScore=" + formatScore(result.score) + "; source=dashvector"
+                    "vectorScore=" + formatScore(result.score) + "; source=dashvector",
+                    chunk == null ? null : chunk.getLocatorJson(),
+                    chunk == null ? null : chunk.getIndexVersion(),
+                    "keyword-fallback"
             ));
         }
         return values;
@@ -203,7 +206,10 @@ public class RagRetrievalService {
                 bm25Score,
                 safeScore(match.getFreshnessScore()),
                 0,
-                "source=" + source
+                "source=" + source,
+                match.getLocatorJson(),
+                match.getIndexVersion(),
+                source.contains("fallback") ? "keyword-fallback" : null
         );
     }
 

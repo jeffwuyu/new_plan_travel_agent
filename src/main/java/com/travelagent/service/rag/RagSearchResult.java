@@ -30,6 +30,15 @@ public record RagSearchResult(
         double bm25Score,
         double freshnessScore,
         double finalScore,
-        String rankReason
+        String rankReason,
+        String locatorJson,
+        String indexVersion,
+        String degradedStatus
 ) {
+    public RagSearchResult(Long chunkId, Long documentId, String chunkText, String title, String region,
+                           String sourceType, String sourceName, String sourceUrl, double vectorScore,
+                           double bm25Score, double freshnessScore, double finalScore, String rankReason) {
+        this(chunkId, documentId, chunkText, title, region, sourceType, sourceName, sourceUrl,
+                vectorScore, bm25Score, freshnessScore, finalScore, rankReason, null, null, null);
+    }
 }
