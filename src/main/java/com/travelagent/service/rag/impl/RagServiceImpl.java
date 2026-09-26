@@ -214,6 +214,7 @@ public class RagServiceImpl implements RagService {
 
             // 默认写入 PostgreSQL pgvector；仅在显式配置时同步 DashVector。
             List<RagChunk> chunkEntities = new ArrayList<>();
+            int sourceCursor = 0;
             for (int i = 0; i < chunks.size(); i++) {
                 String chunkText = chunks.get(i);
                 float[] vector = vectors.get(i);
@@ -235,9 +236,14 @@ public class RagServiceImpl implements RagService {
                 chunk.setStableChunkId(documentId + ":" + safeSourceVersion(doc) + ":" + i + ":" + sha256(chunkText.getBytes(StandardCharsets.UTF_8)).substring(0, 16));
                 chunk.setChunkPolicyVersion(CHUNK_POLICY_VERSION);
                 chunk.setIndexVersion(doc.getIndexVersion());
-                chunk.setSourceStart(text.indexOf(chunkText));
-                chunk.setSourceEnd(chunk.getSourceStart() < 0 ? null : chunk.getSourceStart() + chunkText.length());
-                chunk.setLocatorJson("{\"chunkIndex\":" + i + "}");
+                int sourceStart = text.indexOf(chunkText, Math.max(0, sourceCursor));
+                if (sourceStart < 0) sourceStart = text.indexOf(chunkText);
+                chunk.setSourceStart(sourceStart < 0 ? null : sourceStart);
+                chunk.setSourceEnd(sourceStart < 0 ? null : sourceStart + chunkText.length());
+                chunk.setLocatorJson("{\"chunkIndex\":" + i + ",\"charStart\":"
+                        + (sourceStart < 0 ? 0 : sourceStart) + ",\"charEnd\":"
+                        + (sourceStart < 0 ? 0 : sourceStart + chunkText.length()) + "}");
+                if (sourceStart >= 0) sourceCursor = sourceStart + chunkText.length();
                 chunk.setChunkText(chunkText);
                 chunk.setDashvectorId(dashvectorId);
                 String vectorLiteral = retrievalService().toJsonArray(vector);
