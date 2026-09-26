@@ -119,7 +119,7 @@
     <update id="updateStatusIfRevision">
         UPDATE tasks SET status = #{status}, revision = revision + 1, updated_at = NOW()
         <if test="status == 'completed' or status == 'failed' or status == 'cancelled'">
-            , completed_at = NOW()
+            , completed_at = NOW(), execution_owner = NULL, lease_token = NULL, lease_expires_at = NULL
         </if>
         WHERE id = #{id} AND revision = #{expectedRevision}
         <choose>

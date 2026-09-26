@@ -188,6 +188,21 @@ public class TaskLifecycleGovernanceService {
         task.setRevision(revision + 1);
     }
 
+    /** Apply a lifecycle transition using the current revision and lease token. */
+    public void transitionStatus(Task task, String nextStatus) {
+        if (task == null || task.getId() == null) {
+            throw new IllegalArgumentException("TASK_NOT_FOUND");
+        }
+        long revision = task.getRevision() == null ? 1L : task.getRevision();
+        int updated = taskMapper.updateStatusIfRevision(task.getId(), nextStatus,
+                revision, task.getLeaseToken());
+        if (updated != 1) {
+            throw new IllegalStateException("LEASE_LOST");
+        }
+        task.setRevision(revision + 1);
+        task.setStatus(nextStatus);
+    }
+
     public boolean reserveOperation(Long userId, String taskUuid, String operationId, String operationType) {
         if (operationId == null || operationId.isBlank()) {
             throw new IllegalArgumentException("operationId is required");
@@ -310,10 +325,31 @@ public class TaskLifecycleGovernanceService {
             TaskCheckpoint checkpoint = jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class);
             checkpoint.migrateToCurrentSchema();
             return checkpoint;
+        } catch (IllegalArgumentException e) {
+            String code = e.getMessage() != null && e.getMessage().contains("schema")
+                    ? "CHECKPOINT_VERSION_UNSUPPORTED" : "CHECKPOINT_CORRUPTED";
+            String message = "Checkpoint cannot be resumed for task=" + task.getTaskUuid() + ": " + e.getMessage();
+            markCorruptCheckpoint(task, code, message);
+            return null;
         } catch (Exception e) {
             log.warn("[TaskLifecycleGovernance] Failed to parse checkpoint for task={}: {}",
                     task.getTaskUuid(), e.getMessage());
+            String message = "Checkpoint cannot be parsed for task=" + task.getTaskUuid();
+            markCorruptCheckpoint(task, "CHECKPOINT_CORRUPTED", message);
             return null;
+        }
+    }
+
+    private void markCorruptCheckpoint(Task task, String code, String message) {
+        int updated = taskMapper.transitionStatusIfCurrent(
+                task.getId(), task.getStatus(), TaskStatus.FAILED.getCode(), null,
+                code + ": " + message, task.getRevision() == null ? 1L : task.getRevision());
+        if (updated > 0) {
+            taskProgressService.recordEvent(task.getTaskUuid(), "CHECKPOINT_CORRUPTED",
+                    TaskStatus.FAILED.getCode(), null, null, message,
+                    Map.of("code", code, "retryable", false));
+            sseNotificationService.sendEvent(task.getTaskUuid(), SseEvent.ERROR,
+                    Map.of("code", code, "message", message, "retryable", false));
         }
     }
 

@@ -26,6 +26,7 @@ import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.task.TaskProgressService;
 import com.travelagent.service.task.TaskService;
+import com.travelagent.service.task.TaskLifecycleGovernanceService;
 import com.travelagent.service.user.QuotaService;
 import com.travelagent.util.JsonUtil;
 import org.slf4j.Logger;
@@ -64,6 +65,7 @@ public class TaskServiceImpl implements TaskService {
     @Autowired private TaskCheckpointCodec checkpointCodec;
     @Autowired private TaskInitialCheckpointBuilder initialCheckpointBuilder;
     @Autowired private TaskSelectionConfirmationHandler selectionConfirmationHandler;
+    @Autowired(required = false) private TaskLifecycleGovernanceService lifecycleGovernanceService;
     @Autowired(required = false) private UserPreferenceMemoryService userPreferenceMemoryService;
 
     /**
@@ -157,7 +159,7 @@ public class TaskServiceImpl implements TaskService {
             task.setCheckpointJson(jsonUtil.toJson(checkpoint));
             taskMapper.updateCheckpoint(task);
         }
-        taskMapper.updateStatus(task, next.getCode());
+        transitionStatus(task, next.getCode());
 
         Map<String, Object> payload = Map.of(
                 "status", next.getCode(),
@@ -200,7 +202,7 @@ public class TaskServiceImpl implements TaskService {
 
         TaskStatus next = stateMachine.transition(current, AgentEvent.RESUME);
         task.setStatus(next.getCode());
-        taskMapper.updateStatus(task, next.getCode());
+        transitionStatus(task, next.getCode());
         scheduleResumeDispatch(taskUuid, "manual_resume");
         Task updated = taskMapper.findByUuid(taskUuid);
         return toResponse(updated);
@@ -247,7 +249,7 @@ public class TaskServiceImpl implements TaskService {
         task.setCheckpointJson(jsonUtil.toJson(checkpoint));
 
         TaskStatus next = stateMachine.transition(current, AgentEvent.USER_INPUT_RECEIVED);
-        taskMapper.updateStatus(task, next.getCode());
+        transitionStatus(task, next.getCode());
         taskMapper.updateCheckpoint(task);
 
         Map<String, Object> payload = selectionConfirmationHandler.buildSelectionConfirmedPayload(
@@ -296,7 +298,7 @@ public class TaskServiceImpl implements TaskService {
         task.setStatus(TaskStatus.RESUMING.getCode());
         task.setCheckpointJson(jsonUtil.toJson(checkpoint));
         taskMapper.updateCheckpoint(task);
-        taskMapper.updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
+        transitionStatus(task, TaskStatus.RESUMING.getCode());
 
         String targetName = retainedSteps.get(retainedSteps.size() - 1).getAttractionName();
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -545,7 +547,7 @@ public class TaskServiceImpl implements TaskService {
         task.setStatus(TaskStatus.RESUMING.getCode());
         task.setCheckpointJson(jsonUtil.toJson(checkpoint));
         taskMapper.updateCheckpoint(task);
-        taskMapper.updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
+        transitionStatus(task, TaskStatus.RESUMING.getCode());
 
         String eventType = confirmReplay ? "PENDING_TOOL_REPLAY_CONFIRMED" : "PENDING_TOOL_SKIPPED";
         String message = confirmReplay
@@ -658,6 +660,17 @@ public class TaskServiceImpl implements TaskService {
         taskProgressService.recordEvent(taskUuid, "ERROR", TaskStatus.PAUSED.getCode(), null, null, message, payload);
         sseNotificationService.sendEvent(taskUuid, SseEvent.ERROR, payload);
         sseNotificationService.sendEvent(taskUuid, SseEvent.PAUSED, payload);
+    }
+
+    private void transitionStatus(Task task, String nextStatus) {
+        if (lifecycleGovernanceService != null) {
+            lifecycleGovernanceService.transitionStatus(task, nextStatus);
+            return;
+        }
+        int updated = taskMapper.updateStatus(task, nextStatus);
+        if (updated != 1) {
+            throw new IllegalStateException("LEASE_LOST");
+        }
     }
 
 }
