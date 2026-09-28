@@ -17,6 +17,9 @@
             <el-form-item label="最大规划步骤数">
               <el-input-number v-model="cfg.maxPlanSteps" :min="5" :max="100" style="width:100%" />
             </el-form-item>
+            <el-form-item label="每日路线图新建数">
+              <el-input-number v-model="cfg.routeMapDailyLimit" :min="1" :max="10000" style="width:100%" />
+            </el-form-item>
             <el-button type="primary" @click="saveCfg(cfg)" :loading="saving[cfg.userLevel]" style="width:100%">
               保存
             </el-button>

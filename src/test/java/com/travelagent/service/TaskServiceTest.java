@@ -2,6 +2,7 @@ package com.travelagent.service;
 
 import com.travelagent.agent.context.TaskCheckpoint;
 import com.travelagent.agent.context.CompletedStep;
+import com.travelagent.agent.context.PendingToolCall;
 import com.travelagent.service.agent.AgentService;
 import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.planner.TaskExecutionDispatcher;
@@ -27,7 +28,9 @@ import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
 import com.travelagent.service.task.OriginCandidateService;
 import com.travelagent.service.task.TaskProgressService;
+import com.travelagent.service.task.impl.TaskInitialCheckpointBuilder;
 import com.travelagent.service.task.impl.TaskRewindHandler;
+import com.travelagent.service.task.impl.TaskSelectionConfirmationHandler;
 import com.travelagent.service.task.impl.TaskServiceImpl;
 import com.travelagent.service.user.QuotaService;
 import com.travelagent.util.JsonUtil;
@@ -42,6 +45,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +79,8 @@ class TaskServiceTest {
     private TaskServiceImpl taskService;
 
     private final TaskRewindHandler rewindHandler = new TaskRewindHandler();
+    private final TaskInitialCheckpointBuilder initialCheckpointBuilder = new TaskInitialCheckpointBuilder();
+    private final TaskSelectionConfirmationHandler selectionConfirmationHandler = new TaskSelectionConfirmationHandler();
 
     private static final Long USER_ID = 1L;
     private static final int USER_LEVEL = 1;
@@ -83,6 +89,14 @@ class TaskServiceTest {
     @BeforeEach
     void setUp() {
         org.springframework.test.util.ReflectionTestUtils.setField(taskService, "rewindHandler", rewindHandler);
+        org.springframework.test.util.ReflectionTestUtils.setField(initialCheckpointBuilder,
+                "originCandidateService", originCandidateService);
+        org.springframework.test.util.ReflectionTestUtils.setField(initialCheckpointBuilder,
+                "amapClient", amapClient);
+        org.springframework.test.util.ReflectionTestUtils.setField(taskService,
+                "initialCheckpointBuilder", initialCheckpointBuilder);
+        org.springframework.test.util.ReflectionTestUtils.setField(taskService,
+                "selectionConfirmationHandler", selectionConfirmationHandler);
     }
 
     @Test
@@ -99,14 +113,17 @@ class TaskServiceTest {
             return 1;
         }).when(taskMapper).insert(any(Task.class));
 
-        TaskResponse response = taskService.createTask(USER_ID, USER_LEVEL, buildRequest());
+        TaskResponse response = taskService.createTask(USER_ID, USER_LEVEL, buildRequest(), "203.0.113.10");
 
-        verify(taskMapper).insert(any(Task.class));
+        ArgumentCaptor<Task> taskCaptor = ArgumentCaptor.forClass(Task.class);
+        verify(taskMapper).insert(taskCaptor.capture());
         verify(taskMapper).updateCheckpoint(any(Task.class));
+        assertThat(taskCaptor.getValue().getRequestIp()).isEqualTo("203.0.113.10");
         assertThat(response.getStatus()).isEqualTo(TaskStatus.PENDING.getCode());
         assertThat(response.getStartLocationQuery()).isEqualTo("Guomao Hotel");
         assertThat(response.getEndLocationQuery()).isEqualTo("Capital Airport");
         assertThat(response.getDailyTimeWindows()).hasSize(3);
+        assertThat(response.getTotalSteps()).isGreaterThan(1).isLessThanOrEqualTo(15);
     }
 
     @Test
@@ -122,7 +139,7 @@ class TaskServiceTest {
             return 1;
         }).when(taskMapper).insert(any(Task.class));
 
-        TaskResponse response = taskService.createTask(USER_ID, USER_LEVEL, buildRequest());
+        TaskResponse response = taskService.createTask(USER_ID, USER_LEVEL, buildRequest(), "203.0.113.10");
 
         assertThat(response.getFullDayStartTime()).isEqualTo(LocalTime.of(7, 0));
         assertThat(response.getFullDayEndTime()).isEqualTo(LocalTime.of(21, 0));
@@ -145,7 +162,7 @@ class TaskServiceTest {
         request.setFullDayStartTime(LocalTime.of(8, 30));
         request.setFullDayEndTime(LocalTime.of(20, 0));
 
-        TaskResponse response = taskService.createTask(USER_ID, USER_LEVEL, request);
+        TaskResponse response = taskService.createTask(USER_ID, USER_LEVEL, request, "203.0.113.10");
 
         assertThat(response.getFullDayStartTime()).isEqualTo(LocalTime.of(8, 30));
         assertThat(response.getFullDayEndTime()).isEqualTo(LocalTime.of(20, 0));
@@ -156,7 +173,7 @@ class TaskServiceTest {
         CreateTaskRequest request = buildRequest();
         request.setEndTime(request.getStartTime().minusHours(1));
 
-        assertThatThrownBy(() -> taskService.createTask(USER_ID, USER_LEVEL, request))
+        assertThatThrownBy(() -> taskService.createTask(USER_ID, USER_LEVEL, request, "203.0.113.10"))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getHttpStatus()).isEqualTo(400));
     }
@@ -166,7 +183,7 @@ class TaskServiceTest {
         doThrow(new QuotaExhaustedException("daily"))
                 .when(quotaService).checkDailyQuota(USER_ID, USER_LEVEL);
 
-        assertThatThrownBy(() -> taskService.createTask(USER_ID, USER_LEVEL, buildRequest()))
+        assertThatThrownBy(() -> taskService.createTask(USER_ID, USER_LEVEL, buildRequest(), "203.0.113.10"))
                 .isInstanceOf(QuotaExhaustedException.class);
 
         verify(taskMapper, never()).insert(any());
@@ -177,7 +194,7 @@ class TaskServiceTest {
         when(quotaService.getQuotaConfig(USER_LEVEL)).thenReturn(quotaConfig(2));
         when(taskMapper.countActiveByUserId(USER_ID)).thenReturn(2);
 
-        assertThatThrownBy(() -> taskService.createTask(USER_ID, USER_LEVEL, buildRequest()))
+        assertThatThrownBy(() -> taskService.createTask(USER_ID, USER_LEVEL, buildRequest(), "203.0.113.10"))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getHttpStatus()).isEqualTo(429));
 
@@ -217,11 +234,39 @@ class TaskServiceTest {
     }
 
     @Test
-    void confirmOriginSelection_poiCandidateSelection_omitsNullFieldsFromPayload() {
-        TaskCheckpoint checkpoint = awaitingCheckpoint("poi_candidate_selection");
+    void cancelTask_withCheckpoint_marksCheckpointCancelledAndRecordsEvent() {
+        Task task = pendingTask();
+        TaskCheckpoint checkpoint = new TaskCheckpoint();
+        checkpoint.setTaskUuid(TASK_UUID);
+        checkpoint.setTaskId(task.getId());
+        checkpoint.setCurrentState(TaskStatus.PLANNING.getCode());
+        checkpoint.setCurrentStepIndex(1);
+        checkpoint.setPlanningConfig(new com.travelagent.agent.context.PlanningConfig());
+        checkpoint.getPlanningConfig().setDynamicTargetSteps(3);
+        checkpoint.setPendingToolCall(new PendingToolCall("geocode", Map.of("name", "West Lake"), "idem-1"));
+
+        when(taskMapper.findByUuid(TASK_UUID)).thenReturn(task);
+        when(jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class)).thenReturn(checkpoint);
+        when(jsonUtil.toJson(checkpoint)).thenReturn("{\"currentState\":\"cancelled\"}");
+        when(stateMachine.transition(TaskStatus.PENDING, AgentEvent.CANCEL)).thenReturn(TaskStatus.CANCELLED);
+
+        taskService.cancelTask(TASK_UUID, USER_ID);
+
+        assertThat(checkpoint.getCurrentState()).isEqualTo(TaskStatus.CANCELLED.getCode());
+        assertThat(checkpoint.getPauseReason()).isEqualTo("user_cancelled");
+        assertThat(checkpoint.getPendingToolCall()).isNull();
+        assertThat(task.getStatus()).isEqualTo(TaskStatus.CANCELLED.getCode());
+        verify(taskMapper).updateCheckpoint(task);
+        verify(taskProgressService).recordEvent(eq(TASK_UUID), eq("CANCELLED"), eq(TaskStatus.CANCELLED.getCode()),
+                eq(1), eq(3), eq("Task cancelled by user"), any());
+    }
+
+    @Test
+    void confirmOriginSelection_ragCandidateSelection_omitsNullFieldsFromPayload() {
+        TaskCheckpoint checkpoint = awaitingCheckpoint("route_candidate_selection");
         checkpoint.setRecommendationCandidates(List.of(recommendationCandidate("poi-1", "West Lake Cafe")));
         Task task = awaitingUserInputTask();
-        ConfirmOriginSelectionRequest request = selectionRequest("poi_candidate_selection", "poi-1", "West Lake Cafe");
+        ConfirmOriginSelectionRequest request = selectionRequest("route_candidate_selection", "poi-1", "West Lake Cafe");
 
         stubConfirmSelection(task, checkpoint);
 
@@ -235,7 +280,7 @@ class TaskServiceTest {
         Map<String, Object> payload = captureSelectionConfirmedPayload();
         assertThat(payload)
                 .containsEntry("taskUuid", TASK_UUID)
-                .containsEntry("pendingInputType", "poi_candidate_selection")
+                .containsEntry("pendingInputType", "route_candidate_selection")
                 .containsKey("selectedCandidate")
                 .doesNotContainKeys("selectedBranchType", "selectedOrigin");
 
@@ -274,7 +319,7 @@ class TaskServiceTest {
     @Test
     void confirmOriginSelection_selectionBranch_onlyIncludesSelectedBranchType() {
         TaskCheckpoint checkpoint = awaitingCheckpoint("selection_branch");
-        checkpoint.setSelectionOptions(List.of(selectionOption("branch-1", "nearby_poi")));
+        checkpoint.setSelectionOptions(List.of(selectionOption("branch-1", "rag_route")));
         checkpoint.setCurrentContext(new LinkedHashMap<>());
         Task task = awaitingUserInputTask();
         ConfirmOriginSelectionRequest request = selectionRequest("selection_branch", "branch-1", "Nearby POI");
@@ -290,7 +335,7 @@ class TaskServiceTest {
         assertThat(payload)
                 .containsEntry("taskUuid", TASK_UUID)
                 .containsEntry("pendingInputType", "selection_branch")
-                .containsEntry("selectedBranchType", "nearby_poi")
+                .containsEntry("selectedBranchType", "rag_route")
                 .doesNotContainKeys("selectedCandidate", "selectedOrigin");
     }
 
@@ -346,7 +391,7 @@ class TaskServiceTest {
     void resumeTask_pausedTask_dispatchesExecution() {
         Task task = pendingTask();
         task.setStatus(TaskStatus.PAUSED.getCode());
-        TaskCheckpoint checkpoint = awaitingCheckpoint("poi_candidate_selection");
+        TaskCheckpoint checkpoint = awaitingCheckpoint("route_candidate_selection");
         checkpoint.setCurrentState(TaskStatus.PAUSED.getCode());
         when(taskMapper.findByUuid(TASK_UUID)).thenReturn(task, task);
         when(jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class)).thenReturn(checkpoint);
@@ -358,6 +403,69 @@ class TaskServiceTest {
         assertThat(response.getStatus()).isEqualTo(TaskStatus.RESUMING.getCode());
         verify(taskMapper).updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
         verify(taskExecutionDispatcher).dispatchTask(TASK_UUID, "resume:manual_resume");
+    }
+
+    @Test
+    void confirmPendingToolReplay_marksApprovedAndDispatchesResume() {
+        Task task = pendingTask();
+        task.setStatus(TaskStatus.PAUSED.getCode());
+        TaskCheckpoint checkpoint = pendingToolCheckpoint();
+        when(taskMapper.findByUuid(TASK_UUID)).thenReturn(task);
+        when(jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class)).thenReturn(checkpoint);
+        when(jsonUtil.toJson(any())).thenReturn("{\"pendingToolCall\":{\"manualReplayApproved\":true}}");
+
+        TaskResponse response = taskService.confirmPendingToolReplay(TASK_UUID, USER_ID);
+
+        assertThat(response.getStatus()).isEqualTo(TaskStatus.RESUMING.getCode());
+        assertThat(checkpoint.getPendingToolCall()).isNotNull();
+        assertThat(checkpoint.getPendingToolCall().isManualReplayApproved()).isTrue();
+        assertThat(checkpoint.getPauseReason()).isNull();
+        assertThat(checkpoint.getCurrentState()).isEqualTo(TaskStatus.RESUMING.getCode());
+        assertThat(response.getPendingToolName()).isEqualTo("booking_query");
+        assertThat(response.getPendingToolReplayApproved()).isTrue();
+        verify(taskMapper).updateCheckpoint(task);
+        verify(taskMapper).updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
+        verify(taskProgressService).recordEvent(eq(TASK_UUID), eq("PENDING_TOOL_REPLAY_CONFIRMED"),
+                eq(TaskStatus.RESUMING.getCode()), eq(1), eq(3),
+                eq("Pending tool replay confirmed: booking_query"), any());
+        verify(sseNotificationService).sendEvent(eq(TASK_UUID), eq(SseEvent.STATE_CHANGE), any());
+        verify(taskExecutionDispatcher).dispatchTask(TASK_UUID, "resume:pending_tool_confirmed");
+    }
+
+    @Test
+    void skipPendingToolReplay_clearsPendingToolAndDispatchesResume() {
+        Task task = pendingTask();
+        task.setStatus(TaskStatus.PAUSED.getCode());
+        TaskCheckpoint checkpoint = pendingToolCheckpoint();
+        when(taskMapper.findByUuid(TASK_UUID)).thenReturn(task);
+        when(jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class)).thenReturn(checkpoint);
+        when(jsonUtil.toJson(any())).thenReturn("{\"pendingToolCall\":null}");
+
+        TaskResponse response = taskService.skipPendingToolReplay(TASK_UUID, USER_ID);
+
+        assertThat(response.getStatus()).isEqualTo(TaskStatus.RESUMING.getCode());
+        assertThat(checkpoint.getPendingToolCall()).isNull();
+        assertThat(checkpoint.getPauseReason()).isEqualTo("pending_tool_skipped");
+        assertThat(response.getPendingToolName()).isNull();
+        verify(taskMapper).updateCheckpoint(task);
+        verify(taskMapper).updateStatus(task.getId(), TaskStatus.RESUMING.getCode());
+        verify(taskProgressService).recordEvent(eq(TASK_UUID), eq("PENDING_TOOL_SKIPPED"),
+                eq(TaskStatus.RESUMING.getCode()), eq(1), eq(3),
+                eq("Pending tool skipped: booking_query"), any());
+        verify(taskExecutionDispatcher).dispatchTask(TASK_UUID, "resume:pending_tool_skipped");
+    }
+
+    @Test
+    void skipPendingToolReplay_withoutPendingToolRejected() {
+        Task task = pendingTask();
+        task.setStatus(TaskStatus.PAUSED.getCode());
+        TaskCheckpoint checkpoint = awaitingCheckpoint(null);
+        when(taskMapper.findByUuid(TASK_UUID)).thenReturn(task);
+        when(jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class)).thenReturn(checkpoint);
+
+        assertThatThrownBy(() -> taskService.skipPendingToolReplay(TASK_UUID, USER_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("no pending tool call");
     }
 
     @Test
@@ -377,31 +485,31 @@ class TaskServiceTest {
     @Test
     void refreshNodeSelection_updatesCandidatesWithoutCompletingStep() {
         Task task = awaitingUserInputTask();
-        TaskCheckpoint checkpoint = awaitingCheckpoint("poi_candidate_selection");
+        TaskCheckpoint checkpoint = awaitingCheckpoint("route_candidate_selection");
         checkpoint.setTaskId(task.getId());
         checkpoint.setUserId(task.getUserId());
         checkpoint.setCurrentStepIndex(1);
         checkpoint.setCompletedSteps(new java.util.ArrayList<>(List.of(completedStep(0, "West Lake"))));
-        checkpoint.setSelectedBranchType("nearby_poi");
+        checkpoint.setSelectedBranchType("rag_route");
         when(taskMapper.findByUuid(TASK_UUID)).thenReturn(task);
         when(jsonUtil.fromJson(task.getCheckpointJson(), TaskCheckpoint.class)).thenReturn(checkpoint);
         when(jsonUtil.toJson(any())).thenReturn("{\"schemaVersion\":\"1.0\"}");
 
         LocationCandidateItem refreshed = recommendationCandidate("poi-2", "Indoor Museum");
-        refreshed.setBranchType("nearby_poi");
+        refreshed.setBranchType("rag_route");
         when(agentService.refreshNodeCandidates(eq(task), eq(checkpoint), eq(TASK_UUID)))
                 .thenReturn(PlanningResult.forCandidates(
                         List.of(refreshed),
                         88,
-                        "poi_candidate_selection",
-                        "poi_candidate_selection",
-                        "nearby_poi",
+                        "route_candidate_selection",
+                        "route_candidate_selection",
+                        "rag_route",
                         Map.of("userPreferencePrompt", "室内 少走路"),
                         Map.of()));
 
         NodeChatRequest request = new NodeChatRequest();
-        request.setPendingInputType("poi_candidate_selection");
-        request.setSelectionStage("poi_candidate_selection");
+        request.setPendingInputType("route_candidate_selection");
+        request.setSelectionStage("route_candidate_selection");
         request.setMessage("室内 少走路");
 
         TaskResponse response = taskService.refreshNodeSelection(TASK_UUID, USER_ID, request);
@@ -508,8 +616,18 @@ class TaskServiceTest {
         return checkpoint;
     }
 
+    private TaskCheckpoint pendingToolCheckpoint() {
+        TaskCheckpoint checkpoint = awaitingCheckpoint(null);
+        checkpoint.setCurrentState(TaskStatus.PAUSED.getCode());
+        checkpoint.setPauseReason("pending_tool_replay_requires_confirmation");
+        checkpoint.setCurrentStepIndex(1);
+        checkpoint.getPlanningConfig().setDynamicTargetSteps(3);
+        checkpoint.setPendingToolCall(new PendingToolCall("booking_query", Map.of("hotel", "West Lake"), "idem-booking"));
+        return checkpoint;
+    }
+
     private TaskCheckpoint rewindCheckpoint() {
-        TaskCheckpoint checkpoint = awaitingCheckpoint("poi_candidate_selection");
+        TaskCheckpoint checkpoint = awaitingCheckpoint("route_candidate_selection");
         checkpoint.setCurrentState(TaskStatus.PAUSED.getCode());
         checkpoint.setDailyTimeWindows(List.of(
                 new com.travelagent.agent.context.DailyTimeWindow(
@@ -529,8 +647,8 @@ class TaskServiceTest {
         checkpoint.setCurrentStepIndex(2);
         checkpoint.setUsedTimeBudgetMin(260);
         checkpoint.setProjectedReturnToDestinationMin(30);
-        checkpoint.setPendingInputType("poi_candidate_selection");
-        checkpoint.setSelectionOptions(List.of(selectionOption("branch-1", "nearby_poi")));
+        checkpoint.setPendingInputType("route_candidate_selection");
+        checkpoint.setSelectionOptions(List.of(selectionOption("branch-1", "rag_route")));
         checkpoint.setRecommendationCandidates(List.of(recommendationCandidate("poi-1", "Cafe")));
         checkpoint.setLlmConversationHistory(new java.util.ArrayList<>(List.of(Map.of("role", "user", "content", "old"))));
         return checkpoint;
@@ -570,6 +688,11 @@ class TaskServiceTest {
         req.setEndLocationQuery("Capital Airport");
         req.setStartTime(LocalDateTime.of(2026, 4, 22, 15, 0));
         req.setEndTime(LocalDateTime.of(2026, 4, 24, 18, 0));
+        req.setTotalBudgetYuan(new BigDecimal("3000"));
+        req.setLodgingBudgetPerNightYuan(new BigDecimal("500"));
+        req.setAccommodationTypes(List.of("hotel", "inn", "homestay"));
+        req.setAdultCount(2);
+        req.setRoomCount(1);
         req.setTravelMode("driving");
         return req;
     }

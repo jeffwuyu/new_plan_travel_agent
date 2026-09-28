@@ -2,6 +2,7 @@ package com.travelagent.agent.planner;
 
 import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.agent.prompt.PromptAssembly;
 import com.travelagent.client.dashscope.DashscopeLlmClient;
 import com.travelagent.client.dashscope.LlmCallResult;
 import com.travelagent.service.llm.LlmUsageAccountingService;
@@ -184,7 +185,7 @@ class HistoryManagerTest {
         // Lower threshold so 20 entries (each 40 chars = 800 chars / 4 = 200 tokens) triggers compression
         ReflectionTestUtils.setField(historyManager, "maxTokens", 50);
 
-        when(llmClient.callWithUsage(any(), any(), anyString(), anyString(), anyList(), anyString(), any()))
+        when(llmClient.callWithUsage(any(), any(), anyString(), any(PromptAssembly.class), anyList(), anyString(), any()))
                 .thenReturn(new LlmCallResult("Summary: visited Terracotta Army and Wild Goose Pagoda.", 120));
 
         TaskCheckpoint cp = emptyCheckpoint();
@@ -192,7 +193,7 @@ class HistoryManagerTest {
 
         List<Map<String, Object>> result = historyManager.prepareForLlm(cp);
 
-        verify(llmClient).callWithUsage(any(), any(), anyString(), anyString(), anyList(), anyString(), any());
+        verify(llmClient).callWithUsage(any(), any(), anyString(), any(PromptAssembly.class), anyList(), anyString(), any());
 
         // After compression: 1 summary + KEEP_ROUNDS_AFTER_COMPRESS*2 recent = 1 + 8 = 9 entries
         // Then sliding window (6*2=12) doesn't cut further (9 < 12)
@@ -200,6 +201,9 @@ class HistoryManagerTest {
 
         // historyTrimmedAt should be set on the checkpoint
         assertThat(cp.getHistoryTrimmedAt()).isNotNull();
+        assertThat(cp.getLlmConversationHistory().get(0).get("content").toString())
+                .contains("[Short-term session memory]")
+                .contains("selectedAttractions");
     }
 
     @Test
@@ -207,7 +211,7 @@ class HistoryManagerTest {
     void prepareForLlm_compressionFails_fallsBackToRecentRounds() {
         ReflectionTestUtils.setField(historyManager, "maxTokens", 50);
 
-        when(llmClient.callWithUsage(any(), any(), anyString(), anyString(), anyList(), anyString(), any()))
+        when(llmClient.callWithUsage(any(), any(), anyString(), any(PromptAssembly.class), anyList(), anyString(), any()))
                 .thenThrow(new RuntimeException("LLM unavailable"));
 
         TaskCheckpoint cp = emptyCheckpoint();
@@ -217,8 +221,12 @@ class HistoryManagerTest {
         List<Map<String, Object>> result = historyManager.prepareForLlm(cp);
 
         assertThat(result).isNotNull();
-        // KEEP_ROUNDS_AFTER_COMPRESS * 2 = 8 recent entries kept
-        assertThat(result).hasSizeLessThanOrEqualTo(HistoryManager.KEEP_ROUNDS_AFTER_COMPRESS * 2);
+        // 1 local structured summary + KEEP_ROUNDS_AFTER_COMPRESS * 2 recent entries kept
+        assertThat(result).hasSizeLessThanOrEqualTo(1 + HistoryManager.KEEP_ROUNDS_AFTER_COMPRESS * 2);
+        assertThat(result.get(0).get("content").toString())
+                .contains("[Short-term session memory]")
+                .contains("\"hardConstraints\"")
+                .contains("\"latestUserIntent\"");
     }
 
     // -----------------------------------------------------------------------

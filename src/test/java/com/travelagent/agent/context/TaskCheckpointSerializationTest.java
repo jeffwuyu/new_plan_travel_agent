@@ -5,6 +5,11 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.travelagent.agent.planner.PlanTaskStatus;
+import com.travelagent.agent.planner.PlanTaskType;
+import com.travelagent.agent.planner.PlannerToolType;
+import com.travelagent.agent.planner.TravelPlan;
+import com.travelagent.agent.planner.TravelPlanTask;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -93,6 +98,68 @@ class TaskCheckpointSerializationTest {
 
         // stepIndex
         assertThat(restored.getCurrentStepIndex()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("checkpoint rejects unknown format and schema versions")
+    void migrateToCurrentSchema_rejectsUnknownVersions() throws Exception {
+        TaskCheckpoint unknownFormat = mapper.readValue("{\"formatVersion\":99}", TaskCheckpoint.class);
+        assertThatThrownBy(unknownFormat::migrateToCurrentSchema)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported checkpoint format version");
+
+        TaskCheckpoint unknownSchema = mapper.readValue("{\"schemaVersion\":\"99.0\"}", TaskCheckpoint.class);
+        assertThatThrownBy(unknownSchema::migrateToCurrentSchema)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported checkpoint schema version");
+    }
+
+    @Test
+    @DisplayName("T10 session state fields round-trip through checkpoint JSON")
+    void roundTrip_sessionStateFields_preserved() throws Exception {
+        TaskCheckpoint original = buildFullCheckpoint();
+        TravelPlan plan = new TravelPlan();
+        TravelPlanTask weatherTask = new TravelPlanTask(
+                "T-weather",
+                PlanTaskType.WEATHER_QUERY,
+                PlannerToolType.WEATHER,
+                Map.of("city", "西安"),
+                List.of(),
+                List.of("天气查询成功"));
+        weatherTask.markFailed("provider timeout");
+        plan.setTasks(List.of(weatherTask));
+        original.setCurrentPlan(plan);
+        original.recordToolResult("weather", Map.of("status", "failed"), 1, "provider timeout");
+        original.recordRagResult(Map.of("query", "西安历史景点", "sourceType", "static_knowledge"));
+        original.recordValidatorResult(Map.of("valid", false, "issues", List.of("rain risk")));
+        original.recordIntermediateSummary(Map.of("type", "observe", "summary", "雨天建议室内"));
+        original.recordUserFeedback("node_chat", "第二天少走路", Map.of("pendingInputType", "attraction_selection"));
+        original.setFinalItinerary("西安三日低强度历史游");
+
+        String json = mapper.writeValueAsString(original);
+        TaskCheckpoint restored = mapper.readValue(json, TaskCheckpoint.class);
+
+        assertThat(restored.getCurrentPlan().getTasks()).hasSize(1);
+        assertThat(restored.getSubtaskStates()).singleElement().satisfies(state -> {
+            assertThat(state.getTaskId()).isEqualTo("T-weather");
+            assertThat(state.getTaskType()).isEqualTo("weather_query");
+            assertThat(state.getStatus()).isEqualTo(PlanTaskStatus.FAILED.getCode());
+            assertThat(state.getInput()).containsEntry("city", "西安");
+            assertThat(state.getRetryCount()).isEqualTo(1);
+            assertThat(state.getError()).isEqualTo("provider timeout");
+        });
+        assertThat(restored.getToolResults()).containsKey("weather");
+        assertThat(restored.getRagResults()).singleElement()
+                .satisfies(result -> assertThat(result).containsEntry("sourceType", "static_knowledge"));
+        assertThat(restored.getValidatorResults()).singleElement()
+                .satisfies(result -> assertThat(result).containsEntry("valid", false));
+        assertThat(restored.getIntermediateSummaries()).singleElement()
+                .satisfies(summary -> assertThat(summary).containsEntry("type", "observe"));
+        assertThat(restored.getFailureReasons()).contains("weather: provider timeout");
+        assertThat(restored.getRetryCounts()).containsEntry("weather", 1);
+        assertThat(restored.getUserFeedback()).singleElement()
+                .satisfies(feedback -> assertThat(feedback).containsEntry("message", "第二天少走路"));
+        assertThat(restored.getFinalItinerary()).isEqualTo("西安三日低强度历史游");
     }
 
     // -----------------------------------------------------------------------

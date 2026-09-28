@@ -38,11 +38,22 @@ class ToolRegistryTest {
         AgentTool geocode  = stubTool(GeocodeTool.NAME);
         AgentTool weather  = stubTool(WeatherTool.NAME);
         AgentTool traffic  = stubTool(TrafficTimeTool.NAME);
+        AgentTool webSearch = stubTool(WebSearchTool.NAME);
+        AgentTool amapMap = stubTool(AmapMapTool.NAME);
+        AgentTool bookingQuery = stubTool(BookingQueryTool.NAME);
+        AgentTool rag = stubTool(RagTool.NAME);
 
-        ToolRegistry registry = new ToolRegistry(List.of(geocode, weather, traffic));
+        ToolRegistry registry = new ToolRegistry(List.of(geocode, weather, traffic, webSearch, amapMap, bookingQuery, rag));
 
         assertThat(registry.getToolNames())
-                .containsExactlyInAnyOrder(GeocodeTool.NAME, WeatherTool.NAME, TrafficTimeTool.NAME);
+                .containsExactlyInAnyOrder(
+                        GeocodeTool.NAME,
+                        WeatherTool.NAME,
+                        TrafficTimeTool.NAME,
+                        WebSearchTool.NAME,
+                        AmapMapTool.NAME,
+                        BookingQueryTool.NAME,
+                        RagTool.NAME);
     }
 
     // -----------------------------------------------------------------------
@@ -96,6 +107,10 @@ class ToolRegistryTest {
         assertThat(GeocodeTool.NAME).isEqualTo("geocode");
         assertThat(WeatherTool.NAME).isEqualTo("weather");
         assertThat(TrafficTimeTool.NAME).isEqualTo("traffic_time");
+        assertThat(WebSearchTool.NAME).isEqualTo("web_search");
+        assertThat(AmapMapTool.NAME).isEqualTo("amap_map");
+        assertThat(BookingQueryTool.NAME).isEqualTo("booking_query");
+        assertThat(RagTool.NAME).isEqualTo("rag");
     }
 
     // -----------------------------------------------------------------------

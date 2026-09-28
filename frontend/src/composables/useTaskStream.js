@@ -1,5 +1,6 @@
 import { onUnmounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { issueTaskStreamTicket } from '@/api/tasks'
 
 export function useTaskStream(taskUuid) {
   const events = ref([])
@@ -10,11 +11,22 @@ export function useTaskStream(taskUuid) {
 
   let es = null
 
-  function connect() {
+  async function connect() {
     if (es) disconnect()
 
     const auth = useAuthStore()
-    const url = `/api/tasks/${taskUuid}/stream?token=${encodeURIComponent(auth.token || '')}`
+    let url = ''
+    try {
+      const res = await issueTaskStreamTicket(taskUuid)
+      const ticket = res?.data?.ticket
+      if (!ticket) {
+        throw new Error('Missing SSE ticket')
+      }
+      url = `/api/tasks/${taskUuid}/stream?sseTicket=${encodeURIComponent(ticket)}`
+    } catch {
+      url = `/api/tasks/${taskUuid}/stream?token=${encodeURIComponent(auth.token || '')}`
+    }
+
     es = new EventSource(url)
     isStreaming.value = true
 
@@ -24,6 +36,8 @@ export function useTaskStream(taskUuid) {
       'STATE_CHANGE',
       'STEP_DONE',
       'TOOL_RESULT',
+      'TOOL_DEGRADED',
+      'TOOL_RESULT_VALIDATION_WARNING',
       'LLM_STREAM',
       'COMPLETED',
       'ERROR',
@@ -32,7 +46,8 @@ export function useTaskStream(taskUuid) {
       'RETRY',
       'REWIND',
       'USER_SELECTION_REQUIRED',
-      'USER_SELECTION_CONFIRMED'
+      'USER_SELECTION_CONFIRMED',
+      'AUTO_SELECTION_APPLIED'
     ]
 
     eventTypes.forEach(type => {
@@ -66,6 +81,12 @@ export function useTaskStream(taskUuid) {
         break
       case 'TOOL_RESULT':
         pushEvent({ eventType: 'TOOL_RESULT', ...data, createdAt: new Date().toISOString() })
+        break
+      case 'TOOL_DEGRADED':
+        pushEvent({ eventType: 'TOOL_DEGRADED', ...data, createdAt: new Date().toISOString() })
+        break
+      case 'TOOL_RESULT_VALIDATION_WARNING':
+        pushEvent({ eventType: 'TOOL_RESULT_VALIDATION_WARNING', ...data, createdAt: new Date().toISOString() })
         break
       case 'COMPLETED':
         currentStatus.value = 'completed'
@@ -108,6 +129,9 @@ export function useTaskStream(taskUuid) {
         currentStatus.value = 'resuming'
         currentTokens.value = toNumber(data.totalTokensUsed ?? data.data?.totalTokensUsed ?? currentTokens.value)
         pushEvent({ eventType: 'USER_SELECTION_CONFIRMED', ...data, createdAt: new Date().toISOString() })
+        break
+      case 'AUTO_SELECTION_APPLIED':
+        pushEvent({ eventType: 'AUTO_SELECTION_APPLIED', ...data, createdAt: new Date().toISOString() })
         break
       default:
         pushEvent({ eventType: type, ...data, createdAt: new Date().toISOString() })

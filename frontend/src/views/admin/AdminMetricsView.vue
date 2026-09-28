@@ -23,6 +23,41 @@
       </el-row>
     </el-card>
 
+    <el-card header="外部能力健康" class="mt-20">
+      <el-table :data="capabilities" size="small" empty-text="暂无健康检查数据">
+        <el-table-column prop="name" label="能力" min-width="160" />
+        <el-table-column label="配置" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.configured ? 'success' : 'warning'" size="small">
+              {{ row.configured ? '已配置' : '缺失' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="连通" width="100">
+          <template #default="{ row }">
+            <el-tag :type="reachableTagType(row)" size="small">
+              {{ reachableText(row) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="检查方式" width="120">
+          <template #default="{ row }">
+            {{ checkTypeText(row.checkType) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="降级" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.degraded ? 'danger' : 'success'" size="small">
+              {{ row.degraded ? '是' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="errorCode" label="错误码" width="150" show-overflow-tooltip />
+        <el-table-column prop="lastError" label="最近错误/原因" min-width="240" show-overflow-tooltip />
+        <el-table-column prop="checkedAt" label="检查时间" min-width="190" show-overflow-tooltip />
+      </el-table>
+    </el-card>
+
     <div v-if="updatedAt" class="update-time">最后更新：{{ updatedAt }}</div>
   </div>
 </template>
@@ -30,9 +65,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getMetrics } from '@/api/admin'
+import { getCapabilityHealth, getMetrics } from '@/api/admin'
 
 const metrics = ref({})
+const capabilities = ref([])
 const loading = ref(false)
 const updatedAt = ref('')
 
@@ -62,19 +98,44 @@ onUnmounted(() => clearInterval(timer))
 async function fetchMetrics() {
   loading.value = true
   try {
-    const res = await getMetrics()
+    const [metricsRes, healthRes] = await Promise.all([getMetrics(), getCapabilityHealth()])
+    const res = metricsRes
     const data = res.data || {}
     // Compute avg latency
     const calls = data.llmCallsTotal || 0
     const totalMs = data.llmLatencyMsTotal || 0
     data.llmAvgLatencyMs = calls > 0 ? Math.round(totalMs / calls) : 0
     metrics.value = data
+    capabilities.value = healthRes.data || []
     updatedAt.value = new Date().toLocaleString('zh-CN')
   } catch (err) {
     ElMessage.error(err.message)
   } finally {
     loading.value = false
   }
+}
+
+function reachableTagType(row) {
+  if (row.reachable) return 'success'
+  if (row.checkType === 'config_only' || row.checkType === 'disabled') return 'info'
+  return row.degraded ? 'danger' : 'warning'
+}
+
+function reachableText(row) {
+  if (row.reachable) return '正常'
+  if (row.checkType === 'config_only') return '未探活'
+  if (row.checkType === 'disabled') return '已关闭'
+  return '异常'
+}
+
+function checkTypeText(type) {
+  const mapping = {
+    config_only: '配置检查',
+    ping: 'Ping 探活',
+    postgres_extension: 'PG 扩展',
+    disabled: '已关闭'
+  }
+  return mapping[type] || '未标记'
 }
 </script>
 

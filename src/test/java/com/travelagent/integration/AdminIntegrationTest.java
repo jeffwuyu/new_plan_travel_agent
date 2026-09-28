@@ -85,6 +85,8 @@ class AdminIntegrationTest extends BaseIntegrationTest {
                                   "endLocationQuery":"西安北站",
                                   "startTime":"2026-04-22T09:00:00",
                                   "endTime":"2026-04-22T21:00:00",
+                                  "totalBudgetYuan":3000,
+                                  "lodgingBudgetPerNightYuan":500,
                                   "travelMode":"driving"
                                 }
                                 """, region, intent)))

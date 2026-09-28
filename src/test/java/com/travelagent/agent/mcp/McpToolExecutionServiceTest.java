@@ -75,6 +75,7 @@ class McpToolExecutionServiceTest {
         assertThat(result.get("temperature")).isEqualTo("26");
         assertThat(result.get("windDirection")).isEqualTo("东北");
         assertThat(result.get("windPower")).isEqualTo("3");
+        assertThat((List<?>) result.get("forecastDays")).hasSize(1);
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.travelagent.filter;
 
 import com.travelagent.mapper.UserMapper;
 import com.travelagent.model.entity.User;
+import com.travelagent.service.notification.SseTicketService;
 import com.travelagent.util.JwtUtil;
 import com.travelagent.util.RedisUtil;
 import io.jsonwebtoken.Claims;
@@ -39,6 +40,9 @@ class JwtAuthInterceptorTest {
 
     @Mock
     private UserMapper userMapper;
+
+    @Mock
+    private SseTicketService sseTicketService;
 
     @InjectMocks
     private JwtAuthInterceptor interceptor;
@@ -184,5 +188,23 @@ class JwtAuthInterceptorTest {
 
         assertTrue(result);
         assertEquals(3, request.getAttribute(JwtAuthInterceptor.ATTR_USER_LEVEL));
+    }
+
+    @Test
+    @DisplayName("valid SSE ticket authenticates stream request")
+    void validSseTicket_allowsRequest() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/tasks/task-123/stream");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.setParameter("sseTicket", "ticket-123");
+
+        when(sseTicketService.validate("ticket-123", "task-123"))
+                .thenReturn(java.util.Optional.of(new SseTicketService.TicketPrincipal(42L, "task-123")));
+
+        boolean result = interceptor.preHandle(request, response, null);
+
+        assertTrue(result);
+        assertEquals(42L, request.getAttribute(JwtAuthInterceptor.ATTR_USER_ID));
+        assertEquals(1, request.getAttribute(JwtAuthInterceptor.ATTR_USER_LEVEL));
+        verify(jwtUtil, never()).parseToken(anyString());
     }
 }

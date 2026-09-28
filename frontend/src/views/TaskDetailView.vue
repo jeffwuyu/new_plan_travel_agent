@@ -90,12 +90,12 @@
                     show-icon
                   />
 
-                  <div v-if="item.weatherContext && Object.keys(item.weatherContext).length" class="weather-panel">
+                  <div v-if="selectionWeatherSummary(item) || selectionConstraintHints(item).length" class="weather-panel">
                     <div class="candidate-section-title">天气感知</div>
-                    <div class="weather-summary">{{ item.weatherContext.summary || '暂无天气摘要' }}</div>
-                    <div v-if="item.weatherContext.constraintHints?.length" class="candidate-tags">
+                    <div class="weather-summary">{{ selectionWeatherSummary(item) || '暂无天气摘要' }}</div>
+                    <div v-if="selectionConstraintHints(item).length" class="candidate-tags">
                       <span
-                        v-for="(hint, hintIndex) in item.weatherContext.constraintHints"
+                        v-for="(hint, hintIndex) in selectionConstraintHints(item)"
                         :key="`${item.createdAt}-weather-${hintIndex}`"
                         class="candidate-tag"
                       >
@@ -104,23 +104,23 @@
                     </div>
                   </div>
 
-                  <div v-if="item.currentContext && Object.keys(item.currentContext).length" class="context-panel">
+                  <div v-if="hasSelectionPrompt(item)" class="context-panel">
                     <div class="context-grid">
                       <div class="context-item">
                         <span>当前位置</span>
-                        <strong>{{ item.currentContext.currentPositionName || '-' }}</strong>
+                        <strong>{{ selectionCurrentPositionName(item) || '-' }}</strong>
                       </div>
                       <div class="context-item">
                         <span>第几天</span>
-                        <strong>第 {{ Number(item.currentContext.dayNumber || 1) }} 天</strong>
+                        <strong>第 {{ selectionDayNumber(item) }} 天</strong>
                       </div>
                       <div class="context-item">
                         <span>剩余预算</span>
-                        <strong>{{ Number(item.currentContext.remainingTimeBudgetMin || 0) }} 分钟</strong>
+                        <strong>{{ selectionRemainingTimeBudget(item) }} 分钟</strong>
                       </div>
                       <div class="context-item">
                         <span>终点约束</span>
-                        <strong>{{ item.currentContext.destinationName || task.endLocationQuery || '-' }}</strong>
+                        <strong>{{ selectionDestinationName(item) || task.endLocationQuery || '-' }}</strong>
                       </div>
                     </div>
                   </div>
@@ -221,6 +221,15 @@
                 <div v-if="item.eventType === 'USER_SELECTION_CONFIRMED'" class="origin-confirmed">
                   {{ selectionConfirmedText(item) }}
                 </div>
+
+                <el-alert
+                  v-if="item.eventType === 'TOOL_DEGRADED'"
+                  class="degradation-alert"
+                  type="warning"
+                  :closable="false"
+                  show-icon
+                  :title="item.degradationReason || item.errorMessage || item.text || '外部能力暂不可用，系统已切换为降级结果。'"
+                />
               </div>
             </article>
 
@@ -266,8 +275,25 @@
                 >
                   取消任务
                 </el-button>
+                <template v-if="displayStatus === 'paused' && task.pendingToolReplayRequired">
+                  <el-button
+                    type="primary"
+                    :loading="submittingPendingToolDecision === 'confirm'"
+                    @click="handlePendingToolDecision('confirm')"
+                  >
+                    Confirm replay
+                  </el-button>
+                  <el-button
+                    type="warning"
+                    plain
+                    :loading="submittingPendingToolDecision === 'skip'"
+                    @click="handlePendingToolDecision('skip')"
+                  >
+                    Skip tool
+                  </el-button>
+                </template>
                 <el-button
-                  v-if="displayStatus === 'paused'"
+                  v-if="displayStatus === 'paused' && !task.pendingToolReplayRequired"
                   type="warning"
                   @click="handleResume"
                 >
@@ -323,7 +349,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { cancelTask, confirmTaskSelection, getProgress, getTask, refreshNodeSelection, resumeTask, rewindTask } from '@/api/tasks'
+import { cancelTask, confirmPendingToolReplay, confirmTaskSelection, getProgress, getTask, refreshNodeSelection, resumeTask, rewindTask, skipPendingToolReplay } from '@/api/tasks'
 import { getPlanByTask } from '@/api/plans'
 import { useAuthStore } from '@/stores/auth'
 import { useTaskStream } from '@/composables/useTaskStream'
@@ -341,6 +367,7 @@ const loading = ref(true)
 const submittingCandidateId = ref('')
 const rewindingStepIndex = ref(null)
 const submittingNodeChat = ref(false)
+const submittingPendingToolDecision = ref('')
 const nodeChatText = ref('')
 const bottomAnchor = ref(null)
 const hasInitializedAutoScroll = ref(false)
@@ -400,11 +427,14 @@ const awaitingInputTitle = computed(() => {
   const pendingType = task.value?.pendingInputType
   if (pendingType === 'selection_branch') return '系统正在等待你选择“附近 POI 推荐”或“路线规划”。'
   if (pendingType === 'route_candidate_selection') return '系统正在等待你确认一条路线候选。'
-  if (pendingType === 'poi_candidate_selection' || pendingType === 'attraction_selection') return '系统正在等待你确认下一站景点候选。'
+  if (pendingType === 'attraction_selection') return '系统正在等待你确认下一站景点候选。'
   return '系统正在等待你确认起点位置。'
 })
 
 const pausedAlertTitle = computed(() => {
+  if (task.value?.pendingToolReplayRequired) {
+    return `Pending tool ${task.value?.pendingToolName || ''} needs confirmation before replay.`
+  }
   if (task.value?.pauseReason === 'amap_rate_limited') {
     return '地图接口限流，任务已暂时暂停，可稍后恢复。'
   }
@@ -572,6 +602,23 @@ async function handleResume() {
   }
 }
 
+async function handlePendingToolDecision(decision) {
+  submittingPendingToolDecision.value = decision
+  try {
+    const res = decision === 'confirm'
+      ? await confirmPendingToolReplay(uuid)
+      : await skipPendingToolReplay(uuid)
+    task.value = res.data
+    ElMessage.success(decision === 'confirm' ? 'Pending tool replay confirmed.' : 'Pending tool skipped.')
+    connect()
+    await fetchAll()
+  } catch (err) {
+    ElMessage.error(err.message)
+  } finally {
+    submittingPendingToolDecision.value = ''
+  }
+}
+
 async function handleSelectOption(pendingInputType, option) {
   const optionId = option.candidateId || option.optionId
   const optionName = option.name || option.label
@@ -642,7 +689,7 @@ async function handleNodeChat(item) {
 function selectionSuccessText(pendingInputType, optionName) {
   if (pendingInputType === 'selection_branch') return `已选择 ${optionName}`
   if (pendingInputType === 'route_candidate_selection') return `已选择路线：${optionName}`
-  if (pendingInputType === 'poi_candidate_selection' || pendingInputType === 'attraction_selection') {
+  if (pendingInputType === 'attraction_selection') {
     return `已选择 ${optionName} 作为下一站景点`
   }
   return `已选择 ${optionName} 作为起点`
@@ -659,13 +706,15 @@ async function fetchPlanId() {
 
 function normalizeEvent(ev) {
   const details = safeParse(ev.detailsJson)
+  const selectionPrompt = ev.selectionPrompt || details.selectionPrompt || null
   return {
     ...ev,
     ...details,
     createdAt: ev.createdAt || new Date().toISOString(),
-    pendingInputType: ev.pendingInputType || details.pendingInputType || '',
-    selectionStage: ev.selectionStage || details.selectionStage || '',
-    selectedBranchType: ev.selectedBranchType || details.selectedBranchType || '',
+    selectionPrompt,
+    pendingInputType: ev.pendingInputType || details.pendingInputType || selectionPrompt?.pendingInputType || '',
+    selectionStage: ev.selectionStage || details.selectionStage || selectionPrompt?.selectionStage || '',
+    selectedBranchType: ev.selectedBranchType || details.selectedBranchType || selectionPrompt?.selectedBranchType || '',
     selectionOptions: ev.selectionOptions || details.selectionOptions || [],
     recommendationCandidates: ev.recommendationCandidates || details.recommendationCandidates || details.locationCandidates || ev.locationCandidates || [],
     locationCandidates: ev.locationCandidates || details.locationCandidates || [],
@@ -673,6 +722,10 @@ function normalizeEvent(ev) {
     weatherContext: ev.weatherContext || details.weatherContext || {},
     selectedOrigin: ev.selectedOrigin || details.selectedOrigin || null,
     selectedCandidate: ev.selectedCandidate || details.selectedCandidate || null,
+    toolName: ev.toolName || details.toolName || '',
+    degraded: Boolean(ev.degraded ?? details.degraded ?? false),
+    degradationReason: ev.degradationReason || details.degradationReason || '',
+    errorMessage: ev.errorMessage || details.errorMessage || '',
     targetStepIndex: ev.targetStepIndex ?? details.targetStepIndex,
     targetStepName: ev.targetStepName || details.targetStepName || '',
     text: ev.message || details.message || '',
@@ -690,6 +743,10 @@ function toMessage(ev) {
         : ev.text
     },
     TOOL_RESULT: { title: '工具结果', text: ev.text || '已补充地理位置、天气或路程信息。' },
+    TOOL_DEGRADED: {
+      title: '外部能力已降级',
+      text: toolDegradedText(ev)
+    },
     RETRY: { title: '自动重试', text: ev.message || ev.text || '地图服务调用过于频繁，系统正在自动重试。' },
     REWIND: {
       title: '已回溯',
@@ -705,6 +762,10 @@ function toMessage(ev) {
     USER_SELECTION_CONFIRMED: {
       title: '选择已确认',
       text: selectionConfirmedText(ev)
+    },
+    AUTO_SELECTION_APPLIED: {
+      title: '已自动选择',
+      text: ev.candidateName ? `已自动选择 ${ev.candidateName}，系统继续规划。` : '已按策略自动选择候选，系统继续规划。'
     },
     COMPLETED: { title: '规划完成', text: '路线已生成，可以查看最终结果。' },
     ERROR: { title: '任务失败', text: userFacingErrorText(ev) }
@@ -732,13 +793,52 @@ function canShowNodeChat(item) {
 }
 
 function currentNodePreference(item) {
-  return item?.currentContext?.userPreferencePrompt || task.value?.currentContext?.userPreferencePrompt || ''
+  return item?.selectionPrompt?.userPreferencePrompt ||
+    item?.currentContext?.userPreferencePrompt ||
+    task.value?.selectionPrompt?.userPreferencePrompt ||
+    task.value?.currentContext?.userPreferencePrompt ||
+    ''
+}
+
+function hasSelectionPrompt(item) {
+  const prompt = item?.selectionPrompt || {}
+  return Boolean(
+    prompt.currentPositionName ||
+    prompt.dayNumber != null ||
+    prompt.remainingTimeBudgetMin != null ||
+    prompt.destinationName ||
+    (item?.currentContext && Object.keys(item.currentContext).length)
+  )
+}
+
+function selectionCurrentPositionName(item) {
+  return item?.selectionPrompt?.currentPositionName || item?.currentContext?.currentPositionName || ''
+}
+
+function selectionDayNumber(item) {
+  return Number(item?.selectionPrompt?.dayNumber || item?.currentContext?.dayNumber || 1)
+}
+
+function selectionRemainingTimeBudget(item) {
+  return Number(item?.selectionPrompt?.remainingTimeBudgetMin ?? item?.currentContext?.remainingTimeBudgetMin ?? 0)
+}
+
+function selectionDestinationName(item) {
+  return item?.selectionPrompt?.destinationName || item?.currentContext?.destinationName || ''
+}
+
+function selectionWeatherSummary(item) {
+  return item?.selectionPrompt?.weatherSummary || item?.weatherContext?.summary || ''
+}
+
+function selectionConstraintHints(item) {
+  return item?.selectionPrompt?.weatherConstraintHints || item?.weatherContext?.constraintHints || []
 }
 
 function selectionRequiredTitle(ev) {
   if (ev.pendingInputType === 'selection_branch') return '请选择地点选择方式'
   if (ev.pendingInputType === 'route_candidate_selection') return '请选择路线候选'
-  if (ev.pendingInputType === 'poi_candidate_selection' || ev.pendingInputType === 'attraction_selection') return '请选择下一站景点'
+  if (ev.pendingInputType === 'attraction_selection') return '请选择下一站景点'
   return '请选择起点位置'
 }
 
@@ -749,7 +849,7 @@ function selectionRequiredText(ev) {
   if (ev.pendingInputType === 'route_candidate_selection') {
     return '系统已生成多条路线候选，请确认一条后继续。'
   }
-  if (ev.pendingInputType === 'poi_candidate_selection' || ev.pendingInputType === 'attraction_selection') {
+  if (ev.pendingInputType === 'attraction_selection') {
     return '系统已为当前步骤生成候选景点，请确认后继续规划。'
   }
   return `关键字“${ev.startLocationQuery || task.value?.startLocationQuery || ''}”已生成候选地点。`
@@ -762,7 +862,7 @@ function selectionAlertTitle(item) {
   if (item.pendingInputType === 'route_candidate_selection') {
     return '请选择一条路线候选，确认后系统会按该路线的下一目标继续执行。'
   }
-  if (item.pendingInputType === 'poi_candidate_selection' || item.pendingInputType === 'attraction_selection') {
+  if (item.pendingInputType === 'attraction_selection') {
     return '请选择下一站景点，确认后系统会继续规划后续路线。'
   }
   return '请选择起点候选，确认后系统会继续按时间预算规划路线。'
@@ -773,7 +873,7 @@ function selectionConfirmedText(item) {
   if (!selectedName) return '已确认候选，系统继续规划中。'
   if (item.pendingInputType === 'selection_branch') return `已选择 ${selectedName}，系统正在继续生成候选。`
   if (item.pendingInputType === 'route_candidate_selection') return `已选择路线 ${selectedName}，系统正在继续规划中。`
-  if (item.pendingInputType === 'poi_candidate_selection' || item.pendingInputType === 'attraction_selection') {
+  if (item.pendingInputType === 'attraction_selection') {
     return `已选择 ${selectedName} 作为下一站景点，系统继续规划中。`
   }
   return `已选择 ${selectedName} 作为起点，系统继续规划中。`
@@ -784,6 +884,13 @@ function pausedText(ev) {
     return ev.message || ev.text || '地图接口限流，任务已暂时暂停，可稍后恢复。'
   }
   return ev.message || ev.text || '当前任务因配额限制暂停，稍后可继续。'
+}
+
+function toolDegradedText(ev) {
+  const name = ev.toolName ? `“${ev.toolName}”` : '外部工具'
+  const reason = ev.degradationReason || ev.errorMessage || ev.message || ev.text
+  if (reason) return `${name}暂不可用，系统已使用降级结果继续执行。原因：${reason}`
+  return `${name}暂不可用，系统已使用降级结果继续执行。`
 }
 
 function userFacingErrorText(ev) {
@@ -1104,6 +1211,10 @@ function formatScore(value) {
   margin-top: 10px;
   color: #0f766e;
   font-weight: 600;
+}
+
+.degradation-alert {
+  margin-top: 12px;
 }
 
 .node-chat-box {

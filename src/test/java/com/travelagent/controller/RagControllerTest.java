@@ -1,11 +1,10 @@
 package com.travelagent.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.travelagent.exception.BusinessException;
 import com.travelagent.exception.GlobalExceptionHandler;
-import com.travelagent.filter.JwtAuthInterceptor;
 import com.travelagent.mapper.RagDocumentMapper;
 import com.travelagent.model.entity.RagDocument;
+import com.travelagent.service.rag.RagSearchResult;
 import com.travelagent.service.rag.RagService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,10 +25,6 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * 中文注释：测试类，验证 RagController 的端点行为、权限校验与参数处理。
- * 使用 Standalone MockMvc（不启动 Spring 容器），与项目现有控制器测试风格一致。
- */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RagController Tests")
 class RagControllerTest {
@@ -50,10 +45,6 @@ class RagControllerTest {
                 .build();
     }
 
-    // -----------------------------------------------------------------------
-    // POST /api/rag/documents
-    // -----------------------------------------------------------------------
-
     @Test
     @DisplayName("registerDocument: admin (userLevel=3) can register a document")
     void registerDocument_adminSuccess() throws Exception {
@@ -65,7 +56,8 @@ class RagControllerTest {
         doc.setDocType("text");
         doc.setStatus("pending");
 
-        when(ragService.registerDocument(any(), any(), any(), any())).thenReturn(doc);
+        when(ragService.registerDocument(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(doc);
 
         mockMvc.perform(post("/api/rag/documents")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -112,10 +104,6 @@ class RagControllerTest {
                 .andExpect(jsonPath("$.code").value(400));
     }
 
-    // -----------------------------------------------------------------------
-    // POST /api/rag/documents/{id}/ingest
-    // -----------------------------------------------------------------------
-
     @Test
     @DisplayName("ingestDocument: triggers async ingest and returns 200 immediately")
     void ingestDocument_asyncTrigger() throws Exception {
@@ -145,9 +133,57 @@ class RagControllerTest {
                 .andExpect(jsonPath("$.code").value(404));
     }
 
-    // -----------------------------------------------------------------------
-    // GET /api/rag/documents/{id}
-    // -----------------------------------------------------------------------
+    @Test
+    @DisplayName("retryDocument: admin can trigger retry")
+    void retryDocument_adminSuccess() throws Exception {
+        doNothing().when(ragService).retryIngest(7L);
+
+        mockMvc.perform(post("/api/rag/documents/7/retry")
+                        .requestAttr("userLevel", 3))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(ragService).retryIngest(7L);
+    }
+
+    @Test
+    @DisplayName("disableDocument: admin can disable a document")
+    void disableDocument_adminSuccess() throws Exception {
+        doNothing().when(ragService).disableDocument(8L);
+
+        mockMvc.perform(post("/api/rag/documents/8/disable")
+                        .requestAttr("userLevel", 3))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(ragService).disableDocument(8L);
+    }
+
+    @Test
+    @DisplayName("reenableDocument: admin can reenable a document")
+    void reenableDocument_adminSuccess() throws Exception {
+        doNothing().when(ragService).reenableDocument(9L);
+
+        mockMvc.perform(post("/api/rag/documents/9/reenable")
+                        .requestAttr("userLevel", 3))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(ragService).reenableDocument(9L);
+    }
+
+    @Test
+    @DisplayName("deleteDocument: admin can delete a document")
+    void deleteDocument_adminSuccess() throws Exception {
+        doNothing().when(ragService).deleteDocument(10L);
+
+        mockMvc.perform(post("/api/rag/documents/10/delete")
+                        .requestAttr("userLevel", 3))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(ragService).deleteDocument(10L);
+    }
 
     @Test
     @DisplayName("getDocument: returns document for existing id")
@@ -176,15 +212,24 @@ class RagControllerTest {
                 .andExpect(jsonPath("$.code").value(404));
     }
 
-    // -----------------------------------------------------------------------
-    // GET /api/rag/query
-    // -----------------------------------------------------------------------
-
     @Test
     @DisplayName("queryChunks: returns chunk list for valid admin request")
     void queryChunks_returnsResults() throws Exception {
-        when(ragService.queryChunks("西安美食", "西安市", 3))
-                .thenReturn(List.of("兵马俑简介", "回民街美食"));
+        when(ragService.hybridSearch("西安美食", "西安市", 3))
+                .thenReturn(List.of(new RagSearchResult(
+                        10L,
+                        1L,
+                        "兵马俑简介",
+                        "西安旅游攻略",
+                        "西安市",
+                        "static_knowledge",
+                        "manual",
+                        "https://example.test/xian",
+                        0.92d,
+                        0.81d,
+                        0.0d,
+                        0.72d,
+                        "hybrid: vectorScore=0.9200, bm25Score=0.8100")));
 
         mockMvc.perform(get("/api/rag/query")
                         .param("text", "西安美食")
@@ -193,7 +238,9 @@ class RagControllerTest {
                         .requestAttr("userLevel", 3))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data[0]").value("兵马俑简介"));
+                .andExpect(jsonPath("$.data[0].chunkText").value("兵马俑简介"))
+                .andExpect(jsonPath("$.data[0].sourceType").value("static_knowledge"))
+                .andExpect(jsonPath("$.data[0].finalScore").value(0.72d));
     }
 
     @Test

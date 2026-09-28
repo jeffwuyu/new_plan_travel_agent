@@ -87,6 +87,22 @@ class TaskIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
+    @DisplayName("查询任务进度 - 返回稳定契约字段和 selectionPrompt")
+    void getTaskProgress_returnsContractAndSelectionPrompt() throws Exception {
+        String token = registerAndLogin("progress1", "progress1@test.com", "pass123");
+        String taskUuid = createTaskAndGetUuid(token, "西安", "历史文化游");
+
+        mockMvc.perform(get("/api/tasks/{uuid}/progress", taskUuid)
+                        .header("Authorization", "Bearer " + token)
+                        .param("limit", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.contractVersion").value("task-progress.v2"))
+                .andExpect(jsonPath("$.data.taskUuid").value(taskUuid))
+                .andExpect(jsonPath("$.data.selectionPrompt.selectionStage").value("origin_selection"))
+                .andExpect(jsonPath("$.data.selectionPrompt.startLocationQuery").value("钟楼"));
+    }
+
+    @Test
     @DisplayName("查询其他用户的任务 - 返回 403")
     void getTask_otherUser_returns403() throws Exception {
         String tokenA = registerAndLogin("userA", "userA@test.com", "pass123");
@@ -142,6 +158,16 @@ class TaskIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(get("/api/tasks/{uuid}", taskUuid)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.data.status").value("cancelled"));
+
+        mockMvc.perform(get("/api/tasks/{uuid}/progress", taskUuid)
+                        .header("Authorization", "Bearer " + token)
+                        .param("limit", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.currentStatus").value("cancelled"))
+                .andExpect(jsonPath("$.data.pauseReason").value("user_cancelled"))
+                .andExpect(jsonPath("$.data.events[0].eventType").value("CANCELLED"))
+                .andExpect(jsonPath("$.data.events[0].status").value("cancelled"))
+                .andExpect(jsonPath("$.data.events[0].message").value("Task cancelled by user"));
     }
 
     @Test
@@ -195,6 +221,8 @@ class TaskIntegrationTest extends BaseIntegrationTest {
                   "endLocationQuery":"西安北站",
                   "startTime":"2026-04-22T09:00:00",
                   "endTime":"2026-04-22T21:00:00",
+                  "totalBudgetYuan":3000,
+                  "lodgingBudgetPerNightYuan":500,
                   "travelMode":"driving"
                 }
                 """, region, intent);
@@ -208,7 +236,9 @@ class TaskIntegrationTest extends BaseIntegrationTest {
                   "startLocationQuery":"钟楼",
                   "endLocationQuery":"西安北站",
                   "startTime":"2026-04-22T09:00:00",
-                  "endTime":"2026-04-22T21:00:00"
+                  "endTime":"2026-04-22T21:00:00",
+                  "totalBudgetYuan":3000,
+                  "lodgingBudgetPerNightYuan":500
                 }
                 """, region, intent);
     }

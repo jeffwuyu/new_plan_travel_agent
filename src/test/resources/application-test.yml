@@ -96,6 +96,11 @@ agent:
   history:
     max-tokens: 3000
     sliding-window: 6
+  scratchpad:
+    enabled: true
+    keep-recent-steps: 6
+    max-observation-chars: 1200
+    max-summary-chars: 2000
   planner:
     max-steps: 30
     same-day-radius-km: 30

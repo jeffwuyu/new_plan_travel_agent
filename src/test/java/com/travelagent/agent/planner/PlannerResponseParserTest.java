@@ -3,6 +3,7 @@ package com.travelagent.agent.planner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelagent.model.dto.LocationCandidateItem;
 import com.travelagent.util.JsonUtil;
+import com.travelagent.validation.JsonSchemaValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,9 @@ class PlannerResponseParserTest {
         ReflectionTestUtils.setField(jsonUtil, "objectMapper",
                 new ObjectMapper().findAndRegisterModules());
         ReflectionTestUtils.setField(responseParser, "jsonUtil", jsonUtil);
+        ReflectionTestUtils.setField(responseParser, "jsonSchemaValidationService",
+                new JsonSchemaValidationService(new ObjectMapper().findAndRegisterModules()));
+        ReflectionTestUtils.setField(responseParser, "semanticValidator", new LlmOutputSemanticValidator());
     }
 
     @Test
@@ -44,7 +48,7 @@ class PlannerResponseParserTest {
                       "title": "Xi'an City Wall Night Walk",
                       "targetAttractionName": "Xi'an City Wall",
                       "stops": ["Yongning Gate", "City Wall"],
-                      "reasonHighlights": ["historical atmosphere", "route recommendation", "night view", "weather fit", "city landmark"],
+                      "reasonHighlights": ["historical atmosphere", "route recommendation", "night view", "weather fit"],
                       "reason": "Great for a relaxed evening walk.",
                       "estimatedTotalDurationMin": 180,
                       "weatherSuitability": "comfortable"
@@ -86,5 +90,53 @@ class PlannerResponseParserTest {
         assertThat(result.get(0).getHighlights())
                 .anySatisfy(value -> assertThat(value)
                         .isIn("Muslim", "Quarter", "Food", "Walk", "Drum", "Tower", "food", "experience", "lively", "night", "vibe"));
+    }
+
+    @Test
+    void parseRouteCandidates_schemaViolation_returnsEmptyList() {
+        String response = """
+                {
+                  "routes": [
+                    {
+                      "routeId": "route-1",
+                      "title": "Bad route",
+                      "targetAttractionName": "Unknown",
+                      "stops": ["Unknown"],
+                      "reason": "Missing duration type.",
+                      "estimatedTotalDurationMin": "two hours",
+                      "weatherSuitability": "normal"
+                    }
+                  ]
+                }
+                """;
+
+        List<LocationCandidateItem> result = responseParser.parseRouteCandidates(response, Map.of("summary", "clear sky"));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void parseRouteCandidates_semanticInvalidRouteId_isFiltered() {
+        String response = """
+                {
+                  "routes": [
+                    {
+                      "routeId": "not-from-rag",
+                      "title": "Xi'an City Wall",
+                      "targetAttractionName": "Xi'an City Wall",
+                      "stops": ["Xi'an City Wall"],
+                      "reasonHighlights": ["history", "night view"],
+                      "reason": "Good fit.",
+                      "estimatedTotalDurationMin": 120,
+                      "weatherSuitability": "normal"
+                    }
+                  ]
+                }
+                """;
+
+        List<LocationCandidateItem> result = responseParser.parseRouteCandidates(response,
+                Map.of("summary", "clear sky", "allowedRouteIds", List.of("candidate-1")));
+
+        assertThat(result).isEmpty();
     }
 }

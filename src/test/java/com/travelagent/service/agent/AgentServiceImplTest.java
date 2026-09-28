@@ -12,6 +12,8 @@ import com.travelagent.agent.planner.PlanningResult;
 import com.travelagent.agent.statemachine.AgentEvent;
 import com.travelagent.agent.statemachine.AgentStateMachine;
 import com.travelagent.agent.tools.GeocodeTool;
+import com.travelagent.agent.tools.AgentTool;
+import com.travelagent.agent.tools.PendingToolReplayPolicy;
 import com.travelagent.agent.tools.ToolRegistry;
 import com.travelagent.agent.tools.TrafficTimeTool;
 import com.travelagent.agent.tools.WeatherTool;
@@ -31,11 +33,19 @@ import com.travelagent.model.entity.User;
 import com.travelagent.model.enums.TaskStatus;
 import com.travelagent.monitoring.TaskMetricsService;
 import com.travelagent.service.agent.impl.AgentCheckpointHelper;
+import com.travelagent.service.agent.impl.AgentPlanFinalizationService;
+import com.travelagent.service.agent.impl.AgentPlanStepAssembler;
+import com.travelagent.service.agent.impl.AgentSelectionCoordinator;
 import com.travelagent.service.agent.impl.AgentServiceImpl;
 import com.travelagent.service.agent.impl.AgentToolExecutor;
+import com.travelagent.service.agent.impl.AgentToolStepService;
+import com.travelagent.service.agent.SelectionPolicyService;
+import com.travelagent.service.accommodation.AccommodationRecommendationResult;
+import com.travelagent.service.accommodation.AccommodationRecommendationService;
 import com.travelagent.service.llm.LlmUsageAccountingService;
 import com.travelagent.service.notification.SseEvent;
 import com.travelagent.service.notification.SseNotificationService;
+import com.travelagent.service.task.RedisTaskLockService;
 import com.travelagent.service.task.TaskProgressService;
 import com.travelagent.service.user.QuotaService;
 import com.travelagent.util.JsonUtil;
@@ -85,13 +95,18 @@ class AgentServiceImplTest {
     @Mock private TaskProgressService taskProgressService;
     @Mock private TaskMetricsService taskMetricsService;
     @Mock private DatabaseSchemaGuard schemaGuard;
+    @Mock private RedisTaskLockService redisTaskLockService;
     @Mock private AmapClient amapClient;
     @Mock private LlmUsageAccountingService llmUsageAccountingService;
+    @Mock private AccommodationRecommendationService accommodationRecommendationService;
 
     @InjectMocks private AgentServiceImpl agentService;
 
     private final JsonUtil jsonUtil = new JsonUtil();
     private AgentToolExecutor toolExecutor;
+    private AgentSelectionCoordinator selectionCoordinator;
+    private AgentPlanFinalizationService planFinalizationService;
+    private AgentToolStepService toolStepService;
 
     @BeforeEach
     void setUp() {
@@ -108,10 +123,35 @@ class AgentServiceImplTest {
         ReflectionTestUtils.setField(toolExecutor, "checkpointHelper", checkpointHelper);
         ReflectionTestUtils.setField(toolExecutor, "taskProgressService", taskProgressService);
         ReflectionTestUtils.setField(toolExecutor, "taskMetricsService", taskMetricsService);
+        ReflectionTestUtils.setField(toolExecutor, "sseNotificationService", sseNotificationService);
         ReflectionTestUtils.setField(toolExecutor, "jsonUtil", jsonUtil);
+        toolStepService = new AgentToolStepService(taskMapper, stateMachine, sseNotificationService, toolExecutor);
+
+        selectionCoordinator = new AgentSelectionCoordinator(
+                taskMapper,
+                stateMachine,
+                sseNotificationService,
+                taskProgressService,
+                checkpointHelper,
+                new SelectionPolicyService(SelectionPolicyService.MANUAL_ONLY, 0.82, 0.12));
+        planFinalizationService = new AgentPlanFinalizationService(
+                markovPlanner,
+                planPersistenceService,
+                accommodationRecommendationService,
+                taskProgressService,
+                jsonUtil);
+        ReflectionTestUtils.setField(planFinalizationService, "planStepAssembler", new AgentPlanStepAssembler(jsonUtil));
+        ReflectionTestUtils.setField(planFinalizationService, "autoGenerateRouteMapOnPlanComplete", false);
 
         ReflectionTestUtils.setField(agentService, "checkpointHelper", checkpointHelper);
         ReflectionTestUtils.setField(agentService, "toolExecutor", toolExecutor);
+        ReflectionTestUtils.setField(agentService, "toolStepService", toolStepService);
+        ReflectionTestUtils.setField(agentService, "selectionCoordinator", selectionCoordinator);
+        ReflectionTestUtils.setField(agentService, "planFinalizationService", planFinalizationService);
+        ReflectionTestUtils.setField(agentService, "redisTaskLockService", redisTaskLockService);
+        ReflectionTestUtils.setField(agentService, "maxRecoveryAttempts", 3);
+        lenient().when(accommodationRecommendationService.recommend(any(), any()))
+                .thenReturn(AccommodationRecommendationResult.unavailable("not exercised in AgentServiceImplTest"));
     }
 
     @Test
@@ -121,6 +161,41 @@ class AgentServiceImplTest {
         agentService.executeTask("unknown");
 
         verifyNoInteractions(stateMachine, markovPlanner, sseNotificationService);
+    }
+
+    @Test
+    void recoverStuckTasks_withoutValidLease_marksTaskResumingAndRecordsAttempt() {
+        Task task = buildTask(TaskStatus.PLANNING);
+        when(taskMapper.findByStatusIn(any(), eq(100))).thenReturn(List.of(task));
+        when(redisTaskLockService.hasValidLease("uuid")).thenReturn(false);
+        when(redisTaskLockService.incrementRecoveryAttempts("uuid")).thenReturn(1);
+
+        agentService.recoverStuckTasks();
+
+        verify(taskMapper).updateStatus(1L, TaskStatus.RESUMING.getCode());
+        verify(taskProgressService).recordEvent(eq("uuid"), eq("RECOVERY_CLAIMED"),
+                eq(TaskStatus.RESUMING.getCode()), any(), any(),
+                org.mockito.ArgumentMatchers.contains("claimed for recovery"), any());
+    }
+
+    @Test
+    void recoverStuckTasks_whenRecoveryAttemptsExhausted_marksTaskFailed() {
+        Task task = buildTask(TaskStatus.TOOL_CALLING);
+        when(taskMapper.findByStatusIn(any(), eq(100))).thenReturn(List.of(task));
+        when(redisTaskLockService.hasValidLease("uuid")).thenReturn(false);
+        when(redisTaskLockService.incrementRecoveryAttempts("uuid")).thenReturn(4);
+
+        agentService.recoverStuckTasks();
+
+        ArgumentCaptor<Task> taskCaptor = ArgumentCaptor.forClass(Task.class);
+        verify(taskMapper).update(taskCaptor.capture());
+        Task failedTask = taskCaptor.getValue();
+        assertThat(failedTask.getStatus()).isEqualTo(TaskStatus.FAILED.getCode());
+        assertThat(failedTask.getErrorMessage()).contains("max recovery attempts");
+        verify(taskMapper, never()).updateStatus(1L, TaskStatus.RESUMING.getCode());
+        verify(taskProgressService).recordEvent(eq("uuid"), eq("RECOVERY_EXHAUSTED"),
+                eq(TaskStatus.FAILED.getCode()), any(), any(),
+                org.mockito.ArgumentMatchers.contains("exceeded max recovery attempts"), any());
     }
 
     @Test
@@ -183,6 +258,41 @@ class AgentServiceImplTest {
 
         verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.COMPLETED), any());
         verify(sseNotificationService, never()).sendEvent(eq("uuid"), eq(SseEvent.ERROR), any());
+    }
+
+    @Test
+    void executeTask_whenCancelledAfterToolCalls_stopsBeforePersistingPlan() {
+        Task task = buildTask(TaskStatus.PENDING);
+        Task cancelledTask = buildTask(TaskStatus.CANCELLED);
+        TaskCheckpoint checkpoint = buildCheckpoint(true);
+        checkpoint.getPlanningConfig().setDynamicTargetSteps(1);
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+
+        when(taskMapper.findByUuid("uuid")).thenReturn(task, task, cancelledTask);
+        mockStandardTransitions(TaskStatus.PENDING);
+        mockUserLevel(1L, 1);
+        when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("manual"));
+        when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
+                .thenReturn(PlanningResult.forAttraction("Terracotta Army", 0));
+        var geocodeTool = successGeocodeTool();
+        var weatherTool = successWeatherTool();
+        var trafficTool = successTrafficTool();
+        when(toolRegistry.getTool(GeocodeTool.NAME)).thenReturn(geocodeTool);
+        when(toolRegistry.getTool(WeatherTool.NAME)).thenReturn(weatherTool);
+        when(toolRegistry.getTool(TrafficTimeTool.NAME)).thenReturn(trafficTool);
+
+        agentService.executeTask("uuid");
+
+        ArgumentCaptor<Task> taskCaptor = ArgumentCaptor.forClass(Task.class);
+        verify(taskMapper, atLeastOnce()).updateCheckpoint(taskCaptor.capture());
+        Task savedCancelledTask = taskCaptor.getAllValues().get(taskCaptor.getAllValues().size() - 1);
+        assertThat(savedCancelledTask.getStatus()).isEqualTo(TaskStatus.CANCELLED.getCode());
+        assertThat(savedCancelledTask.getCheckpointJson()).contains("\"currentState\":\"cancelled\"");
+        assertThat(savedCancelledTask.getCheckpointJson()).contains("\"pauseReason\":\"user_cancelled\"");
+        verify(planPersistenceService, never()).insertPlan(any());
+        verify(sseNotificationService, never()).sendEvent(eq("uuid"), eq(SseEvent.COMPLETED), any());
+        verify(taskProgressService).recordEvent(eq("uuid"), eq("CANCELLED"), eq(TaskStatus.CANCELLED.getCode()),
+                eq(0), eq(1), eq("Task execution stopped because it was cancelled"), any());
     }
 
     @Test
@@ -253,6 +363,35 @@ class AgentServiceImplTest {
         agentService.executeTask("uuid");
 
         verify(toolRegistry, atLeastOnce()).getTool(GeocodeTool.NAME);
+    }
+
+    @Test
+    void executeTask_resumeWithNonReplaySafePendingTool_pausesForManualConfirmation() {
+        Task task = buildTask(TaskStatus.RESUMING);
+        TaskCheckpoint checkpoint = buildCheckpoint(true);
+        checkpoint.setPendingToolCall(new PendingToolCall(
+                "booking_query",
+                Map.of("hotel", "West Lake"),
+                "uuid-step0-booking"
+        ));
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+
+        AgentTool bookingTool = mock(AgentTool.class);
+        when(bookingTool.getReplayPolicy()).thenReturn(PendingToolReplayPolicy.REQUIRE_MANUAL_CONFIRMATION);
+        when(taskMapper.findByUuid("uuid")).thenReturn(task);
+        when(stateMachine.transition(TaskStatus.RESUMING, AgentEvent.START_PLANNING)).thenReturn(TaskStatus.PLANNING);
+        mockUserLevel(1L, 1);
+        when(toolRegistry.getTool("booking_query")).thenReturn(bookingTool);
+
+        agentService.executeTask("uuid");
+
+        verify(bookingTool, never()).execute(any(), anyString());
+        verify(taskMapper).updateStatus(1L, TaskStatus.PAUSED.getCode());
+        verify(taskProgressService).recordEvent(eq("uuid"), eq("PENDING_TOOL_REPLAY_REQUIRES_CONFIRMATION"),
+                eq(TaskStatus.PAUSED.getCode()), eq(0), eq(1),
+                eq("Pending tool replay requires manual confirmation: booking_query"), any());
+        verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.PAUSED), any());
+        verify(markovPlanner, never()).buildPlanRequest(any());
     }
 
     @Test
@@ -340,21 +479,76 @@ class AgentServiceImplTest {
         when(stateMachine.transition(TaskStatus.PENDING, AgentEvent.START_PLANNING)).thenReturn(TaskStatus.PLANNING);
         when(stateMachine.transition(TaskStatus.PLANNING, AgentEvent.USER_INPUT_REQUIRED)).thenReturn(TaskStatus.AWAITING_USER_INPUT);
         mockUserLevel(1L, 1);
-        when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("nearby_poi"));
+        when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("rag_route"));
         when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
                 .thenReturn(PlanningResult.forCandidates(
                         List.of(candidate),
                         0,
-                        "poi_candidate_selection",
-                        "poi_candidate_selection",
-                        "nearby_poi",
+                        "route_candidate_selection",
+                        "route_candidate_selection",
+                        "rag_route",
                         Map.of(),
                         Map.of()));
 
         agentService.executeTask("uuid");
 
-        verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.USER_SELECTION_REQUIRED), any());
+        ArgumentCaptor<Map<String, Object>> payloadCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.USER_SELECTION_REQUIRED), payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue()).containsKey("selectionPrompt");
         verify(toolRegistry, never()).getTool(GeocodeTool.NAME);
+    }
+
+    @Test
+    void executeTask_highConfidenceCandidate_autoSelectsAndContinues() {
+        selectionCoordinator = new AgentSelectionCoordinator(
+                taskMapper,
+                stateMachine,
+                sseNotificationService,
+                taskProgressService,
+                (AgentCheckpointHelper) ReflectionTestUtils.getField(agentService, "checkpointHelper"),
+                new SelectionPolicyService(SelectionPolicyService.AUTO_HIGH_CONFIDENCE, 0.82, 0.12));
+        ReflectionTestUtils.setField(agentService, "selectionCoordinator", selectionCoordinator);
+        Task task = buildTask(TaskStatus.PENDING);
+        TaskCheckpoint checkpoint = buildCheckpoint(true);
+        checkpoint.getPlanningConfig().setDynamicTargetSteps(1);
+        task.setCheckpointJson(jsonUtil.toJson(checkpoint));
+
+        LocationCandidateItem first = new LocationCandidateItem();
+        first.setCandidateId("poi-1");
+        first.setName("Terracotta Army");
+        first.setScore(0.91);
+        LocationCandidateItem second = new LocationCandidateItem();
+        second.setCandidateId("poi-2");
+        second.setName("City Wall");
+        second.setScore(0.71);
+
+        when(taskMapper.findByUuid("uuid")).thenReturn(task);
+        mockStandardTransitions(TaskStatus.PENDING);
+        mockUserLevel(1L, 1);
+        when(markovPlanner.buildPlanRequest(any())).thenReturn(buildPlanningRequest("rag_route"));
+        when(markovPlanner.planNextAttraction(any(), any(), any(), anyString()))
+                .thenReturn(PlanningResult.forCandidates(
+                        List.of(first, second),
+                        0,
+                        "route_candidate_selection",
+                        "route_candidate_selection",
+                        "rag_route",
+                        Map.of(),
+                        Map.of()));
+        when(amapClient.getTravelDuration(any(Double.class), any(Double.class), any(Double.class), any(Double.class), anyString()))
+                .thenReturn(Map.of("durationMin", 25));
+        mockToolRegistry();
+        doAnswer(invocation -> {
+            Plan plan = invocation.getArgument(0);
+            plan.setId(42L);
+            return null;
+        }).when(planPersistenceService).insertPlan(any());
+
+        agentService.executeTask("uuid");
+
+        verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.AUTO_SELECTION_APPLIED), any());
+        verify(sseNotificationService, never()).sendEvent(eq("uuid"), eq(SseEvent.USER_SELECTION_REQUIRED), any());
+        verify(sseNotificationService).sendEvent(eq("uuid"), eq(SseEvent.COMPLETED), any());
     }
 
     @Test

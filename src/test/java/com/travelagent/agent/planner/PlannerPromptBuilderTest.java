@@ -4,14 +4,21 @@ import com.travelagent.agent.context.CompletedStep;
 import com.travelagent.agent.context.DailyTimeWindow;
 import com.travelagent.agent.context.PlanningConfig;
 import com.travelagent.agent.context.TaskCheckpoint;
+import com.travelagent.agent.memory.UserPreferenceMemoryService;
+import com.travelagent.agent.prompt.PromptAssembly;
+import com.travelagent.agent.requirements.TravelConstraints;
+import com.travelagent.agent.safety.SensitiveInfoGuard;
+import com.travelagent.model.dto.LocationCandidateItem;
 import com.travelagent.model.dto.ResolvedLocation;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -56,6 +63,73 @@ class PlannerPromptBuilderTest {
         assertThat(prompt).contains("Wild Goose Pagoda");
         assertThat(prompt).contains("34.22");
         assertThat(prompt).contains("38 minutes");
+    }
+
+    @Test
+    void resolveCurrentTime_usesOffsetWithinCurrentDayForMultiDayTrip() {
+        TaskCheckpoint cp = buildCheckpoint(2, 3, "Xi'an", List.of(), List.of());
+        cp.setUsedTimeBudgetMin(12 * 60 + 90);
+
+        String currentTime = promptBuilder.resolveCurrentTime(cp);
+
+        assertThat(currentTime).isEqualTo("08:30");
+    }
+
+    @Test
+    void buildRouteCandidateSystemPrompt_injectsLongTermProfileAsLowPriority() {
+        UserPreferenceMemoryService memoryService = new UserPreferenceMemoryService(new SensitiveInfoGuard());
+        TravelConstraints historical = new TravelConstraints();
+        historical.setDestination("Beijing");
+        historical.setAttractionPreference(List.of("family travel", "cultural attractions"));
+        historical.setTravelPace("relaxed");
+        historical.setBudgetYuan(BigDecimal.valueOf(5000));
+        memoryService.upsertFromConstraints(42L, historical, "Prefer family trips and cultural attractions.");
+
+        PlannerPromptBuilder builder = new PlannerPromptBuilder(memoryService);
+        TaskCheckpoint cp = buildCheckpoint(2, 3, "Hangzhou", List.of(), List.of());
+        cp.setUserId(42L);
+        TravelConstraints current = new TravelConstraints();
+        current.setDestination("Hangzhou");
+        cp.setStructuredConstraints(current);
+
+        String prompt = builder.buildRouteCandidateSystemPrompt(cp, new PlanNextAttractionRequest(), Map.of());
+
+        assertThat(prompt).contains("Long-term user profile");
+        assertThat(prompt).contains("low priority");
+        assertThat(prompt).contains("must never override current-session requirements");
+        assertThat(prompt).contains("family travel", "cultural attractions");
+        assertThat(prompt).contains("Historical destinations: Beijing");
+    }
+
+    @Test
+    void buildRouteCandidatePrompt_rendersSectionsForMemoryObservationAndOutputFormat() {
+        UserPreferenceMemoryService memoryService = new UserPreferenceMemoryService(new SensitiveInfoGuard());
+        TravelConstraints historical = new TravelConstraints();
+        historical.setAttractionPreference(List.of("family travel"));
+        memoryService.upsertFromConstraints(42L, historical, "Prefer family trips.");
+
+        PlannerPromptBuilder builder = new PlannerPromptBuilder(memoryService);
+        TaskCheckpoint cp = buildCheckpoint(1, 2, "Hangzhou", List.of(step("West Lake", 30.25, 120.14)), List.of());
+        cp.setUserId(42L);
+        PlanNextAttractionRequest request = new PlanNextAttractionRequest();
+        request.setCurrentPositionName("West Lake");
+        request.setTravelMode("driving");
+        request.setVisitedPoiNames(List.of("West Lake"));
+        LocationCandidateItem candidate = new LocationCandidateItem();
+        candidate.setCandidateId("rag-1");
+        candidate.setName("Lingyin Temple");
+        candidate.setScore(0.9);
+
+        PromptAssembly assembly = builder.buildRouteCandidatePrompt(cp, request,
+                Map.of("summary", "clear", "constraintHints", List.of("outdoor ok")),
+                List.of(candidate));
+        String rendered = assembly.render();
+
+        assertThat(rendered).contains("## System", "## Policy", "## Memory", "## Current Goal", "## Observation", "## Output Format");
+        assertThat(rendered).contains("Long-term user profile");
+        assertThat(rendered).contains("Completed itinerary steps");
+        assertThat(rendered).contains("candidateId: rag-1");
+        assertThat(rendered).contains("JSON schema");
     }
 
     private TaskCheckpoint buildCheckpoint(int days, int perDay, String region,

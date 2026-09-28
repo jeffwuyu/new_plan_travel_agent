@@ -9,6 +9,9 @@
         <el-menu-item index="/admin/quota">
           <el-icon><Coin /></el-icon> 配额配置
         </el-menu-item>
+        <el-menu-item index="/admin/tasks">
+          <el-icon><List /></el-icon> 任务监控
+        </el-menu-item>
         <el-menu-item index="/admin/rag">
           <el-icon><Document /></el-icon> RAG 文档
         </el-menu-item>

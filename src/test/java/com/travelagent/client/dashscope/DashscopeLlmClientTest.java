@@ -1,9 +1,13 @@
 package com.travelagent.client.dashscope;
 
 import com.travelagent.exception.AgentException;
+import com.travelagent.exception.RateLimitExceededException;
 import com.travelagent.mapper.LlmCallLogMapper;
+import com.travelagent.mapper.TaskMapper;
 import com.travelagent.model.entity.LlmCallLog;
+import com.travelagent.model.entity.Task;
 import com.travelagent.monitoring.TaskMetricsService;
+import com.travelagent.service.ratelimit.AgentRateLimitService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,6 +49,8 @@ class DashscopeLlmClientTest {
     @Mock private ChatModel chatModel;
     @Mock private LlmCallLogMapper llmCallLogMapper;
     @Mock private TaskMetricsService taskMetricsService;
+    @Mock private AgentRateLimitService agentRateLimitService;
+    @Mock private TaskMapper taskMapper;
 
     private DashscopeLlmClient llmClient;
 
@@ -54,6 +60,8 @@ class DashscopeLlmClientTest {
         ReflectionTestUtils.setField(llmClient, "model", "qwen-plus");
         ReflectionTestUtils.setField(llmClient, "maxRetries", 3);
         ReflectionTestUtils.setField(llmClient, "taskMetricsService", taskMetricsService);
+        ReflectionTestUtils.setField(llmClient, "agentRateLimitService", agentRateLimitService);
+        ReflectionTestUtils.setField(llmClient, "taskMapper", taskMapper);
     }
 
     // -----------------------------------------------------------------------
@@ -137,6 +145,23 @@ class DashscopeLlmClientTest {
         assertThatThrownBy(() -> llmClient.call(1L, 2L, "planning", "sys", List.of(), "msg", "key"))
                 .isInstanceOf(AgentException.class)
                 .hasMessageContaining("timed out");
+    }
+
+    @Test
+    @DisplayName("call: rate limit blocks provider call and audit log")
+    void call_rateLimitExceeded_doesNotCallProviderOrAuditLog() {
+        Task task = new Task();
+        task.setId(1L);
+        task.setRequestIp("203.0.113.10");
+        when(taskMapper.findById(1L)).thenReturn(task);
+        doThrow(new RateLimitExceededException("RATE_LIMIT_EXCEEDED"))
+                .when(agentRateLimitService).checkLlmLimit(2L, "203.0.113.10");
+
+        assertThatThrownBy(() -> llmClient.call(1L, 2L, "planning", "sys", List.of(), "msg", "key"))
+                .isInstanceOf(RateLimitExceededException.class);
+
+        verify(chatModel, never()).call(any(org.springframework.ai.chat.prompt.Prompt.class));
+        verify(llmCallLogMapper, never()).insert(any());
     }
 
     // -----------------------------------------------------------------------

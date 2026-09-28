@@ -58,6 +58,10 @@ class WeatherToolTest {
 
         assertThat(result.get("weather")).isEqualTo("晴");
         assertThat(result.get("temperature")).isEqualTo("22");
+        assertThat(result.get("outdoorRisk")).isEqualTo("LOW");
+        assertThat(result.get("summary").toString()).contains("晴 22C");
+        assertThat(result.get("queryTime")).isNotNull();
+        assertThat(result.get("cacheTtl")).isEqualTo("PT1H");
         verify(amapClient).getWeather("610100");
     }
 
@@ -84,6 +88,7 @@ class WeatherToolTest {
         Map<String, Object> result = weatherTool.execute(Map.of("adcode", "330100"), IDEMPOTENCY_KEY);
 
         assertThat(result.get("weather")).isEqualTo("晴");
+        assertThat(result.get("outdoorRisk")).isEqualTo("LOW");
         verifyNoInteractions(amapClient);
     }
 
@@ -98,6 +103,56 @@ class WeatherToolTest {
         Map<String, Object> result = weatherTool.execute(Map.of("adcode", "610100"), IDEMPOTENCY_KEY);
 
         assertThat(result.get("mcpFallback")).isEqualTo(true);
+        assertThat(result.get("mcpProvider")).isEqualTo("amap-rest");
+        assertThat(result.get("outdoorRisk")).isEqualTo("LOW");
         verify(amapClient).getWeather("610100");
+    }
+
+    @Test
+    @DisplayName("execute: date range uses forecast and flags outdoor risks")
+    void execute_dateRange_usesForecastAndBuildsRiskAdvice() {
+        when(amapClient.getWeatherForecast("330100")).thenReturn(Map.of(
+                "weather", "小雨",
+                "temperature", "34",
+                "windDirection", "东",
+                "windPower", "6",
+                "humidity", "",
+                "forecastDays", java.util.List.of(
+                        Map.of(
+                                "date", "2026-06-05",
+                                "dayWeather", "小雨",
+                                "nightWeather", "阴",
+                                "tempHigh", "34",
+                                "tempLow", "25",
+                                "dayWindPower", "6",
+                                "nightWindPower", "4"
+                        ),
+                        Map.of(
+                                "date", "2026-06-06",
+                                "dayWeather", "晴",
+                                "nightWeather", "晴",
+                                "tempHigh", "29",
+                                "tempLow", "22",
+                                "dayWindPower", "3",
+                                "nightWindPower", "3"
+                        )
+                )
+        ));
+
+        Map<String, Object> result = weatherTool.execute(Map.of(
+                "city", "330100",
+                "startDate", "2026-06-05",
+                "endDate", "2026-06-06"
+        ), IDEMPOTENCY_KEY);
+
+        assertThat(result.get("outdoorRisk")).isEqualTo("MEDIUM");
+        assertThat(result.get("avoidRain")).isEqualTo(true);
+        assertThat(result.get("avoidWind")).isEqualTo(true);
+        assertThat((java.util.List<?>) result.get("constraintHints")).isNotEmpty();
+        assertThat((java.util.List<?>) result.get("adjustmentSuggestions"))
+                .anySatisfy(item -> assertThat(item.toString()).contains("室内"));
+        assertThat((java.util.List<?>) result.get("forecastDays")).hasSize(2);
+        verify(amapClient).getWeatherForecast("330100");
+        verify(amapClient, never()).getWeather(any());
     }
 }

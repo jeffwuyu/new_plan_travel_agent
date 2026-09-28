@@ -92,6 +92,7 @@ class QuotaServiceTest {
     void checkDailyQuota_sufficientQuota_noException() {
         when(redisUtil.get(anyString())).thenReturn(regularConfig);
         when(redisUtil.checkQuota(anyString(), eq(10000L))).thenReturn(true);
+        when(redisUtil.checkQuota(anyString(), eq(100000L))).thenReturn(true);
 
         assertDoesNotThrow(() -> quotaService.checkDailyQuota(1L, 1));
     }
@@ -106,6 +107,20 @@ class QuotaServiceTest {
             () -> quotaService.checkDailyQuota(1L, 1));
 
         assertEquals("daily", ex.getPeriodType());
+        assertEquals(429, ex.getHttpStatus());
+    }
+
+    @Test
+    @DisplayName("checkDailyQuota - 月度配额耗尽时抛出 QuotaExhaustedException")
+    void checkDailyQuota_monthlyExhausted_throws() {
+        when(redisUtil.get(anyString())).thenReturn(regularConfig);
+        when(redisUtil.checkQuota(anyString(), eq(10000L))).thenReturn(true);
+        when(redisUtil.checkQuota(anyString(), eq(100000L))).thenReturn(false);
+
+        QuotaExhaustedException ex = assertThrows(QuotaExhaustedException.class,
+            () -> quotaService.checkDailyQuota(1L, 1));
+
+        assertEquals("monthly", ex.getPeriodType());
         assertEquals(429, ex.getHttpStatus());
     }
 
@@ -135,6 +150,21 @@ class QuotaServiceTest {
 
         assertThrows(QuotaExhaustedException.class,
             () -> quotaService.debitTokens(1L, 1, 100));
+    }
+
+    @Test
+    @DisplayName("debitTokens - 扣减后超出月限额抛出 QuotaExhaustedException")
+    void debitTokens_exceedsMonthlyLimit_throws() {
+        when(redisUtil.get(anyString())).thenReturn(regularConfig);
+        when(redisUtil.incrementWithTtl(contains(":daily:"), anyLong(), any()))
+            .thenReturn(9000L);
+        when(redisUtil.incrementWithTtl(contains(":monthly:"), anyLong(), any()))
+            .thenReturn(100001L);
+
+        QuotaExhaustedException ex = assertThrows(QuotaExhaustedException.class,
+            () -> quotaService.debitTokens(1L, 1, 100));
+
+        assertEquals("monthly", ex.getPeriodType());
     }
 
     @Test

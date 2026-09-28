@@ -2,7 +2,6 @@
   <div>
     <h3 class="page-title">RAG 文档管理</h3>
 
-    <!-- Upload form -->
     <el-card header="上传新文档" class="mb-20">
       <el-form :model="uploadForm" :rules="uploadRules" ref="uploadFormRef" label-position="top" inline>
         <el-form-item label="文档标题" prop="title">
@@ -35,7 +34,6 @@
       </el-form>
     </el-card>
 
-    <!-- Document list -->
     <el-card header="文档列表">
       <div class="toolbar mb-12">
         <el-button size="small" @click="fetchDocs" :loading="loading">刷新</el-button>
@@ -45,22 +43,50 @@
         <el-table-column prop="title" label="标题" min-width="160" />
         <el-table-column prop="region" label="地区" width="100" />
         <el-table-column prop="docType" label="类型" width="90" />
-        <el-table-column label="状态" width="100">
+        <el-table-column prop="ingestProgress" label="进度" width="90">
+          <template #default="{ row }">{{ formatProgress(row.ingestProgress) }}</template>
+        </el-table-column>
+        <el-table-column prop="retryCount" label="重试" width="80" />
+        <el-table-column label="状态" width="110">
           <template #default="{ row }">
             <el-tag :type="statusType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="lastErrorCode" label="错误码" width="140" show-overflow-tooltip />
         <el-table-column prop="errorMessage" label="错误信息" min-width="160" show-overflow-tooltip />
         <el-table-column label="创建时间" width="160">
           <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="100">
+        <el-table-column label="操作" min-width="320">
           <template #default="{ row }">
             <el-button
               v-if="row.status === 'pending'"
-              size="small" type="primary"
+              size="small"
+              type="primary"
               @click="handleIngest(row.id)"
             >触发入库</el-button>
+            <el-button
+              v-if="row.status === 'failed'"
+              size="small"
+              @click="handleRetry(row.id)"
+            >重试</el-button>
+            <el-button
+              v-if="row.status !== 'disabled'"
+              size="small"
+              type="warning"
+              @click="handleDisable(row.id)"
+            >禁用</el-button>
+            <el-button
+              v-if="row.status === 'disabled'"
+              size="small"
+              type="success"
+              @click="handleReenable(row.id)"
+            >恢复</el-button>
+            <el-button
+              size="small"
+              type="danger"
+              @click="handleDelete(row.id)"
+            >删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -71,7 +97,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { uploadRagDocument, listRagDocuments, ingestDocument } from '@/api/admin'
+import {
+  uploadRagDocument,
+  listRagDocuments,
+  ingestDocument,
+  retryRagDocument,
+  disableRagDocument,
+  reenableRagDocument,
+  deleteRagDocument
+} from '@/api/admin'
 
 const docs = ref([])
 const loading = ref(false)
@@ -135,6 +169,47 @@ async function handleIngest(id) {
   try {
     await ingestDocument(id)
     ElMessage.success('已触发入库，请稍后刷新查看状态')
+    await fetchDocs()
+  } catch (err) {
+    ElMessage.error(err.message)
+  }
+}
+
+async function handleRetry(id) {
+  try {
+    await retryRagDocument(id)
+    ElMessage.success('已触发重试入库')
+    await fetchDocs()
+  } catch (err) {
+    ElMessage.error(err.message)
+  }
+}
+
+async function handleDisable(id) {
+  try {
+    await disableRagDocument(id)
+    ElMessage.success('文档已禁用')
+    await fetchDocs()
+  } catch (err) {
+    ElMessage.error(err.message)
+  }
+}
+
+async function handleReenable(id) {
+  try {
+    await reenableRagDocument(id)
+    ElMessage.success('文档已恢复为待入库')
+    await fetchDocs()
+  } catch (err) {
+    ElMessage.error(err.message)
+  }
+}
+
+async function handleDelete(id) {
+  try {
+    await deleteRagDocument(id)
+    ElMessage.success('文档已删除')
+    await fetchDocs()
   } catch (err) {
     ElMessage.error(err.message)
   }
@@ -142,11 +217,14 @@ async function handleIngest(id) {
 
 const STATUS_MAP = {
   pending: { type: 'warning', label: '待入库' },
+  indexing: { type: 'primary', label: '入库中' },
   indexed: { type: 'success', label: '已入库' },
-  failed:  { type: 'danger',  label: '失败' }
+  failed: { type: 'danger', label: '失败' },
+  disabled: { type: 'info', label: '已禁用' }
 }
-const statusType  = (s) => STATUS_MAP[s]?.type  ?? 'info'
+const statusType = (s) => STATUS_MAP[s]?.type ?? 'info'
 const statusLabel = (s) => STATUS_MAP[s]?.label ?? s
+const formatProgress = (value) => `${Number.isFinite(Number(value)) ? Number(value) : 0}%`
 
 function formatTime(ts) {
   if (!ts) return '-'

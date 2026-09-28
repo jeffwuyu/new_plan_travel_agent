@@ -3,11 +3,16 @@ package com.travelagent.service.notification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * Unit tests for SseNotificationService.
@@ -92,6 +97,24 @@ class SseNotificationServiceTest {
         assertThatNoException().isThrownBy(() ->
             service.sendEvent(TASK_UUID, SseEvent.STEP_DONE,
                 Map.of("step", 1, "attractionName", "兵马俑")));
+    }
+
+    @Test
+    @DisplayName("sendEvent: Redis 总线存在时发布跨实例事件")
+    void sendEvent_withRedisBus_publishesEvent() {
+        RedisSseEventBus bus = mock(RedisSseEventBus.class);
+        ReflectionTestUtils.setField(service, "redisSseEventBus", bus);
+        Map<String, Object> payload = Map.of("status", "planning");
+
+        service.sendEvent(TASK_UUID, SseEvent.STATE_CHANGE, payload);
+
+        verify(bus).publish(eq(TASK_UUID), eq(SseEvent.STATE_CHANGE), argThat(value ->
+            value instanceof Map<?, ?> map
+                && "planning".equals(map.get("status"))
+                && "task-sse.v2".equals(map.get("contractVersion"))
+                && "STATE_CHANGE".equals(map.get("eventType"))
+                && TASK_UUID.equals(map.get("taskUuid"))
+        ));
     }
 
     // -----------------------------------------------------------------------

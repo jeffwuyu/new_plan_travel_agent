@@ -17,6 +17,7 @@ const routes = [
       { path: '', redirect: '/admin/users' },
       { path: 'users', component: () => import('@/views/admin/AdminUsersView.vue') },
       { path: 'quota', component: () => import('@/views/admin/AdminQuotaView.vue') },
+      { path: 'tasks', component: () => import('@/views/admin/AdminTasksView.vue') },
       { path: 'rag', component: () => import('@/views/admin/AdminRagView.vue') },
       { path: 'metrics', component: () => import('@/views/admin/AdminMetricsView.vue') }
     ]

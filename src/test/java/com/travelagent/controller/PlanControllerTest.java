@@ -8,6 +8,7 @@ import com.travelagent.mapper.TaskMapper;
 import com.travelagent.model.entity.Plan;
 import com.travelagent.model.entity.PlanStep;
 import com.travelagent.model.entity.Task;
+import com.travelagent.service.accommodation.PlanAccommodationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
@@ -49,6 +51,9 @@ class PlanControllerTest {
 
     @Mock
     private TaskMapper taskMapper;
+
+    @Mock
+    private PlanAccommodationService planAccommodationService;
 
     @InjectMocks
     private PlanController planController;
@@ -111,6 +116,7 @@ class PlanControllerTest {
         try (MockedStatic<JwtAuthInterceptor> mocked = mockStatic(JwtAuthInterceptor.class)) {
             mocked.when(() -> JwtAuthInterceptor.getUserId(any())).thenReturn(USER_ID);
             when(planMapper.findById(PLAN_ID)).thenReturn(plan);
+            when(planAccommodationService.loadForPlan(PLAN_ID)).thenReturn(List.of());
 
             mockMvc.perform(get("/api/plans/{planId}", PLAN_ID))
                     .andExpect(status().isOk())
@@ -183,6 +189,36 @@ class PlanControllerTest {
         }
     }
 
+    @Test
+    @DisplayName("刷新住宿推荐 - 当前用户拥有计划 - 返回刷新后的计划")
+    void refreshAccommodations_success() throws Exception {
+        Plan refreshed = buildPlan(PLAN_ID, USER_ID);
+        refreshed.setAccommodationStatus("available");
+
+        try (MockedStatic<JwtAuthInterceptor> mocked = mockStatic(JwtAuthInterceptor.class)) {
+            mocked.when(() -> JwtAuthInterceptor.getUserId(any())).thenReturn(USER_ID);
+            when(planAccommodationService.refreshAccommodations(PLAN_ID, USER_ID)).thenReturn(refreshed);
+
+            mockMvc.perform(post("/api/plans/{planId}/accommodations/refresh", PLAN_ID))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.id").value(PLAN_ID))
+                    .andExpect(jsonPath("$.data.accommodationStatus").value("available"));
+        }
+    }
+
+    @Test
+    @DisplayName("刷新住宿推荐 - 计划归属不符 - 返回 403")
+    void refreshAccommodations_wrongOwner_returns403() throws Exception {
+        try (MockedStatic<JwtAuthInterceptor> mocked = mockStatic(JwtAuthInterceptor.class)) {
+            mocked.when(() -> JwtAuthInterceptor.getUserId(any())).thenReturn(USER_ID);
+            when(planAccommodationService.refreshAccommodations(PLAN_ID, USER_ID))
+                    .thenThrow(new BusinessException(403, "no permission to access this plan"));
+
+            mockMvc.perform(post("/api/plans/{planId}/accommodations/refresh", PLAN_ID))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
     // ===================== GET /api/plans/by-task/{taskUuid} =====================
 
     @Test
@@ -198,6 +234,7 @@ class PlanControllerTest {
             when(taskMapper.findByUuid(TASK_UUID)).thenReturn(task);
             when(planMapper.findByTaskId(TASK_ID)).thenReturn(plan);
             when(planMapper.findStepsByPlanId(PLAN_ID)).thenReturn(List.of(step));
+            when(planAccommodationService.loadForPlan(PLAN_ID)).thenReturn(List.of());
 
             mockMvc.perform(get("/api/plans/by-task/{uuid}", TASK_UUID))
                     .andExpect(status().isOk())

@@ -93,7 +93,7 @@
    - 规划配置 `PlanningConfig`
    - 起点候选 `locationCandidates`
 4. 如果起点还没确认，任务进入 `awaiting_user_input`，前端在任务详情页展示候选起点。
-5. 用户调用 `POST /api/tasks/{taskUuid}/origin-selection` 确认起点后，任务转入 `resuming`，随后继续规划。
+5. 用户调用 `POST /api/tasks/{taskUuid}/origin-selection` 确认起点后，任务转入 `resuming`，并由显式恢复调度立即重新投递执行，而不是仅依赖后台轮询碰运气。
 6. `AgentServiceImpl.executeTask(...)` 进入主循环：
    - 通过 `MarkovPlanner.planNextAttraction(...)` 规划下一个景点
    - 调用 `GeocodeTool`

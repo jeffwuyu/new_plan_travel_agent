@@ -16,6 +16,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.jdbc.Sql;
@@ -52,6 +53,9 @@ public abstract class BaseIntegrationTest {
 
     @MockitoBean
     protected StringRedisTemplate stringRedisTemplate;
+
+    @MockitoBean
+    protected RedisMessageListenerContainer redisMessageListenerContainer;
 
     // QuotaService: mocked to avoid Redis Lua script execution (quota counting tested separately)
     @MockitoBean

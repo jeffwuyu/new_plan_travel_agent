@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,6 +58,7 @@ class AmapClientTest {
         ReflectionTestUtils.setField(amapClient, "transitDirectionUrl", "https://restapi.amap.com/v3/direction/transit/integrated");
         ReflectionTestUtils.setField(amapClient, "distanceUrl", "https://restapi.amap.com/v3/distance");
         ReflectionTestUtils.setField(amapClient, "nearbySearchUrl", "https://restapi.amap.com/v3/place/around");
+        ReflectionTestUtils.setField(amapClient, "textSearchUrl", "https://restapi.amap.com/v3/place/text");
         ReflectionTestUtils.setField(jsonUtil, "objectMapper", new ObjectMapper());
         ReflectionTestUtils.setField(amapClient, "jsonUtil", jsonUtil);
         ReflectionTestUtils.setField(amapClient, "rateLimiter", new AmapRateLimiter());
@@ -162,6 +164,105 @@ class AmapClientTest {
 
         assertThat(result.get("distanceMeters")).isEqualTo(4567);
         assertThat(((Number) result.get("distanceKm")).doubleValue()).isCloseTo(4.567, within(0.001));
+    }
+
+    @Test
+    @DisplayName("text POI search normalizes coordinates and POI metadata")
+    void searchPois_normalizesPoiResults() throws IOException {
+        when(redisUtil.getString(any())).thenReturn(null);
+        mockHttpResponse("""
+                {
+                  "status": "1",
+                  "pois": [
+                    {
+                      "name": "西湖风景名胜区",
+                      "address": "龙井路1号",
+                      "type": "风景名胜;风景名胜;国家级景点",
+                      "typecode": "110200",
+                      "adcode": "330106",
+                      "cityname": "杭州市",
+                      "location": "120.141706,30.259041"
+                    }
+                  ]
+                }
+                """);
+
+        List<Map<String, Object>> result = amapClient.searchPois("西湖", "杭州", "", 1, 10);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).get("name")).isEqualTo("西湖风景名胜区");
+        assertThat(((Number) result.get(0).get("lng")).doubleValue()).isCloseTo(120.141706, within(0.000001));
+        assertThat(((Number) result.get(0).get("lat")).doubleValue()).isCloseTo(30.259041, within(0.000001));
+    }
+
+    @Test
+    @DisplayName("nearby POI search returns normalized distance and coordinates")
+    void searchNearbyPois_normalizesDistanceAndCoordinates() throws IOException {
+        when(redisUtil.getString(any())).thenReturn(null);
+        mockHttpResponse("""
+                {
+                  "status": "1",
+                  "pois": [
+                    {
+                      "name": "龙翔桥地铁站",
+                      "address": "地铁1号线",
+                      "type": "交通设施服务;地铁站;地铁站",
+                      "typecode": "150500",
+                      "adcode": "330102",
+                      "cityname": "杭州市",
+                      "location": "120.165122,30.258617",
+                      "distance": "820"
+                    }
+                  ]
+                }
+                """);
+
+        List<Map<String, Object>> result =
+                amapClient.searchNearbyPois(120.141706, 30.259041, 1200, "地铁", "150500", 1, 5);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).get("distanceMeters")).isEqualTo(820);
+        assertThat(result.get(0).get("typecode")).isEqualTo("150500");
+    }
+
+    @Test
+    @DisplayName("weather forecast API returns forecast days")
+    void getWeatherForecast_parsesForecastDays() throws IOException {
+        when(redisUtil.getString(any())).thenReturn(null);
+        mockHttpResponse("""
+                {
+                  "status": "1",
+                  "forecasts": [
+                    {
+                      "province": "浙江",
+                      "city": "杭州",
+                      "adcode": "330100",
+                      "reporttime": "2026-06-05 08:00:00",
+                      "casts": [
+                        {
+                          "date": "2026-06-05",
+                          "week": "5",
+                          "dayweather": "小雨",
+                          "nightweather": "阴",
+                          "daytemp": "34",
+                          "nighttemp": "25",
+                          "daywind": "东",
+                          "nightwind": "东",
+                          "daypower": "6",
+                          "nightpower": "4"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """);
+
+        Map<String, Object> result = amapClient.getWeatherForecast("330100");
+
+        assertThat(result.get("weather")).isEqualTo("小雨");
+        assertThat(result.get("temperature")).isEqualTo("34");
+        assertThat(result.get("city")).isEqualTo("杭州");
+        assertThat((java.util.List<?>) result.get("forecastDays")).hasSize(1);
     }
 
     @Test

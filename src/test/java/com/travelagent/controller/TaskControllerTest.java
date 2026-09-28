@@ -26,6 +26,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -33,6 +34,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
@@ -69,7 +71,7 @@ class TaskControllerTest {
 
     @Test
     void createTask_validRequest_returns200() throws Exception {
-        when(taskService.createTask(eq(USER_ID), eq(USER_LEVEL), any(CreateTaskRequest.class)))
+        when(taskService.createTask(eq(USER_ID), eq(USER_LEVEL), any(CreateTaskRequest.class), anyString()))
                 .thenReturn(buildTaskResponse(TaskStatus.PENDING.getCode()));
 
         mockMvc.perform(post("/api/tasks")
@@ -80,6 +82,37 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.taskUuid").value(TASK_UUID))
                 .andExpect(jsonPath("$.data.status").value("pending"));
+    }
+
+    @Test
+    void createTask_usesFirstForwardedIp() throws Exception {
+        when(taskService.createTask(eq(USER_ID), eq(USER_LEVEL), any(CreateTaskRequest.class), eq("203.0.113.10")))
+                .thenReturn(buildTaskResponse(TaskStatus.PENDING.getCode()));
+
+        mockMvc.perform(post("/api/tasks")
+                        .requestAttr(JwtAuthInterceptor.ATTR_USER_ID, USER_ID)
+                        .requestAttr(JwtAuthInterceptor.ATTR_USER_LEVEL, USER_LEVEL)
+                        .header("X-Forwarded-For", "203.0.113.10, 10.0.0.1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(buildRequest())))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void createTask_usesRemoteAddrWhenProxyHeadersMissing() throws Exception {
+        when(taskService.createTask(eq(USER_ID), eq(USER_LEVEL), any(CreateTaskRequest.class), eq("198.51.100.20")))
+                .thenReturn(buildTaskResponse(TaskStatus.PENDING.getCode()));
+
+        mockMvc.perform(post("/api/tasks")
+                        .requestAttr(JwtAuthInterceptor.ATTR_USER_ID, USER_ID)
+                        .requestAttr(JwtAuthInterceptor.ATTR_USER_LEVEL, USER_LEVEL)
+                        .with(request -> {
+                            request.setRemoteAddr("198.51.100.20");
+                            return request;
+                        })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(buildRequest())))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -97,7 +130,7 @@ class TaskControllerTest {
 
     @Test
     void createTask_quotaExhausted_returns429() throws Exception {
-        when(taskService.createTask(anyLong(), anyInt(), any()))
+        when(taskService.createTask(anyLong(), anyInt(), any(), any()))
                 .thenThrow(new QuotaExhaustedException("daily"));
 
         mockMvc.perform(post("/api/tasks")
@@ -170,6 +203,38 @@ class TaskControllerTest {
     }
 
     @Test
+    void confirmPendingToolReplay_returns200() throws Exception {
+        when(taskService.confirmPendingToolReplay(TASK_UUID, USER_ID))
+                .thenReturn(buildTaskResponse(TaskStatus.RESUMING.getCode()));
+
+        mockMvc.perform(post("/api/tasks/{uuid}/pending-tool/confirm", TASK_UUID)
+                        .requestAttr(JwtAuthInterceptor.ATTR_USER_ID, USER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("resuming"));
+    }
+
+    @Test
+    void skipPendingToolReplay_returns200() throws Exception {
+        when(taskService.skipPendingToolReplay(TASK_UUID, USER_ID))
+                .thenReturn(buildTaskResponse(TaskStatus.RESUMING.getCode()));
+
+        mockMvc.perform(post("/api/tasks/{uuid}/pending-tool/skip", TASK_UUID)
+                        .requestAttr(JwtAuthInterceptor.ATTR_USER_ID, USER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("resuming"));
+    }
+
+    @Test
+    void skipPendingToolReplay_withoutPendingTool_returns400() throws Exception {
+        when(taskService.skipPendingToolReplay(TASK_UUID, USER_ID))
+                .thenThrow(new BusinessException(400, "no pending tool call to handle"));
+
+        mockMvc.perform(post("/api/tasks/{uuid}/pending-tool/skip", TASK_UUID)
+                        .requestAttr(JwtAuthInterceptor.ATTR_USER_ID, USER_ID))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void confirmSelection_validRequest_returns200() throws Exception {
         when(taskService.confirmOriginSelection(eq(TASK_UUID), eq(USER_ID), any(ConfirmOriginSelectionRequest.class)))
                 .thenReturn(buildTaskResponse(TaskStatus.RESUMING.getCode()));
@@ -211,8 +276,8 @@ class TaskControllerTest {
                 .thenReturn(buildTaskResponse(TaskStatus.AWAITING_USER_INPUT.getCode()));
 
         NodeChatRequest request = new NodeChatRequest();
-        request.setPendingInputType("poi_candidate_selection");
-        request.setSelectionStage("poi_candidate_selection");
+        request.setPendingInputType("route_candidate_selection");
+        request.setSelectionStage("route_candidate_selection");
         request.setMessage("室内 少走路");
 
         mockMvc.perform(post("/api/tasks/{uuid}/node-chat", TASK_UUID)
@@ -248,6 +313,8 @@ class TaskControllerTest {
         req.setStartTime(LocalDateTime.of(2026, 4, 22, 9, 0));
         req.setEndTime(LocalDateTime.of(2026, 4, 22, 21, 0));
         req.setTravelMode("driving");
+        req.setTotalBudgetYuan(new BigDecimal("3000"));
+        req.setLodgingBudgetPerNightYuan(new BigDecimal("500"));
         return req;
     }
 }

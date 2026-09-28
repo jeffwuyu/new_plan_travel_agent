@@ -49,6 +49,7 @@ const EVENT_TYPE_MAP = {
   STATE_CHANGE: 'primary',
   TOOL_START: 'warning',
   TOOL_DONE: 'success',
+  TOOL_RESULT_VALIDATION_WARNING: 'warning',
   STEP_DONE: 'success',
   ERROR: 'danger',
   RETRY: 'warning',
